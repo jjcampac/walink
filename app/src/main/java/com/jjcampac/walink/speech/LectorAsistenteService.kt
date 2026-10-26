@@ -4,8 +4,10 @@ import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.app.Service
 import android.content.Intent
+import android.media.AudioManager
 import android.os.Bundle
 import android.os.IBinder
+import android.os.Looper
 import android.speech.RecognitionListener
 import android.speech.RecognizerIntent
 import android.speech.SpeechRecognizer
@@ -59,7 +61,7 @@ class LectorAsistenteService : Service(), RecognitionListener {
                     AudioManager.AUDIOFOCUS_LOSS -> {
                         Log.w(TAG, "Pérdida permanente de audio focus en servicio")
                         audioFocusConcedido = false
-                        detenerServicioConAviso()
+                        finalizar()
                     }
                     AudioManager.AUDIOFOCUS_LOSS_TRANSIENT -> {
                         Log.d(TAG, "Focus temporal perdido en servicio")

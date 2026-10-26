@@ -227,8 +227,13 @@ class MainActivity : ComponentActivity() {
             setData(Uri.parse("package:$packageName"))
         }
         if (intencionPaquete.resolveActivity(packageManager) != null) {
-            startActivity(intencionPaquete)
-            return
+            try {
+                startActivity(intencionPaquete)
+                return
+            } catch (e: Exception) {
+                // Algunos OEM no permiten lanzar ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS
+                // directamente; caemos a la lista genérica.
+            }
         }
         try {
             startActivity(Intent(Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS))
@@ -424,12 +429,7 @@ private data class VozTts(val nombre: String, val etiqueta: String)
 private fun etiquetaVoz(voz: android.speech.tts.Voice): String {
     val nombre = voz.locale.getDisplayName(voz.locale)
     val genero = generoVoz(voz.name)?.let { " · $it" } ?: ""
-    val calidad = when (voz.quality) {
-        android.speech.tts.Voice.QUALITY_VERY_HIGH -> " (muy alta)"
-        android.speech.tts.Voice.QUALITY_HIGH -> " (alta)"
-        else -> ""
-    }
-    return nombre + genero + calidad
+    return nombre + genero
 }
 
 /**
