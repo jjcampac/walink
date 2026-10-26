@@ -1,0 +1,46 @@
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <!-- Burbuja de chat (bocadillo) -->
+    <path
+        android:fillColor="#FFFFFFFF"
+        android:pathData="M36,26
+            L72,26
+            A14,14 0 0 1 86,40
+            L86,58
+            A14,14 0 0 1 72,72
+            L58,72
+            L48,84
+            L42,72
+            L36,72
+            A14,14 0 0 1 22,58
+            L22,40
+            A14,14 0 0 1 36,26
+            Z" />
+    <!-- Onda de sonido (izquierda) -->
+    <path
+        android:fillColor="#FF075E54"
+        android:pathData="M36,46
+            A4,4 0 1 0 44,46
+            L44,58
+            A4,4 0 1 0 36,58
+            Z" />
+    <!-- Onda de sonido (centro, más alta) -->
+    <path
+        android:fillColor="#FF075E54"
+        android:pathData="M50,38
+            A4,4 0 1 0 58,38
+            L58,66
+            A4,4 0 1 0 50,66
+            Z" />
+    <!-- Onda de sonido (derecha) -->
+    <path
+        android:fillColor="#FF075E54"
+        android:pathData="M64,46
+            A4,4 0 1 0 72,46
+            L72,58
+            A4,4 0 1 0 64,58
+            Z" />
+</vector>

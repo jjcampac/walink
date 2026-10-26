@@ -1,0 +1,105 @@
+<resources>
+    <string name="app_name">Walink</string>
+
+    <!-- Pantalla principal -->
+    <string name="title_principal">Walink</string>
+    <string name="subtitle_principal">Lectura de mensajes de WhatsApp al coche</string>
+    <string name="estado_activo">Activo</string>
+    <string name="estado_inactivo">Inactivo</string>
+    <string name="switch_activar">Activar Walink</string>
+    <string name="btn_conceder_notificaciones">Conceder acceso a notificaciones</string>
+    <string name="btn_conceder_microfono">Conceder permiso de micrófono</string>
+    <string name="btn_conceder_bluetooth">Conceder permiso Bluetooth</string>
+    <string name="btn_optimizacion_bateria">Desactivar optimización de batería</string>
+    <string name="permiso_notificaciones_no_concedido">Acceso a notificaciones: NO concedido</string>
+    <string name="permiso_notificaciones_concedido">Acceso a notificaciones: concedido</string>
+    <string name="permiso_microfono_no_concedido">Micrófono: NO concedido</string>
+    <string name="permiso_microfono_concedido">Micrófono: concedido</string>
+    <string name="permiso_bluetooth_no_concedido">Bluetooth: NO concedido</string>
+    <string name="permiso_bluetooth_concedido">Bluetooth: concedido</string>
+    <string name="msg_escuchando">Escuchando notificaciones de WhatsApp…</string>
+    <string name="msg_detenido">Servicio detenido</string>
+
+    <!-- TTS -->
+    <string name="tts_formato">Mensaje de %1$s: %2$s</string>
+
+    <!-- Ajustes -->
+    <string name="titulo_ajustes">Ajustes</string>
+    <string name="ajuste_contactos_permitidos">Contactos permitidos</string>
+    <string name="ajuste_contactos_bloqueados">Contactos bloqueados</string>
+    <string name="ajuste_leer_grupos">Leer mensajes de grupos</string>
+    <string name="ajuste_leer_texto">Leer texto completo (si desactivado, solo el remitente)</string>
+    <string name="ajuste_velocidad_voz">Velocidad de voz</string>
+    <string name="ajuste_dispositivo_bluetooth">Dispositivo Bluetooth del coche</string>
+
+    <!-- Quick Settings Tile -->
+    <string name="tile_label">Walink</string>
+    <string name="tile_descripcion_activo">Leyendo mensajes</string>
+    <string name="tile_descripcion_inactivo">Pulsa para activar</string>
+
+    <!-- Onboarding -->
+    <string name="onboarding_titulo">Configura Walink</string>
+    <string name="onboarding_subtitulo">Necesitamos algunos permisos para leer tus mensajes de WhatsApp en el coche.</string>
+    <string name="onboarding_permisos_listos">Permisos concedidos</string>
+    <string name="onboarding_bt_continuar">Continuar</string>
+    <string name="onboarding_bt_terminar">Terminar</string>
+    <string name="onboarding_acceso_notif">Acceso a notificaciones de WhatsApp</string>
+    <string name="onboarding_acceso_notif_desc">Permite que Walink lea las notificaciones de WhatsApp</string>
+    <string name="onboarding_tile">Añadir a accesos rápidos</string>
+    <string name="onboarding_tile_desc">Añade Walink al mosaico de ajustes rápidos</string>
+    <string name="onboarding_bateria">Optimización de batería</string>
+    <string name="onboarding_bateria_desc">Excluye Walink para que no se detenga en segundo plano</string>
+    <string name="onboarding_skip">Saltar</string>
+    <string name="onboarding_acceso_notif_claro">Activar Walink en "Acceso a notificaciones"</string>
+    <string name="onboarding_acceso_notif_desc_claro">En la lista aparecerá WALINK (no WhatsApp). Actívalo para que Walink pueda leer las notificaciones de tus apps.</string>
+    <string name="permiso_notif_titulo">Leer notificaciones (Walink)</string>
+    <string name="permiso_notif_desc">Se activa WALINK en Ajustes &gt; Acceso especial &gt; Acceso a notificaciones (No aparece WhatsApp: se da permiso a Walink para leer)</string>
+
+    <!-- Pantalla principal rediseñada -->
+    <string name="chip_estado_activo">Activo en segundo plano</string>
+    <string name="chip_estado_inactivo">Inactivo — pulsa el mosaico</string>
+    <string name="tile_como_activar_titulo">¿Cómo activar Walink?</string>
+    <string name="tile_como_activar_desc">Desliza hacia abajo desde el borde superior y pulsa el mosaico Walink. Mantenlo pulsado para abrir la app.</string>
+    <string name="titulo_seccion_permisos">Permisos y configuración</string>
+    <string name="bt_conceder">Conceder</string>
+    <string name="bt_ajustes">Ajustes</string>
+    <string name="bt_excluir_bateria">Excluir</string>
+    <string name="permiso_bateria_estado_ok">Excluida ✓</string>
+    <string name="permiso_bateria_estado_pend">En optimización — exclúyela para que no se detenga</string>
+    <string name="seccion_debug_titulo">🧪 Modo depuración (solo debug)</string>
+
+    <!-- Selección de voz TTS -->
+    <string name="voz_lectura_titulo">Voz de lectura</string>
+    <string name="voz_lectura_por_defecto">Por defecto (Español)</string>
+    <string name="voz_lectura_cambiar">Cambiar</string>
+    <string name="voz_lectura_sin_voces">No se encontraron voces</string>
+    <string name="voz_prueba_frase">Hola, esta es la voz de Walink.</string>
+    <string name="voz_prueba_bt">Escuchar una prueba con esta voz</string>
+
+    <!-- Modo de lectura (inmediato / preguntar antes) -->
+    <string name="modo_lectura_titulo">¿Cuándo leer?</string>
+    <string name="modo_lectura_desc">Elige cómo se lee cada mensaje</string>
+    <string name="modo_inmediato">Inmediatamente</string>
+    <string name="modo_inmediato_desc">Leer nada más recibirlo</string>
+    <string name="modo_preguntar">Preguntarme antes</string>
+    <string name="modo_preguntar_desc">Mostrar un aviso y leer solo si lo confirmas</string>
+
+    <!-- Notificación de "preguntar antes de leer" -->
+    <string name="notif_leer_titulo">¿Leer mensaje?</string>
+    <string name="accion_leer">Leer ahora</string>
+    <string name="accion_descartar">Descartar</string>
+    <string name="canal_solicitudes_lectura">Solicitudes de lectura</string>
+    <string name="canal_solicitudes_lectura_desc">Avisos para confirmar la lectura de un mensaje</string>
+
+    <!-- Asistente de voz: pregunta oral y reconocimiento -->
+    <string name="pregunta_voz">Mensaje de %1$s. ¿Quieres que lo lea? Di sí o no.</string>
+    <string name="pregunta_voz_reintento">No te he oído bien. Di sí para leerlo, o no para ignorarlo.</string>
+    <string name="pregunta_voz_no_entendido">No te he entendido. Inténtalo otra vez. Di sí o no.</string>
+    <string name="pregunta_voz_no">Vale, no lo leo.</string>
+    <string name="aviso_no_leido">No he podido oír tu respuesta, así que no leeré el mensaje.</string>
+    <string name="pregunta_voz_prompt">¿Leer mensaje?</string>
+    <string name="canal_asistente_titulo">Asistente de voz</string>
+    <string name="canal_asistente_desc">Preguntas y lecturas por voz al recibir mensajes</string>
+    <string name="notif_escuchando_titulo">Walink escuchando</string>
+    <string name="notif_escuchando_desc">Preguntando si quieres leer un mensaje…</string>
+</resources>
