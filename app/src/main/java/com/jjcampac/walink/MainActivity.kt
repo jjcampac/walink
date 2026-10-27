@@ -4,6 +4,7 @@ import android.Manifest
 import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
+import android.util.Log
 import android.content.SharedPreferences
 import android.content.pm.PackageManager
 import android.net.Uri
@@ -362,13 +363,17 @@ class MainActivity : ComponentActivity() {
                         onIrAjustesNotificaciones = {
                             startActivity(Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS))
                         },
-                        onIrAjustesBateria = { irAjustesBateria() },
+                        onIrAjustesBateria = {
+                            Log.d("WalinkDebug", "Botón batería pulsado")
+                            irAjustesBateria()
+                        },
                         onSolicitarMicrofono = { solicitarMicrofono.launch(Manifest.permission.RECORD_AUDIO) },
                         onSolicitarBluetooth = { solicitarBluetooth.launch(arrayOf(
                             Manifest.permission.BLUETOOTH_CONNECT,
                             Manifest.permission.BLUETOOTH_SCAN
                         )) },
                         onSimularMensaje = { remitente, texto ->
+                            Log.d("WalinkDebug", "Simular mensaje pulsado: $remitente -> $texto")
                             DebugSimulator.publicarMensajeSimulado(applicationContext, remitente, texto)
                         }
                     )
