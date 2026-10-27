@@ -1,0 +1,46 @@
+# Walink: reglas del proyecto
+
+## Qué es
+App nativa de Android (Kotlin) que, mientras el móvil está conectado por Bluetooth al coche (Tesla), lee en voz alta los mensajes entrantes de WhatsApp y permite responder por voz sin tocar el teléfono. Uso personal, instalación manual (sin Play Store).
+Dispositivo de pruebas: Nothing Phone (3a).
+
+## Stack y arquitectura
+- Kotlin, minSdk 29, targetSdk la última estable. Un único módulo.
+- Jetpack Compose para la UI, DataStore para preferencias.
+- Sin dependencias innecesarias. Antes de añadir una librería, justifícala.
+- Clases principales: NotificationParser, SpeechReader, VoiceCommandController, ReplySender, BluetoothMonitor.
+- Foreground service con notificación persistente para que Android no mate la app.
+- Servicio de escucha de notificaciones (NotificationListenerService) para com.whatsapp y com.whatsapp.w4b.
+
+## Decisiones ya tomadas (no cambiar sin consultarme)
+- Respuestas: se envían con la acción RemoteInput de la propia notificación de WhatsApp. No usar accesibilidad ni APIs no oficiales.
+- Voz: TextToSpeech y SpeechRecognizer en español de España (es-ES).
+- Audio: AudioFocusRequest con USAGE_ASSISTANCE_NAVIGATION_GUIDANCE y CONTENT_TYPE_SPEECH. Solicitar el foco antes de hablar y abandonarlo solo al terminar la locución. Ajuste para elegir entre bajar volumen (MAY_DUCK) o pausar (GAIN_TRANSIENT).
+- Bluetooth: retraso inicial configurable (por defecto 800 ms) mediante silencio antes de la voz, solo cuando la salida es Bluetooth.
+- Coche: el usuario elige en ajustes cuál de los dispositivos emparejados es el coche. La app solo lee, pregunta o reproduce cuando ese dispositivo está conectado. Existe un ajuste "Leer también sin coche (pruebas)", desactivado por defecto.
+- Modo "Preguntar antes de leer": pregunta por voz ("Mensaje de [remitente]. ¿Lo leo?") y escucha sí/no; además la notificación tiene botones "Leer" e "Ignorar".
+- Notas de voz: la notificación no incluye el audio. Hay que localizar el archivo .opus en el almacenamiento de WhatsApp y reproducirlo. Verificar siempre la ruta real y el método de acceso antes de implementar.
+- Antes de enviar una respuesta dictada, repetir el texto y pedir confirmación.
+
+## Privacidad
+- Todo local: sin red, sin analítica, sin guardar mensajes en disco.
+- Permisos solo los imprescindibles: acceso a notificaciones, RECORD_AUDIO, BLUETOOTH_CONNECT, exclusión de optimización de batería y, si hace falta para las notas de voz, acceso a archivos.
+
+## Convenciones de código
+- Código y comentarios en español. Nombres de clases y funciones claros.
+- Gestionar con cuidado el ciclo de vida de TextToSpeech, SpeechRecognizer y MediaPlayer (sin fugas).
+- SpeechRecognizer se usa desde el hilo principal.
+- Logs con Log.d y un tag por clase para facilitar el diagnóstico.
+- No romper funcionalidad existente al corregir otra.
+
+## Forma de trabajar
+- Trabaja por fases y detente al terminar cada una para que yo pruebe en el móvil real. No avances hasta que yo lo confirme.
+- Ante un fallo, primero diagnostica con logs y explícame la causa; después corrige.
+- Al terminar cada tarea, resume en pocas líneas qué has cambiado y qué debo probar.
+- Los emuladores no reproducen bien las notificaciones de WhatsApp. En debug hay un botón "Simular mensaje" que publica una notificación local con MessagingStyle y acción de respuesta (RemoteInput). En debug, el parser acepta también el package de la propia app.
+- Haz commit en Git al cerrar cada fase.
+
+## Estado actual (actualizar al terminar cada fase)
+- Fases 1 y 2 implementadas (listener de notificaciones, lectura por TTS, detección de Bluetooth, foreground service).
+- Pendiente de corregir: "Preguntar antes de leer", bajada de volumen, retraso inicial por Bluetooth, selección del dispositivo del coche y reproducción de notas de voz.
+- Pendientes: fase 3 (dictado, confirmación y respuesta por RemoteInput) y fase 4 (ajustes, filtros y pulido).
