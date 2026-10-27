@@ -228,6 +228,7 @@ class MainActivity : ComponentActivity() {
             setData(Uri.parse("package:$packageName"))
         }
         if (intencionPaquete.resolveActivity(packageManager) != null) {
+            Log.d("WalinkDebug", "Batería: resolveActivity = ${intencionPaquete.resolveActivity(packageManager)}")
             try {
                 startActivity(intencionPaquete)
                 Log.d("WalinkDebug", "Batería: abierta pantalla de solicitud de exclusión")

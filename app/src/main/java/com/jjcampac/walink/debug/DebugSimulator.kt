@@ -107,7 +107,12 @@ object DebugSimulator {
                 NotificationManagerCompat.from(contexto).notify(NOTIFICATION_ID, builder.build())
                 Log.d(TAG, "Notificación simulada publicada: '$remitente' -> '$texto'")
             } else {
-                Log.w(TAG, "Permiso de notificaciones no concedido. No se pudo publicar la simulación.")
+                Log.w(TAG, "Permiso de notificaciones no concedido. areNotificationsEnabled=false")
+                // Verificar permiso POST_NOTIFICATIONS (Android 13+)
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                    val concedido = contexto.checkSelfPermission(android.Manifest.permission.POST_NOTIFICATIONS) == android.content.pm.PackageManager.PERMISSION_GRANTED
+                    Log.w(TAG, "POST_NOTIFICATIONS concedido: $concedido")
+                }
             }
         } catch (e: SecurityException) {
             Log.e(TAG, "Error publicando notificación simulada", e)
