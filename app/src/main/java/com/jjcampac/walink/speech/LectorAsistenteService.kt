@@ -96,7 +96,15 @@ class LectorAsistenteService : Service(), RecognitionListener {
         audioFocusListener = null
     }
 
+    private var estaEjecutando = false
+
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
+        if (estaEjecutando) {
+            Log.w(TAG, "Servicio ya en ejecución, deteniendo instancia anterior")
+            stopSelf()
+            return START_NOT_STICKY
+        }
+        estaEjecutando = true
         super.onStartCommand(intent, flags, startId)
         Log.d(TAG, "onStartCommand recibida acción=${intent?.action} flags=$flags startId=$startId")
         val modo = intent?.getStringExtra(EXTRA_MODO_LECTURA) ?: "preguntar"
@@ -338,6 +346,7 @@ class LectorAsistenteService : Service(), RecognitionListener {
     }
 
     private fun finalizar() {
+        estaEjecutando = false
         recognizer?.destroy()
         recognizer = null
         stopForeground(STOP_FOREGROUND_REMOVE)
