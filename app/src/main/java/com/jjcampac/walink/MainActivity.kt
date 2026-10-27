@@ -363,6 +363,11 @@ class MainActivity : ComponentActivity() {
                             startActivity(Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS))
                         },
                         onIrAjustesBateria = { irAjustesBateria() },
+                        onSolicitarMicrofono = { solicitarMicrofono.launch(Manifest.permission.RECORD_AUDIO) },
+                        onSolicitarBluetooth = { solicitarBluetooth.launch(arrayOf(
+                            Manifest.permission.BLUETOOTH_CONNECT,
+                            Manifest.permission.BLUETOOTH_SCAN
+                        )) },
                         onSimularMensaje = { remitente, texto ->
                             DebugSimulator.publicarMensajeSimulado(applicationContext, remitente, texto)
                         }
@@ -469,6 +474,8 @@ private fun PantallaPrincipal(
     onCambiarModoLectura: (Boolean) -> Unit,
     onIrAjustesNotificaciones: () -> Unit,
     onIrAjustesBateria: () -> Unit,
+    onSolicitarMicrofono: () -> Unit,
+    onSolicitarBluetooth: () -> Unit,
     onSimularMensaje: (remitente: String, texto: String) -> Unit
 ) {
     Column(
@@ -556,7 +563,7 @@ private fun PantallaPrincipal(
                 estado = if (permisoMicrofono) "Concedido ✓" else "No concedido",
                 concedido = permisoMicrofono,
                 requiereAjustesManuales = false,
-                onClick = {}
+                onClick = onSolicitarMicrofono
             )
 
             TarjetaPermiso(
@@ -565,7 +572,7 @@ private fun PantallaPrincipal(
                 estado = if (permisoBluetooth) "Concedido ✓" else "No concedido",
                 concedido = permisoBluetooth,
                 requiereAjustesManuales = false,
-                onClick = {}
+                onClick = onSolicitarBluetooth
             )
 
             TarjetaPermiso(
