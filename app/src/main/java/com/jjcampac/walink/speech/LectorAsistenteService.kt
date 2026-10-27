@@ -116,9 +116,18 @@ class LectorAsistenteService : Service(), RecognitionListener {
             intentos = 0
             startForeground(NOTIF_ID, notificacionActiva())
             if (modo == "inmediatamente") {
-                Log.d(TAG, "Modo: leer inmediatamente, leyendo sin preguntar")
-                lector.hablar(textoParaLeer)
-                finalizar()
+                Log.d(TAG, "Modo: leer inmediatamente, esperando TTS listo")
+                esperarInicializado(10000) { listo ->
+                    if (listo) {
+                        Log.d(TAG, "TTS listo, leyendo mensaje")
+                        lector.hablar(textoParaLeer) {
+                            finalizar()
+                        }
+                    } else {
+                        Log.e(TAG, "TTS no inicializó tras 10s, abortando")
+                        finalizar()
+                    }
+                }
             } else {
                 Log.d(TAG, "Modo: preguntar, llamando a hacerPregunta")
                 hacerPregunta()
@@ -243,13 +252,15 @@ class LectorAsistenteService : Service(), RecognitionListener {
         when (decidir(respuesta)) {
             true -> {
                 // Sí: se lee el mensaje.
-                lector.hablar(textoParaLeer)
-                finalizar()
+                lector.hablar(textoParaLeer) {
+                    finalizar()
+                }
             }
             false -> {
                 // No: no se lee.
-                lector.hablar(getString(R.string.pregunta_voz_no))
-                finalizar()
+                lector.hablar(getString(R.string.pregunta_voz_no)) {
+                    finalizar()
+                }
             }
             null -> reintentarONoEntendido()
         }
