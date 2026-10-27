@@ -38,7 +38,7 @@ class SpeechReader(private val contexto: Context) : TextToSpeech.OnInitListener 
     @Volatile
     private var liberandoFocus = false
 
-    private val mainHandler = Handler(Looper.getMainLooper())
+    val mainHandler: Handler = Handler(Looper.getMainLooper())
 
     init {
         tts = TextToSpeech(contexto, this)

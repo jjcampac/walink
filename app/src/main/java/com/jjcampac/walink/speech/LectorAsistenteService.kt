@@ -98,12 +98,34 @@ class LectorAsistenteService : Service(), RecognitionListener {
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         super.onStartCommand(intent, flags, startId)
+        Log.d(TAG, "onStartCommand recibida acción=${intent?.action} flags=$flags startId=$startId")
+        val modo = intent?.getStringExtra(EXTRA_MODO_LECTURA) ?: "preguntar"
+
         if (intent?.action == ACTION_PREGUNTAR) {
             remitente = intent.getStringExtra(EXTRA_REMITENTE) ?: ""
             textoParaLeer = intent.getStringExtra(EXTRA_TEXTO) ?: ""
+            Log.d(TAG, "ACTION_PREGUNTAR: remitente='$remitente', texto='$textoParaLeer'")
             intentos = 0
             startForeground(NOTIF_ID, notificacionActiva())
+            Log.d(TAG, "Servicio en foreground, llamando a hacerPregunta")
             hacerPregunta()
+        } else if (intent?.action == ACTION_LEER_SIMULADO) {
+            remitente = intent.getStringExtra(EXTRA_REMITENTE) ?: ""
+            textoParaLeer = intent.getStringExtra(EXTRA_TEXTO) ?: ""
+            Log.d(TAG, "ACTION_LEER_SIMULADO: remitente='$remitente', texto='$textoParaLeer', modo='$modo'")
+            intentos = 0
+            startForeground(NOTIF_ID, notificacionActiva())
+            if (modo == "inmediatamente") {
+                Log.d(TAG, "Modo: leer inmediatamente, leyendo sin preguntar")
+                lector.hablar(textoParaLeer)
+                finalizar()
+            } else {
+                Log.d(TAG, "Modo: preguntar, llamando a hacerPregunta")
+                hacerPregunta()
+            }
+        } else {
+            Log.w(TAG, "Acción desconocida: ${intent?.action}, servicio detenido")
+            stopSelf()
         }
         return START_NOT_STICKY
     }
@@ -118,26 +140,51 @@ class LectorAsistenteService : Service(), RecognitionListener {
 
         Log.d(TAG, "hacerPregunta: '$pregunta' para remitente='$remitente', intentos=$intentos")
 
-        // Verificar que TTS está inicializado
-        if (!lector.inicializado) {
-            Log.w(TAG, "TextToSpeech no inicializado; intentando aplicar voz")
-            lector.aplicarVozGuardada()
+        // La única diferencia: esperar a que TTS esté listo (TTS engine no está
+        // completamente listo al instante tras onCreate), con timeout de 10s.
+        esperarInicializado(10000) { listo ->
+            if (listo) {
+                solicitarAudioFocusParaServicio()
+                val ok = lector.hablar(pregunta) {
+                    Log.d(TAG, "TTS terminó de hablar, ahora escuchando respuesta")
+                    // Pequeño retraso para que el audio focus se libere completamente
+                    val handler = android.os.Handler(android.os.Looper.getMainLooper())
+                    handler.postDelayed({ escucharRespuesta() }, 300)
+                }
+                if (!ok) {
+                    Log.w(TAG, "No se pudo hacer la pregunta (TTS no listo); se detiene")
+                    finalizar()
+                }
+            } else {
+                Log.e(TAG, "TTS no inicializó tras 10s; abortando")
+                finalizar()
+            }
+        }
+    }
+
+    private fun esperarInicializado(timeoutMs: Long, callback: (Boolean) -> Unit) {
+        if (lector.inicializado) {
+            callback(true)
+            return
         }
 
-        // Solicitar audio focus ANTES de hablar
-        solicitarAudioFocusParaServicio()
+        var intentos = 0
+        val maxIntentos = (timeoutMs / 200).coerceAtLeast(1)
 
-        // Reproducir pregunta con TTS
-        val ok = lector.hablar(pregunta) {
-            Log.d(TAG, "TTS terminó de hablar, ahora escuchando respuesta")
-            // Pequeño retraso para que el audio focus se libere completamente
-            val handler = android.os.Handler(Looper.getMainLooper())
-            handler.postDelayed({ escucharRespuesta() }, 300)
+        val check = object : Runnable {
+            override fun run() {
+                if (lector.inicializado) {
+                    callback(true)
+                } else if (intentos < maxIntentos) {
+                    intentos++
+                    lector.mainHandler.postDelayed(this, 200)
+                } else {
+                    callback(false)
+                }
+            }
         }
-        if (!ok) {
-            Log.w(TAG, "No se pudo hacer la pregunta (TTS no listo); se detiene")
-            finalizar()
-        }
+
+        lector.mainHandler.post(check)
     }
 
     /** Escucha la respuesta del usuario con reconocimiento de voz. */
@@ -188,6 +235,10 @@ class LectorAsistenteService : Service(), RecognitionListener {
         }
         val respuesta = frases.joinToString(" ").lowercase()
         Log.d(TAG, "Respuesta reconocida: \"$respuesta\"")
+        Log.d(TAG, "REGEX_SI.containsMatchIn(\"$respuesta\") = ${REGEX_SI.containsMatchIn(respuesta)}")
+        Log.d(TAG, "ln1 si check: ${"lee" in respuesta}, ln2 si check: ${"adelante" in respuesta}")
+        Log.d(TAG, "REGEX_NO.containsMatchIn(\"$respuesta\") = ${REGEX_NO.containsMatchIn(respuesta)}")
+        Log.d(TAG, "no check: ${"negativo" in respuesta}")
 
         when (decidir(respuesta)) {
             true -> {
@@ -236,9 +287,17 @@ class LectorAsistenteService : Service(), RecognitionListener {
      * Interpreta la respuesta: true = leer, false = no leer, null = no entendido.
      */
     private fun decidir(respuesta: String): Boolean? {
-        val si = REGEX_SI.containsMatchIn(respuesta) ||
-            "lee" in respuesta || "adelante" in respuesta
-        val no = REGEX_NO.containsMatchIn(respuesta) || "negativo" in respuesta
+        val si = when {
+            REGEX_SI.containsMatchIn(respuesta) -> true
+            "lee" in respuesta -> true
+            "adelante" in respuesta -> true
+            else -> false
+        }
+        val no = when {
+            REGEX_NO.containsMatchIn(respuesta) -> true
+            "negativo" in respuesta -> true
+            else -> false
+        }
         return when {
             si && !no -> true
             no && !si -> false
@@ -286,6 +345,8 @@ class LectorAsistenteService : Service(), RecognitionListener {
         private const val TAG = "WalinkLectorVoz"
 
         const val ACTION_PREGUNTAR = "com.jjcampac.walink.action.PREGUNTAR_LECTURA"
+        const val ACTION_LEER_SIMULADO = "com.jjcampac.walink.action.LEER_MENSAJE_SIMULADO"
+        const val EXTRA_MODO_LECTURA = "modo_lectura"
         const val EXTRA_REMITENTE = "remitente"
         const val EXTRA_TEXTO = "texto"
 

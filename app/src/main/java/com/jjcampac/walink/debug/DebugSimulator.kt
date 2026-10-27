@@ -11,6 +11,9 @@ import android.util.Log
 import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
 import androidx.core.app.RemoteInput
+import com.jjcampac.walink.speech.LectorAsistenteService
+
+/** Acción que arranca el lector de voz para el mensaje simulado. */
 
 /**
  * Utilidad de SIMULACIÓN para buildType DEBUG.
@@ -46,8 +49,10 @@ object DebugSimulator {
      * @param contexto Contexto de la app.
      * @param remitente Nombre del contacto/grupo que "envía" el mensaje.
      * @param texto Cuerpo del mensaje de prueba.
+     * @param modoLectura "inmediatamente" para leer sin preguntar, "preguntar" para
+     *   preguntar al usuario si desea leer el mensaje.
      */
-    fun publicarMensajeSimulado(contexto: Context, remitente: String, texto: String) {
+    fun publicarMensajeSimulado(contexto: Context, remitente: String, texto: String, modoLectura: Boolean) {
         crearCanalSiNecesario(contexto)
 
         // Intent que lanza la MainActivity al tocar la notificación.
@@ -106,6 +111,17 @@ object DebugSimulator {
             if (NotificationManagerCompat.from(contexto).areNotificationsEnabled()) {
                 NotificationManagerCompat.from(contexto).notify(NOTIFICATION_ID, builder.build())
                 Log.d(TAG, "Notificación simulada publicada: '$remitente' -> '$texto'")
+
+                // Arrancar el servicio de lectura de voz para el mensaje simulado
+                val modo = if (modoLectura) "preguntar" else "inmediatamente"
+                val intentLector = Intent(contexto, LectorAsistenteService::class.java).apply {
+                    action = LectorAsistenteService.ACTION_LEER_SIMULADO
+                    putExtra(LectorAsistenteService.EXTRA_REMITENTE, remitente)
+                    putExtra(LectorAsistenteService.EXTRA_TEXTO, texto)
+                    putExtra(LectorAsistenteService.EXTRA_MODO_LECTURA, modo)
+                }
+                contexto.startForegroundService(intentLector)
+                Log.d(TAG, "Servicio LectorAsistenteService arrancado para leer mensaje (modo=$modo)")
             } else {
                 Log.w(TAG, "Permiso de notificaciones no concedido. areNotificationsEnabled=false")
                 // Verificar permiso POST_NOTIFICATIONS (Android 13+)

@@ -230,7 +230,8 @@ class MainActivity : ComponentActivity() {
         if (intencionPaquete.resolveActivity(packageManager) != null) {
             Log.d("WalinkDebug", "Batería: resolveActivity = ${intencionPaquete.resolveActivity(packageManager)}")
             try {
-                startActivity(intencionPaquete)
+                val intentConFlag = intencionPaquete.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP)
+                startActivity(intentConFlag)
                 Log.d("WalinkDebug", "Batería: abierta pantalla de solicitud de exclusión")
                 return
             } catch (e: Exception) {
@@ -378,7 +379,12 @@ class MainActivity : ComponentActivity() {
                         )) },
                         onSimularMensaje = { remitente, texto ->
                             Log.d("WalinkDebug", "Simular mensaje pulsado: $remitente -> $texto")
-                            DebugSimulator.publicarMensajeSimulado(applicationContext, remitente, texto)
+                            DebugSimulator.publicarMensajeSimulado(
+                                applicationContext,
+                                remitente,
+                                texto,
+                                leerTrasPreguntar
+                            )
                         }
                     )
                 }
