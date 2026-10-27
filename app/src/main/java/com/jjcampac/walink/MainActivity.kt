@@ -230,16 +230,19 @@ class MainActivity : ComponentActivity() {
         if (intencionPaquete.resolveActivity(packageManager) != null) {
             try {
                 startActivity(intencionPaquete)
+                Log.d("WalinkDebug", "Batería: abierta pantalla de solicitud de exclusión")
                 return
             } catch (e: Exception) {
-                // Algunos OEM no permiten lanzar ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS
-                // directamente; caemos a la lista genérica.
+                Log.e("WalinkDebug", "Batería: error al abrir solicitud", e)
             }
+        } else {
+            Log.d("WalinkDebug", "Batería: intent de solicitud no resuelto, probando lista genérica")
         }
         try {
             startActivity(Intent(Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS))
+            Log.d("WalinkDebug", "Batería: abierta lista genérica")
         } catch (e: Exception) {
-            // Último recurso: ajustes de detalle de la aplicación.
+            Log.e("WalinkDebug", "Batería: error al abrir lista genérica", e)
             startActivity(
                 Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS).apply {
                     setData(Uri.parse("package:$packageName"))
