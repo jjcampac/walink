@@ -345,6 +345,7 @@ class LectorAsistenteService : Service(), RecognitionListener {
 
     private fun finalizar() {
         estaEjecutando = false
+        liberarAudioFocusServicio()
         recognizer?.destroy()
         recognizer = null
         stopForeground(STOP_FOREGROUND_REMOVE)
