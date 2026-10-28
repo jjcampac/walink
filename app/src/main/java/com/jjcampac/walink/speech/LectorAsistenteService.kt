@@ -96,8 +96,6 @@ class LectorAsistenteService : Service(), RecognitionListener {
         audioFocusListener = null
     }
 
-    private var estaEjecutando = false
-
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         if (estaEjecutando) {
             Log.w(TAG, "Servicio ya en ejecución, deteniendo instancia anterior")
@@ -373,6 +371,8 @@ class LectorAsistenteService : Service(), RecognitionListener {
         private const val CANAL = "walink_asistente_voz"
         private const val NOTIF_ID = 40
         private const val MAX_INTENTOS = 2
+
+        private var estaEjecutando = false
 
         private val REGEX_SI = Regex(
             "\\b(s[ií])\\b|\\byes\\b|\\bok\\b|\\bokay\\b",
