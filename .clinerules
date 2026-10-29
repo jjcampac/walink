@@ -38,7 +38,7 @@ Dispositivo de pruebas: Nothing Phone (3a).
 - Ante un fallo, primero diagnostica con logs y explícame la causa; después corrige.
 - Al terminar cada tarea, resume en pocas líneas qué has cambiado y qué debo probar.
 - Los emuladores no reproducen bien las notificaciones de WhatsApp. En debug hay un botón "Simular mensaje" que publica una notificación local con MessagingStyle y acción de respuesta (RemoteInput). En debug, el parser acepta también el package de la propia app.
-- Haz commit en Git al cerrar cada fase.
+- Sólo haz commit en Git cuando te lo pida.
 
 ## Estado actual (actualizar al terminar cada fase)
 - Fases 1 y 2 implementadas (listener de notificaciones, lectura por TTS, detección de Bluetooth, foreground service).

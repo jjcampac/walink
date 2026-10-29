@@ -136,6 +136,10 @@ class MainActivity : ComponentActivity() {
     // ---- Modo de lectura ----
     private var leerTrasPreguntar by mutableStateOf(false)
 
+    // ---- Audio de fondo durante la lectura ----
+    // true = bajar el volumen de la música (MAY_DUCK); false = pausarla (GAIN_TRANSIENT).
+    private var audioBajaVolumen by mutableStateOf(true)
+
     /**
      * Comprueba si Walink tiene concedido el "Acceso a notificaciones" del
      * NotificationListenerService (ajuste especial de Android).
@@ -304,6 +308,7 @@ class MainActivity : ComponentActivity() {
         mostrarOnboarding = !dataStore.onboardingCompletado
         vozActual = dataStore.vozTts
         leerTrasPreguntar = dataStore.leerTrasPreguntar
+        audioBajaVolumen = dataStore.bajarVolumenEnLugarDePausar
 
         // Crea un TTS "explorador" para listar las voces disponibles del motor.
         // Solo se usa para poblar el selector de voz; no interfiere con el TTS
@@ -345,6 +350,7 @@ class MainActivity : ComponentActivity() {
                 } else {
                     PantallaPrincipal(
                         permisoNotificaciones = permisoNotificaciones,
+                        permisoPostNotificaciones = permisoPostNotificaciones,
                         permisoMicrofono = permisoMicrofono,
                         permisoBluetooth = permisoBluetooth,
                         bateriaExcluida = bateriaExcluida,
@@ -364,6 +370,13 @@ class MainActivity : ComponentActivity() {
                                 leerTrasPreguntar = preguntar
                             }
                         },
+                        bajarVolumen = audioBajaVolumen,
+                        onCambiarAudioFondo = { bajar ->
+                            lifecycleScope.launch {
+                                dataStore.setBajarVolumenEnLugarDePausar(bajar)
+                                audioBajaVolumen = bajar
+                            }
+                        },
                         onProbarVoz = { reproducirPruebaVoz() },
                         onIrAjustesNotificaciones = {
                             startActivity(Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS))
@@ -377,6 +390,11 @@ class MainActivity : ComponentActivity() {
                             Manifest.permission.BLUETOOTH_CONNECT,
                             Manifest.permission.BLUETOOTH_SCAN
                         )) },
+                        onSolicitarNotificacionesPost = {
+                            solicitarNotificacionesPost.launch(
+                                arrayOf(Manifest.permission.POST_NOTIFICATIONS)
+                            )
+                        },
                         onSimularMensaje = { remitente, texto ->
                             Log.d("WalinkDebug", "Simular mensaje pulsado: $remitente -> $texto")
                             DebugSimulator.publicarMensajeSimulado(
@@ -434,6 +452,7 @@ class MainActivity : ComponentActivity() {
         bateriaExcluida = estaExcluidoDeBateria()
         servicioActivado = dataStore.estaActivado
         leerTrasPreguntar = dataStore.leerTrasPreguntar
+        audioBajaVolumen = dataStore.bajarVolumenEnLugarDePausar
     }
 
     companion object {
@@ -477,6 +496,7 @@ private fun generoVoz(nombreVoz: String): String? {
 @Composable
 private fun PantallaPrincipal(
     permisoNotificaciones: Boolean,
+    permisoPostNotificaciones: Boolean,
     permisoMicrofono: Boolean,
     permisoBluetooth: Boolean,
     bateriaExcluida: Boolean,
@@ -487,10 +507,13 @@ private fun PantallaPrincipal(
     onProbarVoz: () -> Unit,
     leerTrasPreguntar: Boolean,
     onCambiarModoLectura: (Boolean) -> Unit,
+    bajarVolumen: Boolean,
+    onCambiarAudioFondo: (Boolean) -> Unit,
     onIrAjustesNotificaciones: () -> Unit,
     onIrAjustesBateria: () -> Unit,
     onSolicitarMicrofono: () -> Unit,
     onSolicitarBluetooth: () -> Unit,
+    onSolicitarNotificacionesPost: () -> Unit,
     onSimularMensaje: (remitente: String, texto: String) -> Unit
 ) {
     Column(
@@ -553,6 +576,12 @@ private fun PantallaPrincipal(
                 onCambiarModoLectura = onCambiarModoLectura
             )
 
+            // Qué hacer con la música de fondo mientras Walink habla.
+            TarjetaAudioFondo(
+                bajarVolumen = bajarVolumen,
+                onCambiarAudioFondo = onCambiarAudioFondo
+            )
+
             Spacer(modifier = Modifier.height(24.dp))
 
             Text(
@@ -571,6 +600,19 @@ private fun PantallaPrincipal(
                 requiereAjustesManuales = true,
                 onClick = onIrAjustesNotificaciones
             )
+
+            // Permiso en tiempo de ejecución para publicar notificaciones (API 33+).
+            // Sin él, el simulador no puede publicar el mensaje de prueba y la lectura no se dispara.
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU && !permisoPostNotificaciones) {
+                TarjetaPermiso(
+                    emoji = "🔔",
+                    titulo = "Notificaciones (permiso)",
+                    estado = "Obligatorio para que funcione el simulador de mensajes",
+                    concedido = false,
+                    requiereAjustesManuales = false,
+                    onClick = onSolicitarNotificacionesPost
+                )
+            }
 
             TarjetaPermiso(
                 emoji = "🎤",
@@ -891,6 +933,58 @@ private fun FilaModoLectura(
                 text = descripcion,
                 style = MaterialTheme.typography.bodySmall,
                 color = GrisEstado
+            )
+        }
+    }
+}
+
+/** Tarjeta para elegir qué hacer con la música de fondo mientras Walink habla. */
+@Composable
+private fun TarjetaAudioFondo(
+    bajarVolumen: Boolean,
+    onCambiarAudioFondo: (Boolean) -> Unit
+) {
+    Card(
+        modifier = Modifier.fillMaxWidth().padding(vertical = 6.dp),
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.surfaceContainer
+        ),
+        elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
+    ) {
+        Column(modifier = Modifier.fillMaxWidth().padding(16.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text(text = "🎵", fontSize = 24.sp)
+                Spacer(modifier = Modifier.width(14.dp))
+                Column {
+                    Text(
+                        text = stringResource(id = R.string.audio_fondo_titulo),
+                        style = MaterialTheme.typography.bodyMedium,
+                        fontWeight = FontWeight.SemiBold,
+                        color = MaterialTheme.colorScheme.onSurface
+                    )
+                    Text(
+                        text = stringResource(id = R.string.audio_fondo_desc),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = GrisEstado
+                    )
+                }
+            }
+
+            Spacer(modifier = Modifier.height(8.dp))
+
+            FilaModoLectura(
+                emoji = "🔉",
+                titulo = stringResource(id = R.string.audio_bajar_volumen),
+                descripcion = stringResource(id = R.string.audio_bajar_volumen_desc),
+                seleccionado = bajarVolumen,
+                onClick = { onCambiarAudioFondo(true) }
+            )
+            FilaModoLectura(
+                emoji = "⏸️",
+                titulo = stringResource(id = R.string.audio_pausar),
+                descripcion = stringResource(id = R.string.audio_pausar_desc),
+                seleccionado = !bajarVolumen,
+                onClick = { onCambiarAudioFondo(false) }
             )
         }
     }

@@ -9,101 +9,68 @@ import com.jjcampac.walink.BuildConfig
 import com.jjcampac.walink.R
 import com.jjcampac.walink.data.WalinkDataStore
 import com.jjcampac.walink.parser.NotificationParser
+import com.jjcampac.walink.speech.LectorAsistenteService
 import com.jjcampac.walink.speech.SpeechReader
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.Job
-import kotlinx.coroutines.launch
 
 /**
- * Servicio que escucha las notificaciones de WhatsApp (y del simulador en debug),
- * las parsea y las lee en voz alta mediante [SpeechReader].
+ * Servicio que escucha las notificaciones de WhatsApp (y del simulador en debug).
+ *
+ * Es el punto de entrada de la lectura de mensajes:
+ *  - Modo "leer inmediatamente": lee el mensaje aquí mismo con su [SpeechReader],
+ *    sin servicio en primer plano (no requiere micrófono ni recursos extra).
+ *  - Modo "preguntar antes de leer": delega en [LectorAsistenteService], un
+ *    servicio en primer plano (tipo micrófono) que pregunta, escucha y luego lee.
+ *
+ * Esta separación evita cuelgues por servicios en primer plano innecesarios y
+ * garantiza que nunca haya dos lecturas a la vez.
  */
 class WhatsAppNotificationListener : NotificationListenerService() {
 
     private lateinit var speechReader: SpeechReader
     private lateinit var dataStore: WalinkDataStore
 
-    private val job = Job()
-    private val scope = CoroutineScope(Dispatchers.Main + job)
-
     override fun onCreate() {
         super.onCreate()
-        speechReader = SpeechReader(this)
+        speechReader = SpeechReader.obtener(this)
         dataStore = WalinkDataStore.getInstance(applicationContext)
         Log.d(TAG, "Servicio de notificaciones creado")
     }
 
     override fun onDestroy() {
-        job.cancel()
-        speechReader.apagar()
         Log.d(TAG, "Servicio de notificaciones destruido")
         super.onDestroy()
     }
 
     override fun onNotificationPosted(sbn: StatusBarNotification) {
         super.onNotificationPosted(sbn)
+        try {
+            if (!dataStore.estaActivado) return
 
-        scope.launch {
-            try {
-                if (!dataStore.estaActivado) return@launch
+            val mensaje = NotificationParser.parsear(
+                sbn,
+                this,
+                aceptarPaquetePropio = BuildConfig.DEBUG
+            ) ?: return
 
-                val mensaje =
-                    NotificationParser.parsear(
-                        sbn,
-                        this@WhatsAppNotificationListener,
-                        aceptarPaquetePropio = BuildConfig.DEBUG
-                    ) ?: return@launch
+            val visibilidad = if (dataStore.leerTextoCompleto) mensaje.texto else "[texto oculto]"
+            val textoParaLeer = getString(R.string.tts_formato, mensaje.remitente, visibilidad)
 
-                val textoParaLeer = if (dataStore.leerTextoCompleto) {
-                    this@WhatsAppNotificationListener.getString(
-                        R.string.tts_formato,
-                        mensaje.remitente,
-                        mensaje.texto
-                    )
-                } else {
-                    this@WhatsAppNotificationListener.getString(
-                        R.string.tts_formato,
-                        mensaje.remitente,
-                        "[texto oculto]"
-                    )
-                }
-
-                Log.d(TAG, "Mensaje de '${mensaje.remitente}' (grupo=${mensaje.esGrupo}): ${mensaje.texto}")
-
-                if (dataStore.leerTrasPreguntar) {
-                    // Modo "preguntar": el asistente de voz hace la pregunta por TTS
-                    // y escucha la respuesta (sí/no) antes de leer, pensado para
-                    // conducir sin tocar el teléfono.
-                    val intentAsistente = Intent(
-                        this@WhatsAppNotificationListener,
-                        com.jjcampac.walink.speech.LectorAsistenteService::class.java
-                    )
-                    intentAsistente.action =
-                        com.jjcampac.walink.speech.LectorAsistenteService.ACTION_PREGUNTAR
-                    intentAsistente.putExtra(
-                        com.jjcampac.walink.speech.LectorAsistenteService.EXTRA_REMITENTE,
-                        mensaje.remitente
-                    )
-                    intentAsistente.putExtra(
-                        com.jjcampac.walink.speech.LectorAsistenteService.EXTRA_TEXTO,
-                        textoParaLeer
-                    )
-                    ContextCompat.startForegroundService(
-                        this@WhatsAppNotificationListener,
-                        intentAsistente
-                    )
-                } else {
-                    // Modo por defecto: leer nada más recibirlo.
-                    val hablado = speechReader.hablar(textoParaLeer)
-                    if (!hablado) {
-                        Log.w(TAG, "No se pudo leer: TTS no inicializado")
-                    }
-                }
-            } catch (e: Exception) {
-                // Nunca debe romper el listener; se registra para depurar.
-                Log.e(TAG, "Error procesando notificación", e)
+            if (dataStore.leerTrasPreguntar) {
+                // Modo "preguntar": delega en el servicio en primer plano.
+                Log.d(TAG, "Mensaje de '${mensaje.remitente}' -> modo preguntar")
+                val intent = Intent(this, LectorAsistenteService::class.java)
+                    .setAction(LectorAsistenteService.ACTION_PREGUNTAR)
+                    .putExtra(LectorAsistenteService.EXTRA_REMITENTE, mensaje.remitente)
+                    .putExtra(LectorAsistenteService.EXTRA_TEXTO, textoParaLeer)
+                ContextCompat.startForegroundService(this, intent)
+            } else {
+                // Modo "leer inmediatamente": leemos sin servicio en primer plano.
+                Log.d(TAG, "Mensaje de '${mensaje.remitente}' (grupo=${mensaje.esGrupo}) -> leyendo ahora")
+                speechReader.hablar(textoParaLeer)
             }
+        } catch (e: Exception) {
+            // Nunca debe romper el listener.
+            Log.e(TAG, "Error procesando notificación", e)
         }
     }
 

@@ -15,6 +15,8 @@ private object WalinkKeys {
     const val VOZ_TTS = "voz_tts"
     const val ONBOARDING_COMPLETADO = "onboarding_completado"
     const val LEER_TRAS_PREGUNTAR = "leer_tras_preguntar"
+    const val VOLUMEN_ATENUAR = "volumen_atenuar"
+    const val RETRASO_BLUETOOTH = "retraso_bluetooth"
 }
 
 /**
@@ -123,5 +125,23 @@ class WalinkDataStore private constructor(private val context: Context) {
 
     suspend fun setLeerTrasPreguntar(preguntar: Boolean) {
         prefs.edit().putBoolean(WalinkKeys.LEER_TRAS_PREGUNTAR, preguntar).apply()
+    }
+
+    // ---- AUDIO: atenuar (bajar volumen) o pausar durante la lectura ----
+    // true = bajar el volumen de la música mientras se habla (por defecto);
+    // false = pausar la reproducción con AUDIOFOCUS_GAIN_TRANSIENT.
+    val bajarVolumenEnLugarDePausar: Boolean
+        get() = prefs.getBoolean(WalinkKeys.VOLUMEN_ATENUAR, true)
+
+    suspend fun setBajarVolumenEnLugarDePausar(bajar: Boolean) {
+        prefs.edit().putBoolean(WalinkKeys.VOLUMEN_ATENUAR, bajar).apply()
+    }
+
+    // ---- RETRASO BLUETOOTH (milicés. de silencio previo, solo cuando la salida es BT) ----
+    val retrasoBluetoothMs: Int
+        get() = prefs.getInt(WalinkKeys.RETRASO_BLUETOOTH, 800)
+
+    suspend fun setRetrasoBluetoothMs(milisegundos: Int) {
+        prefs.edit().putInt(WalinkKeys.RETRASO_BLUETOOTH, milisegundos).apply()
     }
 }

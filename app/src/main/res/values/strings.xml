@@ -84,6 +84,14 @@
     <string name="modo_preguntar">Preguntarme antes</string>
     <string name="modo_preguntar_desc">Mostrar un aviso y leer solo si lo confirmas</string>
 
+    <!-- Audio de fondo durante la lectura -->
+    <string name="audio_fondo_titulo">Música de fondo</string>
+    <string name="audio_fondo_desc">Qué hacer con la música mientras Walink habla</string>
+    <string name="audio_bajar_volumen">Bajar el volumen</string>
+    <string name="audio_bajar_volumen_desc">La música baja un poco (atenuación del sistema)</string>
+    <string name="audio_pausar">Pausar la música</string>
+    <string name="audio_pausar_desc">Silencia del todo la música mientras habla (más efectivo)</string>
+
     <!-- Notificación de "preguntar antes de leer" -->
     <string name="notif_leer_titulo">¿Leer mensaje?</string>
     <string name="accion_leer">Leer ahora</string>
@@ -92,7 +100,7 @@
     <string name="canal_solicitudes_lectura_desc">Avisos para confirmar la lectura de un mensaje</string>
 
     <!-- Asistente de voz: pregunta oral y reconocimiento -->
-    <string name="pregunta_voz">Mensaje de %1$s. ¿Quieres que lo lea? Di sí o no.</string>
+    <string name="pregunta_voz">Mensaje de %1$s. ¿Quieres que lo lea?</string>
     <string name="pregunta_voz_reintento">No te he oído bien. Di sí para leerlo, o no para ignorarlo.</string>
     <string name="pregunta_voz_no_entendido">No te he entendido. Inténtalo otra vez. Di sí o no.</string>
     <string name="pregunta_voz_no">Vale, no lo leo.</string>

@@ -11,22 +11,19 @@ import android.util.Log
 import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
 import androidx.core.app.RemoteInput
-import com.jjcampac.walink.speech.LectorAsistenteService
-
-/** Acción que arranca el lector de voz para el mensaje simulado. */
 
 /**
  * Utilidad de SIMULACIÓN para buildType DEBUG.
  *
- * Publica una notificación que imita a WhatsApp (título = remitente, texto = mensaje,
- * categoría MESSAGE, MessagingStyle y acción "Responder" con RemoteInput).
+ * Publica una notificación que imita a WhatsApp (título = remitente, texto =
+ * mensaje, categoría MESSAGE, MessagingStyle y acción "Responder" con RemoteInput).
+ * A partir de ahí, la lectura la gestiona [com.jjcampac.walink.service.WhatsAppNotificationListener]
+ * igual que con un mensaje real, de modo que en debug el flujo es idéntico al de
+ * producción (un único camino de lectura, sin lecturas duplicadas).
  *
  * En release este código se compila pero nunca se ejecuta: solo se llama desde
  * MainActivity cuando BuildConfig.DEBUG es true, y el receiver [DebugReplyReceiver]
  * solo se registra en el manifest de debug.
- *
- * Al responder, [DebugReplyReceiver] captura el texto y lo muestra en Logcat
- * (en lugar de enviarlo a WhatsApp).
  */
 object DebugSimulator {
 
@@ -34,28 +31,22 @@ object DebugSimulator {
     private const val CHANNEL_ID = "walink_debug_simulacion"
     private const val NOTIFICATION_ID = 9001
 
-    /** Acción usada por el RemoteInput para recibir la respuesta (solo debug). */
     const val ACTION_RESPONDER = "com.jjcampac.walink.debug.ACTION_RESPONDER"
-
-    /** Extra que transporta el nombre de la conversación (remitente). */
     const val EXTRA_CONVERSATION = "conversacion_simulada"
-
-    /** Clave usada en el RemoteInput para recibir el texto de la respuesta. */
     const val CLAVE_REMOTE_INPUT = "respuesta_texto"
 
     /**
      * Publica la notificación simulada de WhatsApp.
      *
-     * @param contexto Contexto de la app.
-     * @param remitente Nombre del contacto/grupo que "envía" el mensaje.
-     * @param texto Cuerpo del mensaje de prueba.
-     * @param modoLectura "inmediatamente" para leer sin preguntar, "preguntar" para
-     *   preguntar al usuario si desea leer el mensaje.
+     * El modo de lectura ya no se usa aquí: lo decide el listener leyendo la
+     * configuración, igual que con WhatsApp. Se conserva el parámetro por
+     * compatibilidad con el llamador (MainActivity).
      */
+    @Suppress("UNUSED_PARAMETER")
     fun publicarMensajeSimulado(contexto: Context, remitente: String, texto: String, modoLectura: Boolean) {
         crearCanalSiNecesario(contexto)
+        Log.d(TAG, "Simulando mensaje de '$remitente': '$texto' (modo solicitado en UI: $modoLectura)")
 
-        // Intent que lanza la MainActivity al tocar la notificación.
         val intentAbrir = contexto.packageManager.getLaunchIntentForPackage(contexto.packageName)
         val pendingAbrir = PendingIntent.getActivity(
             contexto,
@@ -64,7 +55,6 @@ object DebugSimulator {
             PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
         )
 
-        // Intent que maneja la acción "Responder" (RemoteInput).
         val intentResponder = Intent(contexto, DebugReplyReceiver::class.java).apply {
             action = ACTION_RESPONDER
             putExtra(EXTRA_CONVERSATION, remitente)
@@ -76,24 +66,19 @@ object DebugSimulator {
             PendingIntent.FLAG_MUTABLE
         )
 
-        // RemoteInput para dictar/escribir la respuesta.
         val remoteInput = RemoteInput.Builder(CLAVE_REMOTE_INPUT)
             .setLabel("Responder")
             .build()
 
-        // Acción "Responder" que se muestra en la notificación.
         val accionResponder = NotificationCompat.Action.Builder(
             android.R.drawable.ic_menu_send,
             "Responder",
             pendingResponder
-        ).addRemoteInput(remoteInput).build()
+        )
+            .addRemoteInput(remoteInput)
+            .build()
 
-        // MessagingStyle: el constructor público con CharSequence está deprecado pero
-        // es la única API accesible públicamente (el constructor con Message es
-        // package-private). Usamos @Suppress para indicar que es intencional.
-        @Suppress("DEPRECATION")
         val estilo = NotificationCompat.MessagingStyle(remitente)
-            .setConversationTitle(remitente)
             .addMessage(texto, System.currentTimeMillis(), remitente)
 
         val builder = NotificationCompat.Builder(contexto, CHANNEL_ID)
@@ -110,21 +95,9 @@ object DebugSimulator {
         try {
             if (NotificationManagerCompat.from(contexto).areNotificationsEnabled()) {
                 NotificationManagerCompat.from(contexto).notify(NOTIFICATION_ID, builder.build())
-                Log.d(TAG, "Notificación simulada publicada: '$remitente' -> '$texto'")
-
-                // Arrancar el servicio de lectura de voz para el mensaje simulado
-                val modo = if (modoLectura) "preguntar" else "inmediatamente"
-                val intentLector = Intent(contexto, LectorAsistenteService::class.java).apply {
-                    action = LectorAsistenteService.ACTION_LEER_SIMULADO
-                    putExtra(LectorAsistenteService.EXTRA_REMITENTE, remitente)
-                    putExtra(LectorAsistenteService.EXTRA_TEXTO, texto)
-                    putExtra(LectorAsistenteService.EXTRA_MODO_LECTURA, modo)
-                }
-                contexto.startForegroundService(intentLector)
-                Log.d(TAG, "Servicio LectorAsistenteService arrancado para leer mensaje (modo=$modo)")
+                Log.d(TAG, "Notificación simulada publicada. La lectura la gestiona el listener.")
             } else {
                 Log.w(TAG, "Permiso de notificaciones no concedido. areNotificationsEnabled=false")
-                // Verificar permiso POST_NOTIFICATIONS (Android 13+)
                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
                     val concedido = contexto.checkSelfPermission(android.Manifest.permission.POST_NOTIFICATIONS) == android.content.pm.PackageManager.PERMISSION_GRANTED
                     Log.w(TAG, "POST_NOTIFICATIONS concedido: $concedido")
@@ -151,9 +124,8 @@ object DebugSimulator {
 
 /**
  * Recibe la respuesta escrita/dictada desde el RemoteInput de la notificación
- * simulada y la muestra en Logcat (no se envía a WhatsApp).
- *
- * Solo se registra en buildType debug (ver src/debug/AndroidManifest.xml).
+ * simulada y la muestra en Logcat (no se envía a WhatsApp). Solo se registra en
+ * buildType debug (ver src/debug/AndroidManifest.xml).
  */
 class DebugReplyReceiver : BroadcastReceiver() {
 
@@ -163,10 +135,10 @@ class DebugReplyReceiver : BroadcastReceiver() {
             ?.getCharSequence(DebugSimulator.CLAVE_REMOTE_INPUT)
             ?.toString()
             ?: "(vacío)"
+        Log.d(TAG, "RESPUESTA RECIBIDA (modo depuración): responder a '$remitente' con: '$textoRespuesta'")
+    }
 
-        Log.d(
-            "WalinkDebug",
-            "RESPUESTA RECIBIDA (modo depuración): responder a '$remitente' con: '$textoRespuesta'"
-        )
+    private companion object {
+        const val TAG = "WalinkDebug"
     }
 }
