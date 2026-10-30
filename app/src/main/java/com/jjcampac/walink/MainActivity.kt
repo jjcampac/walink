@@ -70,12 +70,14 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.lifecycleScope
 import com.jjcampac.walink.BuildConfig
 import com.jjcampac.walink.data.WalinkDataStore
 import com.jjcampac.walink.debug.DebugSimulator
+import com.jjcampac.walink.service.BluetoothCoche
 import com.jjcampac.walink.service.WhatsAppNotificationListener
 import com.jjcampac.walink.ui.theme.*
 import java.util.Locale
@@ -139,6 +141,12 @@ class MainActivity : ComponentActivity() {
     // ---- Audio de fondo durante la lectura ----
     // true = bajar el volumen de la música (MAY_DUCK); false = pausarla (GAIN_TRANSIENT).
     private var audioBajaVolumen by mutableStateOf(true)
+
+    // ---- Dispositivo Bluetooth del coche (Fase 2) ----
+    // Si hay un dispositivo seleccionado, Walink solo actúa cuando esté conectado.
+    private var dispositivoSeleccionado by mutableStateOf<String?>(null)      // dirección MAC
+    private var dispositivosEmparejados by mutableStateOf<List<BluetoothCoche.Dispositivo>>(emptyList())
+    private var dispositivoConectado by mutableStateOf(false)
 
     /**
      * Comprueba si Walink tiene concedido el "Acceso a notificaciones" del
@@ -282,6 +290,26 @@ class MainActivity : ComponentActivity() {
         )
     }
 
+    /**
+     * Recarga la lista de dispositivos Bluetooth emparejados con el teléfono y
+     * actualiza el estado de conexión del dispositivo actualmente seleccionado.
+     * Se llama al abrir la pantalla, al volver de segundo plano y al pulsar
+     * "Actualizar lista" en la tarjeta del coche.
+     */
+    private fun refrescarDispositivosBluetooth() {
+        dispositivosEmparejados =
+            if (permisoBluetooth) BluetoothCoche.obtenerDispositivosEmparejados(applicationContext)
+            else emptyList()
+        refrescarEstadoConexion()
+    }
+
+    /** Recalcula si el dispositivo Bluetooth seleccionado está conectado ahora. */
+    private fun refrescarEstadoConexion() {
+        val direccion = dispositivoSeleccionado
+        dispositivoConectado =
+            !direccion.isNullOrBlank() && BluetoothCoche.estaConectado(applicationContext, direccion)
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
@@ -309,6 +337,8 @@ class MainActivity : ComponentActivity() {
         vozActual = dataStore.vozTts
         leerTrasPreguntar = dataStore.leerTrasPreguntar
         audioBajaVolumen = dataStore.bajarVolumenEnLugarDePausar
+        dispositivoSeleccionado = dataStore.dispositivoBluetooth
+        refrescarDispositivosBluetooth()
 
         // Crea un TTS "explorador" para listar las voces disponibles del motor.
         // Solo se usa para poblar el selector de voz; no interfiere con el TTS
@@ -377,6 +407,19 @@ class MainActivity : ComponentActivity() {
                                 audioBajaVolumen = bajar
                             }
                         },
+                        dispositivoSeleccionado = dispositivoSeleccionado,
+                        dispositivosEmparejados = dispositivosEmparejados,
+                        dispositivoConectado = dispositivoConectado,
+                        onSeleccionarDispositivo = { direccionMac ->
+                            if (direccionMac != dispositivoSeleccionado) {
+                                lifecycleScope.launch {
+                                    dataStore.setDispositivoBluetooth(direccionMac)
+                                }
+                                dispositivoSeleccionado = direccionMac
+                                refrescarEstadoConexion()
+                            }
+                        },
+                        onRefrescarDispositivos = { refrescarDispositivosBluetooth() },
                         onProbarVoz = { reproducirPruebaVoz() },
                         onIrAjustesNotificaciones = {
                             startActivity(Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS))
@@ -453,6 +496,8 @@ class MainActivity : ComponentActivity() {
         servicioActivado = dataStore.estaActivado
         leerTrasPreguntar = dataStore.leerTrasPreguntar
         audioBajaVolumen = dataStore.bajarVolumenEnLugarDePausar
+        dispositivoSeleccionado = dataStore.dispositivoBluetooth
+        refrescarDispositivosBluetooth()
     }
 
     companion object {
@@ -509,6 +554,11 @@ private fun PantallaPrincipal(
     onCambiarModoLectura: (Boolean) -> Unit,
     bajarVolumen: Boolean,
     onCambiarAudioFondo: (Boolean) -> Unit,
+    dispositivoSeleccionado: String?,
+    dispositivosEmparejados: List<BluetoothCoche.Dispositivo>,
+    dispositivoConectado: Boolean,
+    onSeleccionarDispositivo: (String?) -> Unit,
+    onRefrescarDispositivos: () -> Unit,
     onIrAjustesNotificaciones: () -> Unit,
     onIrAjustesBateria: () -> Unit,
     onSolicitarMicrofono: () -> Unit,
@@ -580,6 +630,17 @@ private fun PantallaPrincipal(
             TarjetaAudioFondo(
                 bajarVolumen = bajarVolumen,
                 onCambiarAudioFondo = onCambiarAudioFondo
+            )
+
+            // Dispositivo Bluetooth del coche: si se elige uno, Walink solo lee
+            // cuando ese dispositivo está conectado.
+            TarjetaDispositivoCoche(
+                permisoBluetooth = permisoBluetooth,
+                dispositivos = dispositivosEmparejados,
+                seleccionado = dispositivoSeleccionado,
+                conectado = dispositivoConectado,
+                onSeleccionarDispositivo = onSeleccionarDispositivo,
+                onRefrescar = onRefrescarDispositivos
             )
 
             Spacer(modifier = Modifier.height(24.dp))
@@ -848,6 +909,147 @@ private fun TarjetaVoz(
         }
     }
 }
+
+/** Tarjeta para elegir el dispositivo Bluetooth del coche (menú desplegable). */
+@Composable
+private fun TarjetaDispositivoCoche(
+    permisoBluetooth: Boolean,
+    dispositivos: List<BluetoothCoche.Dispositivo>,
+    seleccionado: String?,
+    conectado: Boolean,
+    onSeleccionarDispositivo: (String?) -> Unit,
+    onRefrescar: () -> Unit
+) {
+    var menuAbierto by remember { mutableStateOf(false) }
+
+    // Dispositivo actualmente guardado (por su dirección entre los emparejados).
+    val dispositivoActual = dispositivos.firstOrNull { it.direccion == seleccionado }
+    // Si la dirección guardada ya no está en la lista de emparejados, avisar.
+    val sinEmparejar = !seleccionado.isNullOrBlank() && dispositivoActual == null
+
+    Card(
+        modifier = Modifier.fillMaxWidth().padding(vertical = 6.dp),
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.surfaceContainer
+        ),
+        elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
+    ) {
+        Column(modifier = Modifier.fillMaxWidth().padding(16.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text(text = "🚗", fontSize = 24.sp)
+                Spacer(modifier = Modifier.width(14.dp))
+                Column {
+                    Text(
+                        text = stringResource(id = R.string.ajuste_dispositivo_bluetooth),
+                        style = MaterialTheme.typography.bodyMedium,
+                        fontWeight = FontWeight.SemiBold,
+                        color = MaterialTheme.colorScheme.onSurface
+                    )
+                    Text(
+                        text = stringResource(id = R.string.ajuste_dispositivo_bluetooth_desc),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = GrisEstado
+                    )
+                }
+            }
+
+            Spacer(modifier = Modifier.height(10.dp))
+
+            if (!permisoBluetooth) {
+                // Sin permiso no se puede listar ni elegir el coche.
+                Text(
+                    text = stringResource(id = R.string.dispositivo_permiso_faltante),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.error
+                )
+            } else {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    // Desplegable con "Ninguno" + dispositivos emparejados.
+                    Box(modifier = Modifier.weight(1f)) {
+                        OutlinedButton(
+                            onClick = {
+                                onRefrescar() // lista y estado al día cada vez que se abre
+                                menuAbierto = true
+                            },
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Text(
+                                text = dispositivoActual?.nombre
+                                    ?: stringResource(id = R.string.dispositivo_ninguno),
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis,
+                                style = MaterialTheme.typography.bodySmall
+                            )
+                        }
+                        DropdownMenu(
+                            expanded = menuAbierto,
+                            onDismissRequest = { menuAbierto = false },
+                            modifier = Modifier.wrapContentSize()
+                        ) {
+                            DropdownMenuItem(
+                                text = { Text(stringResource(id = R.string.dispositivo_ninguno)) },
+                                onClick = {
+                                    onSeleccionarDispositivo(null)
+                                    menuAbierto = false
+                                }
+                            )
+                            if (dispositivos.isEmpty()) {
+                                DropdownMenuItem(
+                                    text = { Text(stringResource(id = R.string.dispositivo_sin_emparejados)) },
+                                    onClick = { menuAbierto = false }
+                                )
+                            } else {
+                                dispositivos.forEach { dispositivo ->
+                                    DropdownMenuItem(
+                                        text = { Text(dispositivo.nombre) },
+                                        onClick = {
+                                            onSeleccionarDispositivo(dispositivo.direccion)
+                                            menuAbierto = false
+                                        }
+                                    )
+                                }
+                            }
+                        }
+                    }
+                    Spacer(modifier = Modifier.width(8.dp))
+                    OutlinedButton(onClick = onRefrescar) {
+                        Text(stringResource(id = R.string.dispositivo_actualizar))
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(8.dp))
+
+                // Estado del dispositivo elegido.
+                if (seleccionado.isNullOrBlank()) {
+                    Text(
+                        text = stringResource(id = R.string.dispositivo_ninguno),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = GrisEstado,
+                        modifier = Modifier.padding(top = 2.dp)
+                    )
+                } else {
+                    val textoEstado = when {
+                        sinEmparejar -> stringResource(id = R.string.dispositivo_no_emparejado)
+                        conectado -> stringResource(id = R.string.dispositivo_conectado)
+                        else -> stringResource(id = R.string.dispositivo_no_conectado)
+                    }
+                    val colorEstado = when {
+                        sinEmparejar -> MaterialTheme.colorScheme.error
+                        conectado -> VerdeOk
+                        else -> GrisEstado
+                    }
+                    Text(
+                        text = stringResource(id = R.string.dispositivo_estado_desc, textoEstado),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = colorEstado,
+                        modifier = Modifier.padding(top = 2.dp)
+                    )
+                }
+            }
+        }
+    }
+}
+
 
 /** Tarjeta para elegir cuándo se lee cada mensaje (inmediato o previa confirmación). */
 @Composable

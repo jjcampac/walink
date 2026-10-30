@@ -22,6 +22,10 @@ App nativa de Android (Kotlin + Jetpack Compose) que lee en voz alta los mensaje
 ## ✅ Fase 2 — Bluetooth, modos de lectura y asistente de voz *(completada)*
 
 - ✅ Detección de conexión/desconexión del audio del coche (`BluetoothAudioReceiver`).
+- ✅ **Dispositivo Bluetooth del coche seleccionable** en la pantalla principal: lista los dispositivos emparejados del teléfono y permite elegir cuál es el coche (o "Ninguno").
+  - **Sin selección** → Walink lee siempre que esté activo, por el altavoz del teléfono (comportamiento por defecto).
+  - **Con selección** → solo lee/pregunta/responder cuando ese dispositivo está conectado (comprobación en el momento de llegar el mensaje mediante el estado de audio, `AudioManager`).
+  - La tarjeta muestra el estado en vivo del dispositivo elegido ("Conectado ✓" / "No conectado") y un botón para actualizar la lista y el estado.
 - ✅ **Modo "Leer inmediatamente"**: el mensaje se lee nada más llegar, sin servicio en primer plano.
 - ✅ **Modo "Preguntar antes de leer"**: el `LectorAsistenteService` (servicio en primer plano) pregunta por voz *"¿Quieres que lo lea?"* y escucha sí/no.
 - ✅ El servicio en primer plano se usa **solo** en el modo "preguntar antes"; en el modo "inmediato" el mensaje se lee directamente sin arrancar el servicio.
@@ -46,7 +50,6 @@ App nativa de Android (Kotlin + Jetpack Compose) que lee en voz alta los mensaje
 - ⏳ **Notas de voz (.opus):** la notificación no incluye el audio; hay que localizar el archivo en el almacenamiento de WhatsApp y reproducirlo. Verificar la ruta real y el método de acceso antes de implementar.
 - ⏳ **Filtros por contacto:** contactos permitidos/bloqueados (preferencia creada; UI y aplicación real del filtro pendiente).
 - ⏳ **Grupos:** opción de leer/ignorar mensajes de grupos (preferencia creada; UI pendiente).
-- ⏳ **Selección del dispositivo del coche:** ajuste para elegir entre los dispositivos emparejados; la app solo actúa cuando ese dispositivo está conectado.
 - ⏳ Ajuste **"Leer también sin coche (pruebas)"** (desactivado por defecto).
 - ⏳ **Velocidad de voz** (preferencia creada; exposición en UI y verificación pendientes).
 - ⏳ **Pulido final:** activar R8/ProGuard en release y pruebas generales en el móvil real.
@@ -58,7 +61,7 @@ App nativa de Android (Kotlin + Jetpack Compose) que lee en voz alta los mensaje
 - **Respuestas:** se envían con la acción `RemoteInput` de la propia notificación de WhatsApp. No se usa accesibilidad ni APIs no oficiales.
 - **Voz:** `TextToSpeech` y `SpeechRecognizer` en español de España (`es-ES`).
 - **FGS con micrófono:** desde Android 14 (API 34) el tipo `microphone` no puede arrancar en segundo plano; por eso el servicio declara `microphone|specialUse` y usa `specialUse` en API 34+.
-- **Solo el coche:** la app solo lee/pregunta/reproduce cuando el dispositivo elegido está conectado (ajuste pendiente de completar).
+- **Solo el coche:** si el usuario elige un dispositivo Bluetooth como "coche", la app solo lee/pregunta/reproduce cuando ese dispositivo está conectado. Sin selección, lee siempre por el teléfono.
 
 ## Requisitos
 
@@ -115,9 +118,10 @@ app/src/main/java/com/jjcampac/walink/
 ├── parser/
 │   └── NotificationParser.kt              # Parseo de notificaciones de WhatsApp
 ├── service/
-│   ├── WhatsAppNotificationListener.kt    # Listener de notificaciones (+ extracción RemoteInput)
+│   ├── WhatsAppNotificationListener.kt    # Listener de notificaciones (+ extracción RemoteInput + filtro coche)
+│   ├── BluetoothCoche.kt                  # Lista dispositivos emparejados + comprueba conexión por audio
 │   ├── WalinkTileService.kt               # Mosaico de accesos rápidos (activar/desactivar)
-│   └── BluetoothAudioReceiver.kt          # Detección de conexión/desconexión del audio del coche
+│   └── BluetoothAudioReceiver.kt          # Observador de conectividad de audio Bluetooth
 ├── speech/
 │   ├── SpeechReader.kt                    # TextToSpeech + audio focus + retraso Bluetooth
 │   └── LectorAsistenteService.kt          # FGS de voz: preguntar/responder/dictar/enviar

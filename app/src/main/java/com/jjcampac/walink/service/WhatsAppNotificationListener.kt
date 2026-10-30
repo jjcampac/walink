@@ -53,6 +53,25 @@ class WhatsAppNotificationListener : NotificationListenerService() {
                 aceptarPaquetePropio = BuildConfig.DEBUG
             ) ?: return
 
+            // ---- Regla del dispositivo Bluetooth del coche ----
+            // Si el usuario ha elegido un dispositivo en los ajustes, Walink solo
+            // actúa cuando ese dispositivo está conectado. Si no hay ninguno
+            // seleccionado (null/vacío), se conserva el comportamiento por defecto:
+            // leer siempre que Walink esté activo, por el altavoz del teléfono.
+            val direccionCoche = dataStore.dispositivoBluetooth
+            if (!direccionCoche.isNullOrBlank()) {
+                if (!BluetoothCoche.estaConectado(applicationContext, direccionCoche)) {
+                    val nombreCoche = BluetoothCoche.nombreDe(applicationContext, direccionCoche)
+                    Log.d(
+                        TAG,
+                        "Coche '$nombreCoche' ($direccionCoche) NO conectado -> mensaje de " +
+                            "'${mensaje.remitente}' ignorado"
+                    )
+                    return
+                }
+                Log.d(TAG, "Coche seleccionado conectado -> procesando mensaje")
+            }
+
             val visibilidad = if (dataStore.leerTextoCompleto) mensaje.texto else "[texto oculto]"
             val textoParaLeer = getString(R.string.tts_formato, mensaje.remitente, visibilidad)
 
