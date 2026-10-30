@@ -38,6 +38,9 @@ class LectorAsistenteService : Service(), RecognitionListener {
     private var remitente = ""
     private var textoParaLeer = ""
     private var intentos = 0
+    private var ciclo = 0
+    private var preguntaHablando = false
+    private var tareaWatchdogPregunta: Runnable? = null
 
     override fun onBind(intent: Intent?): IBinder? = null
 
@@ -59,15 +62,23 @@ class LectorAsistenteService : Service(), RecognitionListener {
 
     /** Modo "preguntar antes de leer": pregunta por voz y escucha sí/no. */
     private fun manejarPreguntar(intent: Intent) {
-        // Si quedó un reconocedor de un ciclo anterior, lo limpiamos para empezar
-        // con el estado correcto (evita que un "Simular mensaje" posterior no se oiga).
+        ciclo++
+        Log.d(TAG, "ACTION_PREGUNTAR (ciclo=$ciclo) recibido")
+
+        // Si quedó pendiente algo de un ciclo anterior (locución sin terminar, un
+        // onDone atrasado, un emit retrasado por Bluetooth), lo descartamos antes
+        // de empezar. Sin este reset, el siguiente "Simular mensaje" podía quedarse
+        // mudo o mezclar su pregunta con la lectura del mensaje anterior.
+        lector.descartarLocucionPendiente()
+        cancelarTiempoEscucha()
+        cancelarWatchdogPregunta()
         recognizer?.destroy()
         recognizer = null
 
         remitente = intent.getStringExtra(EXTRA_REMITENTE) ?: ""
         textoParaLeer = intent.getStringExtra(EXTRA_TEXTO) ?: ""
         intentos = 0
-        Log.d(TAG, "ACTION_PREGUNTAR: remitente='$remitente' texto='${textoParaLeer.take(40)}'")
+        Log.d(TAG, "ACTION_PREGUNTAR (ciclo=$ciclo): remitente='$remitente' texto='${textoParaLeer.take(40)}'")
 
         // Sin el permiso de micrófono no se puede usar SpeechRecognizer; no arrancamos.
         if (!tieneMicrofono()) {
@@ -98,12 +109,36 @@ class LectorAsistenteService : Service(), RecognitionListener {
         } else {
             getString(R.string.pregunta_voz_reintento)
         }
-        Log.d(TAG, "hacerPregunta: '$pregunta' intentos=$intentos")
+        Log.d(TAG, "hacerPregunta (ciclo=$ciclo): intentos=$intentos")
+        preguntaHablando = true
         lector.hablar(pregunta) {
-            Log.d(TAG, "Pregunta terminada, activando micrófono")
+            preguntaHablando = false
+            cancelarWatchdogPregunta()
+            Log.d(TAG, "Pregunta terminada (ciclo=$ciclo), activando micrófono")
             // Pequeña pausa para que el audio focus se libere antes de escuchar.
             lector.mainHandler.postDelayed({ escucharRespuesta() }, 350)
         }
+        // Watchdog: si la pregunta no termina de hablarse (onDone perdido o motor
+        // atascado), no dejamos el ciclo congelado: activamos el micrófono igualmente.
+        armarWatchdogPregunta()
+    }
+
+    private fun armarWatchdogPregunta() {
+        cancelarWatchdogPregunta()
+        val tarea = Runnable {
+            if (preguntaHablando) {
+                Log.w(TAG, "La pregunta no terminó en ${WATCHDOG_PREGUNTA_MS / 1000}s (ciclo=$ciclo); activando micrófono igualmente")
+                preguntaHablando = false
+                escucharRespuesta()
+            }
+        }
+        tareaWatchdogPregunta = tarea
+        lector.mainHandler.postDelayed(tarea, WATCHDOG_PREGUNTA_MS)
+    }
+
+    private fun cancelarWatchdogPregunta() {
+        tareaWatchdogPregunta?.let { lector.mainHandler.removeCallbacks(it) }
+        tareaWatchdogPregunta = null
     }
 
     /** Escucha la respuesta del usuario con reconocimiento de voz. */
@@ -157,14 +192,35 @@ class LectorAsistenteService : Service(), RecognitionListener {
         val respuesta = frases.joinToString(" ").lowercase()
         Log.d(TAG, "Respuesta reconocida: \"$respuesta\"")
         when (decidir(respuesta)) {
-            true -> lector.hablar(textoParaLeer) {
-                Log.d(TAG, "Mensaje leído tras confirmar")
-                finalizar()
+            true -> {
+                if (!lector.inicializado) {
+                    Log.w(TAG, "onResults: TTS sin inicializar; esperando 800 ms")
+                    lector.mainHandler.postDelayed({
+                        lector.hablar(textoParaLeer) {
+                            Log.d(TAG, "Mensaje leído tras confirmar")
+                            finalizar()
+                        }
+                    }, 800)
+                } else if (lector.apagado) {
+                    Log.e(TAG, "onResults: lector.apagado, no se puede leer")
+                } else {
+                    Log.d(TAG, "onResults: pidiendo lectura del mensaje")
+                    lector.hablar(textoParaLeer) {
+                        Log.d(TAG, "Mensaje leído tras confirmar")
+                        finalizar()
+                    }
+                }
             }
-            false -> lector.hablar(getString(R.string.pregunta_voz_no)) {
-                finalizar()
+            false -> {
+                Log.d(TAG, "onResults: respuesta NO -> no se lee")
+                lector.hablar(getString(R.string.pregunta_voz_no)) {
+                    finalizar()
+                }
             }
-            null -> reintentarONoEntendido()
+            null -> {
+                Log.d(TAG, "onResults: respuesta ambigua -> reintento")
+                reintentarONoEntendido()
+            }
         }
     }
 
@@ -236,6 +292,8 @@ class LectorAsistenteService : Service(), RecognitionListener {
 
     private fun finalizar() {
         cancelarTiempoEscucha()
+        cancelarWatchdogPregunta()
+        preguntaHablando = false
         recognizer?.destroy()
         recognizer = null
         stopForeground(STOP_FOREGROUND_REMOVE)
@@ -244,6 +302,8 @@ class LectorAsistenteService : Service(), RecognitionListener {
 
     override fun onDestroy() {
         cancelarTiempoEscucha()
+        cancelarWatchdogPregunta()
+        preguntaHablando = false
         recognizer?.destroy()
         recognizer = null
         Log.d(TAG, "LectorAsistenteService destruido")
@@ -262,6 +322,9 @@ class LectorAsistenteService : Service(), RecognitionListener {
         private const val MAX_INTENTOS = 2
         // Si en este tiempo no se oye ninguna respuesta, se trata como "no entendido".
         private const val TIEMPO_ESCUCHA_MS = 12000L
+        // Tiempo máximo para que la pregunta hablada termine; si no, se activa el
+        // micrófono igualmente (evita ciclos congelados por un onDone TTS perdido).
+        private const val WATCHDOG_PREGUNTA_MS = 6000L
 
         private val REGEX_SI = Regex(
             "\\b(s[ií])\\b|\\byes\\b|\\bok\\b|\\bokay\\b",

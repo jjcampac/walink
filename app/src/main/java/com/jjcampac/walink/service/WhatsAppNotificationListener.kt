@@ -55,7 +55,22 @@ class WhatsAppNotificationListener : NotificationListenerService() {
             val visibilidad = if (dataStore.leerTextoCompleto) mensaje.texto else "[texto oculto]"
             val textoParaLeer = getString(R.string.tts_formato, mensaje.remitente, visibilidad)
 
-            if (dataStore.leerTrasPreguntar) {
+            // El modo se decide únicamente por la preferencia persistente
+            // leerTrasPreguntar. No depende del parámetro recibido por el
+            // simulador de debug: este solo publica una notificación idéntica
+            // a la de WhatsApp, y el listener aplica la regla de negocio.
+            val esInmediato = !dataStore.leerTrasPreguntar
+            val modoTexto = if (esInmediato) "leer inmediato" else "preguntar"
+            Log.d(TAG, "Modo lectura: leerTrasPreguntar=${dataStore.leerTrasPreguntar} -> $modoTexto")
+            if (esInmediato) {
+                // Modo "leer inmediatamente": leemos sin servicio en primer plano.
+                // Si quedara un LectorAsistenteService de un ciclo "preguntar" anterior
+                // (por un onDone TTS perdido), lo detenemos para que no contamine esta
+                // lectura con una pregunta fantasma.
+                stopService(Intent(this, LectorAsistenteService::class.java))
+                Log.d(TAG, "Mensaje de '${mensaje.remitente}' (grupo=${mensaje.esGrupo}) -> leyendo ahora")
+                speechReader.hablar(textoParaLeer)
+            } else {
                 // Modo "preguntar": delega en el servicio en primer plano.
                 Log.d(TAG, "Mensaje de '${mensaje.remitente}' -> modo preguntar")
                 val intent = Intent(this, LectorAsistenteService::class.java)
@@ -63,10 +78,6 @@ class WhatsAppNotificationListener : NotificationListenerService() {
                     .putExtra(LectorAsistenteService.EXTRA_REMITENTE, mensaje.remitente)
                     .putExtra(LectorAsistenteService.EXTRA_TEXTO, textoParaLeer)
                 ContextCompat.startForegroundService(this, intent)
-            } else {
-                // Modo "leer inmediatamente": leemos sin servicio en primer plano.
-                Log.d(TAG, "Mensaje de '${mensaje.remitente}' (grupo=${mensaje.esGrupo}) -> leyendo ahora")
-                speechReader.hablar(textoParaLeer)
             }
         } catch (e: Exception) {
             // Nunca debe romper el listener.

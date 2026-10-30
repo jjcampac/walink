@@ -4,7 +4,9 @@ import android.app.Notification
 import android.content.Context
 import android.os.Bundle
 import android.service.notification.StatusBarNotification
+import android.util.Log
 import androidx.core.app.NotificationCompat
+import com.jjcampac.walink.debug.DebugSimulator
 
 /**
  * Resultado del parseo de una notificación de WhatsApp.
@@ -66,6 +68,20 @@ object NotificationParser {
         val esPropio = aceptarPaquetePropio && paquete == contexto.packageName
         if (!esWhatsApp && !esPropio) {
             return null
+        }
+
+        // IMPORTANTE: en debug la app escucha sus propias notificaciones, pero SOLO
+        // deben aceptarse las del canal del simulador de mensajes. El listener también
+        // recibe la notificación en primer plano del LectorAsistenteService (canal
+        // "walink_asistente_voz", "Walink escuchando") y, si se tratara como un mensaje,
+        // se generaría un bucle infinito: listener -> servicio -> notificación FGS ->
+        // listener (cada vuelta relee y pregunta "Mensaje de Walink escuchando...").
+        if (esPropio) {
+            val canal = notificacion.notification?.channelId
+            if (canal != DebugSimulator.CHANNEL_ID) {
+                Log.d(TAG, "Notificación propia descartada (canal='$canal' != simulador)")
+                return null
+            }
         }
 
         val notification = notificacion.notification ?: return null

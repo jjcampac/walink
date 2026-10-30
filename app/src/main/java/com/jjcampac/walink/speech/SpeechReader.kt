@@ -56,7 +56,6 @@ class SpeechReader private constructor(private val contexto: Context) : TextToSp
 
         private const val TAG = "WalinkTTS"
         private const val TIEMPO_ESPERA_INIT = 10000L
-        private const val ID_LECTURA = "walink_lectura"
     }
 
     private val dataStore = WalinkDataStore.getInstance(contexto.applicationContext)
@@ -67,12 +66,15 @@ class SpeechReader private constructor(private val contexto: Context) : TextToSp
         private set
 
     @Volatile
-    private var apagado = false
+    var apagado = false
+        private set
 
     private var tts: TextToSpeech? = null
     private var audioFocusRequest: AudioFocusRequest? = null
     private var conAudioFocus = false
     private var alTerminarPendiente: (() -> Unit)? = null
+    private var tareaEmitir: Runnable? = null
+    private var contadorUtterance = 0L
 
     val mainHandler: Handler = Handler(Looper.getMainLooper())
 
@@ -167,62 +169,102 @@ class SpeechReader private constructor(private val contexto: Context) : TextToSp
             alTerminar?.invoke()
             return
         }
+        // Se espera a que el motor esté totalmente inicializado y verificado
+        // antes de intentar hablar. Esto evita que, tras una lectura previa, el
+        // siguiente mensaje se quede en silencio por un motor o estado no listo.
+        // La puerta no depende de conAudioFocus: la petición de foco se hace
+        // justo antes del speak en pronunciar(), evitando que un state anterior
+        // bloquee vueltas sucesivas.
         esperarInicializado { listo ->
             if (listo) {
                 pronunciar(texto, alTerminar)
             } else {
-                Log.e(TAG, "TTS no se inicializó en $TIEMPO_ESPERA_INIT ms")
+                Log.e(TAG, "TTS no se inicializó en $TIEMPO_ESPERA_INIT ms; no se puede leer")
+                Log.w(TAG, "Bloqueo: tts=${tts != null}, apagado=$apagado, inicializado=$inicializado")
                 alTerminar?.invoke()
             }
         }
     }
 
     private fun pronunciar(texto: String, alTerminar: (() -> Unit)? = null) {
-        val motor = tts ?: return
-        // No llamamos a motor.stop(): speak con QUEUE_FLUSH ya detiene la cola en
-        // curso. El stop() previo provocaba una carrera stop->speak que dejaba en
-        // silencio el siguiente mensaje.
+        if (tts == null || apagado) {
+            Log.w(TAG, "TTS no disponible en pronunciar, no se puede leer")
+            alTerminar?.invoke()
+            return
+        }
+        // Descartamos cualquier locución pendiente anterior (un onDone atrasado,
+        // un emit retrasado por Bluetooth o un callback sin consumir) para que un
+        // ciclo previo no se mezcle con la lectura actual: era la causa de que la
+        // segunda simulación se quedara muda o aparecieran preguntas fantasma.
+        descartarLocucionPendiente()
         alTerminarPendiente = alTerminar
 
         val retrasoBL = if (salidaEsBluetooth()) dataStore.retrasoBluetoothMs else 0
 
+        // El foco se solicita justo antes del speak, no al entrar en la llamada.
+        // Si en una lectura posterior el foco no se concedió, lo volvemos a pedir
+        // antes de emitir, y no dejamos que un estado anterior en silencio.
         solicitarAudioFocus()
-        registrarProgreso()
 
-        val emitir = {
-            val ok = motor.speak(texto, TextToSpeech.QUEUE_FLUSH, Bundle(), ID_LECTURA)
-            Log.d(TAG, "hablar(\"${texto.take(40)}\") ok=$ok retrasoBL=$retrasoBL")
+        // ID único por locución: el motor TTS encadena por utteranceId, y reutilizar
+        // el mismo ID entre ciclos hacía que onDone de una lectura llegara al listener
+        // de otra (callbacks fantasma que detenían la lectura del siguiente mensaje).
+        val idUtterance = "walink_${++contadorUtterance}"
+        registrarProgreso(idUtterance)
+
+        val motor = tts ?: run {
+            Log.w(TAG, "TTS no disponible en pronunciar, no se puede leer")
+            alTerminar?.invoke()
+            return
         }
+
+        val emitir = Runnable {
+            val ok = motor.speak(texto, TextToSpeech.QUEUE_FLUSH, Bundle(), idUtterance)
+            Log.d(TAG, "hablar(\"${texto.take(40)}\") ok=$ok retrasoBL=$retrasoBL id=$idUtterance")
+            tareaEmitir = null
+        }
+        tareaEmitir = emitir
 
         // Retraso previo de Bluetooth mediante silencio (solo cuando la salida es BT),
         // para que no se corte el inicio de la frase al arrancar el stream del coche.
         if (retrasoBL > 0) {
-            mainHandler.postDelayed({ emitir() }, retrasoBL.toLong())
+            mainHandler.postDelayed(emitir, retrasoBL.toLong())
         } else {
-            emitir()
+            emitir.run()
         }
     }
 
-    private fun registrarProgreso() {
+    /**
+     * Descarta una locución que todavía no ha emitido o cuyo callback de fin no se
+     * ha consumido. Evita que un ciclo anterior contamine al siguiente (silencios y
+     * preguntas fantasma al encadenar notificaciones en modo "preguntar antes").
+     */
+    fun descartarLocucionPendiente() {
+        tareaEmitir?.let { mainHandler.removeCallbacks(it) }
+        tareaEmitir = null
+        alTerminarPendiente = null
+    }
+
+    private fun registrarProgreso(utteranceIdActual: String) {
         tts?.setOnUtteranceProgressListener(object : UtteranceProgressListener() {
             override fun onStart(utteranceId: String?) {}
 
             override fun onDone(utteranceId: String?) {
-                // Solo finalizamos cuando termina la lectura real, no el silencio.
-                if (utteranceId == ID_LECTURA) {
+                // Solo finalizamos cuando termina la locución REAL, no el silencio.
+                if (utteranceId == utteranceIdActual) {
                     mainHandler.post { terminarLocucion() }
                 }
             }
 
             override fun onError(utteranceId: String?) {
-                if (utteranceId == ID_LECTURA) {
+                if (utteranceId == utteranceIdActual) {
                     mainHandler.post { terminarLocucion() }
                 }
             }
 
             @Deprecated("Deprecado en API 21")
             override fun onError(utteranceId: String?, errorCode: Int) {
-                if (utteranceId == ID_LECTURA) {
+                if (utteranceId == utteranceIdActual) {
                     mainHandler.post { terminarLocucion() }
                 }
             }
@@ -318,12 +360,16 @@ class SpeechReader private constructor(private val contexto: Context) : TextToSp
     /** Libera todos los recursos. Debe llamarse en onDestroy de su dueño. */
     fun apagar() {
         apagado = true
-        alTerminarPendiente = null
+        descartarLocucionPendiente()
         liberarAudioFocus()
         tts?.setOnUtteranceProgressListener(null)
         tts?.stop()
         tts?.shutdown()
         tts = null
         inicializado = false
+        // El handler de hilo principal se conserva: no se destruye, por lo que
+        // las labores pendientes (retrasos de BT, finalización de locución)
+        // no se ejecutan sobre un objeto muerto.
+        Log.d(TAG, "SpeechReader apagado")
     }
 }

@@ -27,13 +27,15 @@ import androidx.core.app.RemoteInput
  */
 object DebugSimulator {
 
-    private const val TAG = "WalinkDebug"
-    private const val CHANNEL_ID = "walink_debug_simulacion"
-    private const val NOTIFICATION_ID = 9001
+    const val TAG = "WalinkDebug"
+    const val CHANNEL_ID = "walink_debug_simulacion"
+    private const val NOTIFICATION_ID_BASE = 9001
 
     const val ACTION_RESPONDER = "com.jjcampac.walink.debug.ACTION_RESPONDER"
     const val EXTRA_CONVERSATION = "conversacion_simulada"
     const val CLAVE_REMOTE_INPUT = "respuesta_texto"
+
+    private var contadorNotificaciones = 0
 
     /**
      * Publica la notificación simulada de WhatsApp.
@@ -45,7 +47,12 @@ object DebugSimulator {
     @Suppress("UNUSED_PARAMETER")
     fun publicarMensajeSimulado(contexto: Context, remitente: String, texto: String, modoLectura: Boolean) {
         crearCanalSiNecesario(contexto)
-        Log.d(TAG, "Simulando mensaje de '$remitente': '$texto' (modo solicitado en UI: $modoLectura)")
+        // Cada pulsación publica una notificación con ID propio: reutilizar el mismo
+        // ID hacía que la segunda simulación se tratara como una actualización de la
+        // anterior y, en algunos dispositivos, no volviera a disparar onNotificationPosted
+        // (la segunda simulación se quedaba muda).
+        val idNotificacion = NOTIFICATION_ID_BASE + (contadorNotificaciones++ % 1000)
+        Log.d(TAG, "Simulando mensaje de '$remitente': '$texto' (id=$idNotificacion, modo solicitado en UI: $modoLectura)")
 
         val intentAbrir = contexto.packageManager.getLaunchIntentForPackage(contexto.packageName)
         val pendingAbrir = PendingIntent.getActivity(
@@ -94,8 +101,8 @@ object DebugSimulator {
 
         try {
             if (NotificationManagerCompat.from(contexto).areNotificationsEnabled()) {
-                NotificationManagerCompat.from(contexto).notify(NOTIFICATION_ID, builder.build())
-                Log.d(TAG, "Notificación simulada publicada. La lectura la gestiona el listener.")
+                NotificationManagerCompat.from(contexto).notify(idNotificacion, builder.build())
+                Log.d(TAG, "Notificación simulada publicada (id=$idNotificacion). La lectura la gestiona el listener.")
             } else {
                 Log.w(TAG, "Permiso de notificaciones no concedido. areNotificationsEnabled=false")
                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
