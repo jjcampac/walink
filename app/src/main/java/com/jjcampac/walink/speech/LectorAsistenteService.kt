@@ -9,13 +9,16 @@ import android.content.pm.PackageManager
 import android.content.pm.ServiceInfo
 import android.os.Build
 import android.os.Bundle
+import android.app.PendingIntent
 import android.os.IBinder
 import android.speech.RecognitionListener
+import androidx.core.content.ContextCompat
 import android.speech.RecognizerIntent
 import android.speech.SpeechRecognizer
 import android.util.Log
 import androidx.core.app.NotificationCompat
 import com.jjcampac.walink.R
+import com.jjcampac.walink.data.WalinkDataStore
 
 /**
  * Servicio en primer plano (tipo micrófono) SOLO para el modo "preguntar antes de
@@ -32,6 +35,7 @@ import com.jjcampac.walink.R
 class LectorAsistenteService : Service(), RecognitionListener {
 
     private lateinit var lector: SpeechReader
+    private lateinit var dataStore: WalinkDataStore
     private var recognizer: SpeechRecognizer? = null
     private var tiempoEscucha: Runnable? = null
 
@@ -42,11 +46,18 @@ class LectorAsistenteService : Service(), RecognitionListener {
     private var preguntaHablando = false
     private var tareaWatchdogPregunta: Runnable? = null
 
+    // ---- Flujo de responder tras leer ----
+    // 0 = idle, 1 = ¿leer el mensaje? (ACTION_PREGUNTAR), 2 = ¿responder? (ACTION_RESPONDER), 3 = dictado libre, 4 = ¿enviar o corregir?
+    private var etapaRespuesta = 0
+    private var pendingIntentResponder: PendingIntent? = null
+    private var clavesRemoteInput: List<String> = emptyList()
+
     override fun onBind(intent: Intent?): IBinder? = null
 
     override fun onCreate() {
         super.onCreate()
         lector = SpeechReader.obtener(this)
+        dataStore = WalinkDataStore.getInstance(applicationContext)
         crearCanal()
         Log.d(TAG, "LectorAsistenteService creado")
     }
@@ -55,6 +66,7 @@ class LectorAsistenteService : Service(), RecognitionListener {
         super.onStartCommand(intent, flags, startId)
         when (intent?.action) {
             ACTION_PREGUNTAR -> manejarPreguntar(intent)
+            ACTION_RESPONDER -> manejarResponder(intent)
             else -> Log.w(TAG, "Acción desconocida: ${intent?.action}")
         }
         return START_NOT_STICKY
@@ -77,7 +89,9 @@ class LectorAsistenteService : Service(), RecognitionListener {
 
         remitente = intent.getStringExtra(EXTRA_REMITENTE) ?: ""
         textoParaLeer = intent.getStringExtra(EXTRA_TEXTO) ?: ""
+        recibirDatosRespuesta(intent)
         intentos = 0
+        etapaRespuesta = ETAPA_SI_NO_LEER
         Log.d(TAG, "ACTION_PREGUNTAR (ciclo=$ciclo): remitente='$remitente' texto='${textoParaLeer.take(40)}'")
 
         // Sin el permiso de micrófono no se puede usar SpeechRecognizer; no arrancamos.
@@ -95,7 +109,17 @@ class LectorAsistenteService : Service(), RecognitionListener {
         checkSelfPermission(Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED
 
     private fun entrarEnForeground() {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+        // Desde Android 14 (API 34), arrancar un FGS de tipo "microphone" desde
+        // segundo plano (p. ej. al llegar una notificación de WhatsApp con la app
+        // cerrada) se rechaza con SecurityException porque exige que la app esté
+        // en un estado elegible (primer plano). Por eso en API 34+ usamos
+        // "specialUse", que no tiene esa restricción while-in-use y permite el
+        // asistente de voz con micrófono aunque llegue un mensaje en segundo plano.
+        // El manifest declara "microphone|specialUse" para que ambas APIs pasen
+        // la validación del tipo declarado.
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
+            startForeground(NOTIF_ID, notificacionActiva(), ServiceInfo.FOREGROUND_SERVICE_TYPE_SPECIAL_USE)
+        } else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
             startForeground(NOTIF_ID, notificacionActiva(), ServiceInfo.FOREGROUND_SERVICE_TYPE_MICROPHONE)
         } else {
             startForeground(NOTIF_ID, notificacionActiva())
@@ -190,36 +214,94 @@ class LectorAsistenteService : Service(), RecognitionListener {
             return
         }
         val respuesta = frases.joinToString(" ").lowercase()
-        Log.d(TAG, "Respuesta reconocida: \"$respuesta\"")
-        when (decidir(respuesta)) {
-            true -> {
-                if (!lector.inicializado) {
-                    Log.w(TAG, "onResults: TTS sin inicializar; esperando 800 ms")
-                    lector.mainHandler.postDelayed({
-                        lector.hablar(textoParaLeer) {
-                            Log.d(TAG, "Mensaje leído tras confirmar")
+        Log.d(TAG, "Respuesta reconocida: \"$respuesta\" (etapa=$etapaRespuesta)")
+
+        when (etapaRespuesta) {
+            ETAPA_IDLE -> {
+                Log.w(TAG, "onResults en etapa IDLE: se ignora")
+            }
+            ETAPA_SI_NO_LEER -> {
+                when (decidir(respuesta)) {
+                    true -> {
+                        Log.d(TAG, "onResults: usuario quiere LEER")
+                        if (!lector.inicializado) {
+                            Log.w(TAG, "onResults: TTS sin inicializar; esperando 800 ms")
+                            lector.mainHandler.postDelayed({
+                                lector.hablar(textoParaLeer) {
+                                    Log.d(TAG, "Mensaje leído tras confirmar; ofreciendo responder")
+                                    lanzarOfrecerResponder()
+                                }
+                            }, 800)
+                        } else if (lector.apagado) {
+                            Log.e(TAG, "onResults: lector.apagado, no se puede leer")
+                        } else {
+                            Log.d(TAG, "onResults: pidiendo lectura del mensaje")
+                            lector.hablar(textoParaLeer) {
+                                Log.d(TAG, "Mensaje leído tras confirmar; ofreciendo responder")
+                                lanzarOfrecerResponder()
+                            }
+                        }
+                    }
+                    false -> {
+                        Log.d(TAG, "onResults: respuesta NO -> no se lee")
+                        lector.hablar(getString(R.string.pregunta_voz_no)) {
                             finalizar()
                         }
-                    }, 800)
-                } else if (lector.apagado) {
-                    Log.e(TAG, "onResults: lector.apagado, no se puede leer")
-                } else {
-                    Log.d(TAG, "onResults: pidiendo lectura del mensaje")
-                    lector.hablar(textoParaLeer) {
-                        Log.d(TAG, "Mensaje leído tras confirmar")
-                        finalizar()
+                    }
+                    null -> {
+                        Log.d(TAG, "onResults: respuesta ambigua -> reintento")
+                        reintentarONoEntendido()
                     }
                 }
             }
-            false -> {
-                Log.d(TAG, "onResults: respuesta NO -> no se lee")
-                lector.hablar(getString(R.string.pregunta_voz_no)) {
-                    finalizar()
+            ETAPA_SI_NO_RESPONDER -> {
+                when (decidir(respuesta)) {
+                    true -> {
+                        Log.d(TAG, "onResults: usuario quiere RESPONDER")
+                        pedirDictado()
+                    }
+                    false -> {
+                        Log.d(TAG, "onResults: usuario NO quiere responder")
+                        lector.hablar(getString(R.string.no_responder)) {
+                            finalizar()
+                        }
+                    }
+                    null -> {
+                        Log.d(TAG, "onResults: respuesta ambigua -> reintento")
+                        reintentarONoEntendido()
+                    }
                 }
             }
-            null -> {
-                Log.d(TAG, "onResults: respuesta ambigua -> reintento")
-                reintentarONoEntendido()
+            ETAPA_DICTADO -> {
+                val textoDictado = frases.joinToString(" ")
+                Log.d(TAG, "onResults: dictado recibido: '$textoDictado'")
+                if (textoDictado.isBlank()) {
+                    reintentarONoEntendido()
+                    return
+                }
+                etapaRespuesta = ETAPA_CONFIRMAR_ENVIO
+                dataStore.guardarBorradorRespuesta(remitente, textoDictado)
+                lector.hablar(getString(R.string.borrador_guardado, remitente, textoDictado)) {
+                    Log.d(TAG, "Borrador dictado guardado, preguntando enviar o corregir")
+                    preguntarEnviarOCorregir()
+                }
+            }
+            ETAPA_CONFIRMAR_ENVIO -> {
+                val decidir = decidirEnviarOCorregir(respuesta)
+                when (decidir) {
+                    true -> {
+                        Log.d(TAG, "onResults: usuario quiere ENVIAR")
+                        enviarRespuesta()
+                    }
+                    false -> {
+                        Log.d(TAG, "onResults: usuario quiere CORREGIR")
+                        corregirRespuesta()
+                    }
+                    null -> {
+                        Log.d(TAG, "onResults: respuesta ambigua -> reintento")
+                        reintentarONoEntendidoEnviarOCorregir()
+                    }
+                }
             }
         }
     }
@@ -294,17 +376,230 @@ class LectorAsistenteService : Service(), RecognitionListener {
         cancelarTiempoEscucha()
         cancelarWatchdogPregunta()
         preguntaHablando = false
+        etapaRespuesta = ETAPA_IDLE
         recognizer?.destroy()
         recognizer = null
         stopForeground(STOP_FOREGROUND_REMOVE)
         stopSelf()
     }
 
+    // ==== Flujo de responder tras leer ====
+
+    /** Acción RESPONDER: pregunta si quiere responder y, si sí, escucha el dictado. */
+    private fun manejarResponder(intent: Intent) {
+        ciclo++
+        etapaRespuesta = ETAPA_IDLE
+        Log.d(TAG, "ACTION_RESPONDER (ciclo=$ciclo) recibido")
+
+        lector.descartarLocucionPendiente()
+        cancelarTiempoEscucha()
+        cancelarWatchdogPregunta()
+        recognizer?.destroy()
+        recognizer = null
+
+        remitente = intent.getStringExtra(EXTRA_REMITENTE) ?: ""
+        textoParaLeer = intent.getStringExtra(EXTRA_TEXTO) ?: ""
+        recibirDatosRespuesta(intent)
+        intentos = 0
+        Log.d(TAG, "ACTION_RESPONDER (ciclo=$ciclo): remitente='$remitente' pendingIntent=${pendingIntentResponder != null}")
+
+        if (!tieneMicrofono()) {
+            Log.e(TAG, "RECORD_AUDIO no concedido: no se puede responder")
+            lector.hablar(getString(R.string.microfono_no_concedido_responder)) {
+                finalizar()
+            }
+            return
+        }
+
+        entrarEnForeground()
+        preguntarSiResponder()
+    }
+
+    /** Pregunta por voz si el usuario quiere responder al remitente. */
+    private fun preguntarSiResponder() {
+        etapaRespuesta = ETAPA_SI_NO_RESPONDER
+        preguntaHablando = true
+        lector.hablar(getString(R.string.pregunta_responder, remitente)) {
+            preguntaHablando = false
+            cancelarWatchdogPregunta()
+            Log.d(TAG, "Pregunta de responder terminada, activando micrófono")
+            lector.mainHandler.postDelayed({ escucharRespuesta() }, 350)
+        }
+        armarWatchdogPregunta()
+    }
+
+    /** Pide al usuario que dicte su respuesta por voz. */
+    private fun pedirDictado() {
+        etapaRespuesta = ETAPA_DICTADO
+        preguntaHablando = true
+        lector.hablar(getString(R.string.pedir_dictado)) {
+            preguntaHablando = false
+            cancelarWatchdogPregunta()
+            Log.d(TAG, "Prompt de dictado terminado, activando micrófono")
+            lector.mainHandler.postDelayed({ escucharTextoLibre() }, 350)
+        }
+        armarWatchdogPregunta()
+    }
+
+    /** Escucha un dictado de texto libre (respuesta a redactar). */
+    private fun escucharTextoLibre() {
+        Log.d(TAG, "escucharTextoLibre: activando micrófono para dictado")
+        val sr = try {
+            SpeechRecognizer.createSpeechRecognizer(this)
+        } catch (e: Exception) {
+            Log.e(TAG, "No se pudo crear el reconocedor para dictado", e)
+            finalizar()
+            return
+        }
+        recognizer = sr.apply { setRecognitionListener(this@LectorAsistenteService) }
+
+        val intentReconocimiento = Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH).apply {
+            putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)
+            putExtra(RecognizerIntent.EXTRA_LANGUAGE, "es-ES")
+            putExtra(RecognizerIntent.EXTRA_PROMPT, getString(R.string.pregunta_voz_prompt))
+            putExtra(RecognizerIntent.EXTRA_PARTIAL_RESULTS, false)
+            putExtra("android.speech.extra.MAX_RESULTS", 1)
+        }
+        recognizer?.startListening(intentReconocimiento)
+        Log.d(TAG, "SpeechRecognizer escuchando dictado...")
+
+        cancelarTiempoEscucha()
+        val tarea = Runnable {
+            Log.w(TAG, "Tiempo de escucha agotado sin dictado")
+            reintentarONoEntendido()
+        }
+        tiempoEscucha = tarea
+        lector.mainHandler.postDelayed(tarea, TIEMPO_ESCUCHA_MS)
+    }
+
+    /** Lanza ACTION_RESPONDER para ofrecer responder tras leer un mensaje. */
+    private fun lanzarOfrecerResponder() {
+        etapaRespuesta = ETAPA_IDLE
+        val intent = Intent(this, LectorAsistenteService::class.java)
+            .setAction(LectorAsistenteService.ACTION_RESPONDER)
+            .putExtra(LectorAsistenteService.EXTRA_REMITENTE, remitente)
+            .putExtra(LectorAsistenteService.EXTRA_TEXTO, textoParaLeer)
+        ContextCompat.startForegroundService(this, intent)
+    }
+
+    /**
+     * Copia en la instancia el PendingIntent de respuesta y las claves del RemoteInput
+     * que llegan en [intent]. Solo se sobrescriben si el extra trae algún valor: cuando
+     * el ACTION_RESPONDER lo lanza el propio servicio (lanzarOfrecerResponder), el intent
+     * no los incluye y se conservan los de la notificación original.
+     */
+    private fun recibirDatosRespuesta(intent: Intent) {
+        intent.getParcelableExtra<android.app.PendingIntent>(EXTRA_PENDING_INTENT_RESPONDER)
+            ?.let { pendingIntentResponder = it }
+        intent.getStringArrayListExtra(EXTRA_CLAVES_REMOTE_INPUT)
+            ?.takeIf { it.isNotEmpty() }
+            ?.let { clavesRemoteInput = it }
+    }
+
+    /** Pregunta por voz si quiere enviar la respuesta ya redactada o corregirla. */
+    private fun preguntarEnviarOCorregir() {
+        etapaRespuesta = ETAPA_CONFIRMAR_ENVIO
+        preguntaHablando = true
+        lector.hablar(getString(R.string.pregunta_enviar_o_corregir)) {
+            preguntaHablando = false
+            cancelarWatchdogPregunta()
+            Log.d(TAG, "Confirmación de enviar/corregir terminada, activando micrófono")
+            lector.mainHandler.postDelayed({ escucharRespuesta() }, 350)
+        }
+        armarWatchdogPregunta()
+    }
+
+    /** true = enviar, false = corregir, null = no entendido. */
+    private fun decidirEnviarOCorregir(respuesta: String): Boolean? {
+        val quiereEnviar = REGEX_SI.containsMatchIn(respuesta) ||
+            "enviar" in respuesta || "mandar" in respuesta ||
+            "manda" in respuesta || "adelante" in respuesta
+        val quiereCorregir = REGEX_NO.containsMatchIn(respuesta) ||
+            "corregir" in respuesta || "repetir" in respuesta ||
+            "cambiar" in respuesta || "otra vez" in respuesta
+        return when {
+            quiereEnviar && !quiereCorregir -> true
+            quiereCorregir && !quiereEnviar -> false
+            else -> null
+        }
+    }
+
+    /** Envía la respuesta guardada mediante el RemoteInput de la notificación original. */
+    private fun enviarRespuesta() {
+        val texto = dataStore.borradorTexto ?: ""
+        val pi = pendingIntentResponder
+        if (pi == null || texto.isBlank() || clavesRemoteInput.isEmpty()) {
+            Log.e(TAG, "No se puede enviar: pendingIntent=${pi != null} texto='$texto' claves=$clavesRemoteInput")
+            lector.hablar(getString(R.string.pendiente_intent_no_disponible)) {
+                finalizar()
+            }
+            return
+        }
+        Log.d(TAG, "Enviando respuesta a '${remitente}': '$texto'")
+        lector.hablar(getString(R.string.enviando_respuesta)) {
+            try {
+                val intentEnvio = Intent()
+                val resultados = Bundle()
+                clavesRemoteInput.forEach { resultados.putCharSequence(it, texto) }
+                // addResultsToIntent copia los resultados usando las claves del RemoteInput
+                // original, de modo que la app receptora (WhatsApp) los interprete bien.
+                val remoteInputs = clavesRemoteInput.map { input ->
+                    android.app.RemoteInput.Builder(input).build()
+                }.toTypedArray()
+                android.app.RemoteInput.addResultsToIntent(remoteInputs, intentEnvio, resultados)
+                pi.send(this, 0, intentEnvio)
+                dataStore.borrarBorradorRespuesta()
+                Log.d(TAG, "Respuesta enviada por RemoteInput")
+                lector.hablar(getString(R.string.respuesta_enviada, remitente)) {
+                    finalizar()
+                }
+            } catch (e: Exception) {
+                Log.e(TAG, "Error enviando respuesta", e)
+                lector.hablar(getString(R.string.aviso_no_enviado)) {
+                    finalizar()
+                }
+            }
+        }
+    }
+
+    /** Vuelve a escuchar el dictado para corregir la respuesta ya redactada. */
+    private fun corregirRespuesta() {
+        Log.d(TAG, "onResults: usuario quiere CORREGIR; borrando borrador anterior")
+        dataStore.borrarBorradorRespuesta()
+        etapaRespuesta = ETAPA_DICTADO
+        preguntaHablando = true
+        lector.hablar(getString(R.string.corrigiendo_respuesta)) {
+            preguntaHablando = false
+            cancelarWatchdogPregunta()
+            Log.d(TAG, "Aviso de corrección terminado, activando micrófono")
+            lector.mainHandler.postDelayed({ escucharTextoLibre() }, 350)
+        }
+        armarWatchdogPregunta()
+    }
+
+    /** Reintento cuando no se entiende "enviar" o "corregir". */
+    private fun reintentarONoEntendidoEnviarOCorregir() {
+        cancelarTiempoEscucha()
+        recognizer?.destroy()
+        recognizer = null
+        if (intentos < MAX_INTENTOS) {
+            intentos++
+            lector.hablar(getString(R.string.pregunta_enviar_o_corregir_reintento)) {
+                lector.mainHandler.postDelayed({ escucharRespuesta() }, 350)
+            }
+        } else {
+            // Sin respuesta clara se deja el borrador guardado (no se pierde) y se finaliza.
+            lector.hablar(getString(R.string.aviso_no_respondido)) {
+                finalizar()
+            }
+        }
+    }
+
     override fun onDestroy() {
         cancelarTiempoEscucha()
         cancelarWatchdogPregunta()
         preguntaHablando = false
-        recognizer?.destroy()
+        recognizer ?.destroy()
         recognizer = null
         Log.d(TAG, "LectorAsistenteService destruido")
         super.onDestroy()
@@ -314,8 +609,18 @@ class LectorAsistenteService : Service(), RecognitionListener {
         private const val TAG = "WalinkLectorVoz"
 
         const val ACTION_PREGUNTAR = "com.jjcampac.walink.action.PREGUNTAR_LECTURA"
+        const val ACTION_RESPONDER = "com.jjcampac.walink.action.RESPONDER"
         const val EXTRA_REMITENTE = "remitente"
         const val EXTRA_TEXTO = "texto"
+        const val EXTRA_PENDING_INTENT_RESPONDER = "pending_intent_responder"
+        const val EXTRA_CLAVES_REMOTE_INPUT = "claves_remote_input"
+
+        // Etapas del flujo de voz (leer / responder / dictar / enviar-o-corregir)
+        private const val ETAPA_IDLE = 0
+        private const val ETAPA_SI_NO_LEER = 1
+        private const val ETAPA_SI_NO_RESPONDER = 2
+        private const val ETAPA_DICTADO = 3
+        private const val ETAPA_CONFIRMAR_ENVIO = 4
 
         private const val CANAL = "walink_asistente_voz"
         private const val NOTIF_ID = 40

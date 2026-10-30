@@ -17,6 +17,9 @@ private object WalinkKeys {
     const val LEER_TRAS_PREGUNTAR = "leer_tras_preguntar"
     const val VOLUMEN_ATENUAR = "volumen_atenuar"
     const val RETRASO_BLUETOOTH = "retraso_bluetooth"
+    const val BORRADOR_REMITENTE = "borrador_remitente"
+    const val BORRADOR_TEXTO = "borrador_texto"
+    const val BORRADOR_TIMESTAMP = "borrador_timestamp"
 }
 
 /**
@@ -143,5 +146,31 @@ class WalinkDataStore private constructor(private val context: Context) {
 
     suspend fun setRetrasoBluetoothMs(milisegundos: Int) {
         prefs.edit().putInt(WalinkKeys.RETRASO_BLUETOOTH, milisegundos).apply()
+    }
+
+    // ---- BORRADOR DE RESPUESTA POR VOZ (dictado tras leer un mensaje) ----
+    val borradorRemitente: String?
+        get() = prefs.getString(WalinkKeys.BORRADOR_REMITENTE, null)
+
+    val borradorTexto: String?
+        get() = prefs.getString(WalinkKeys.BORRADOR_TEXTO, null)
+
+    val borradorTimestamp: Long?
+        get() = prefs.getLong(WalinkKeys.BORRADOR_TIMESTAMP, 0).takeIf { it > 0 }
+
+    fun guardarBorradorRespuesta(remitente: String, texto: String) {
+        prefs.edit()
+            .putString(WalinkKeys.BORRADOR_REMITENTE, remitente)
+            .putString(WalinkKeys.BORRADOR_TEXTO, texto)
+            .putLong(WalinkKeys.BORRADOR_TIMESTAMP, System.currentTimeMillis())
+            .apply()
+    }
+
+    fun borrarBorradorRespuesta() {
+        prefs.edit()
+            .remove(WalinkKeys.BORRADOR_REMITENTE)
+            .remove(WalinkKeys.BORRADOR_TEXTO)
+            .remove(WalinkKeys.BORRADOR_TIMESTAMP)
+            .apply()
     }
 }

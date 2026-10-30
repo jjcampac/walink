@@ -110,4 +110,22 @@
     <string name="canal_asistente_desc">Preguntas y lecturas por voz al recibir mensajes</string>
     <string name="notif_escuchando_titulo">Walink escuchando</string>
     <string name="notif_escuchando_desc">Preguntando si quieres leer un mensaje…</string>
+
+    <!-- Responder por voz después de leer -->
+    <string name="pregunta_responder">¿Quieres responder a %1$s?</string>
+    <string name="pregunta_responder_reintento">No te he oído bien. Di sí para responder, o no para cancelar.</string>
+    <string name="pedir_dictado">Dime tu respuesta</string>
+    <string name="borrador_guardado">He redactado tu respuesta para %1$s: %2$s</string>
+    <string name="no_responder">Vale, no responderé.</string>
+    <string name="aviso_no_respondido">No he podido oír tu respuesta, así que no responderé.</string>
+
+    <!-- Enviar o corregir borrador tras dictar -->
+    <string name="pregunta_enviar_o_corregir">¿Enviar respuesta o corregirla?</string>
+    <string name="pregunta_enviar_o_corregir_reintento">Di enviar para mandarla, o corregir para repetir el mensaje.</string>
+    <string name="enviando_respuesta">Enviando respuesta…</string>
+    <string name="respuesta_enviada">Respuesta enviada a %1$s</string>
+    <string name="corrigiendo_respuesta">Vale, dime la corrección</string>
+    <string name="aviso_no_enviado">No he podido enviar la respuesta</string>
+    <string name="pendiente_intent_no_disponible">No se puede enviar: no hay acción de respuesta disponible</string>
+    <string name="microfono_no_concedido_responder">Micrófono no concedido: no se puede responder por voz.</string>
 </resources>

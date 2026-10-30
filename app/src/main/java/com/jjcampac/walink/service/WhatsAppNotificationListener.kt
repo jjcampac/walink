@@ -1,5 +1,6 @@
 package com.jjcampac.walink.service
 
+import android.app.Notification
 import android.content.Intent
 import android.service.notification.NotificationListenerService
 import android.service.notification.StatusBarNotification
@@ -62,6 +63,12 @@ class WhatsAppNotificationListener : NotificationListenerService() {
             val esInmediato = !dataStore.leerTrasPreguntar
             val modoTexto = if (esInmediato) "leer inmediato" else "preguntar"
             Log.d(TAG, "Modo lectura: leerTrasPreguntar=${dataStore.leerTrasPreguntar} -> $modoTexto")
+            // Los datos de respuesta (PendingIntent + claves del RemoteInput) se extraen
+            // de la notificación original y se pasan al servicio para poder enviar la
+            // respuesta dictada por la acción de respuesta de la propia notificación.
+            val (pendingResponder, clavesRemoteInput) = extraerDatosRespuesta(sbn)
+            Log.d(TAG, "Datos de respuesta: pendingIntent=${pendingResponder != null}, claves=$clavesRemoteInput")
+
             if (esInmediato) {
                 // Modo "leer inmediatamente": leemos sin servicio en primer plano.
                 // Si quedara un LectorAsistenteService de un ciclo "preguntar" anterior
@@ -69,7 +76,23 @@ class WhatsAppNotificationListener : NotificationListenerService() {
                 // lectura con una pregunta fantasma.
                 stopService(Intent(this, LectorAsistenteService::class.java))
                 Log.d(TAG, "Mensaje de '${mensaje.remitente}' (grupo=${mensaje.esGrupo}) -> leyendo ahora")
-                speechReader.hablar(textoParaLeer)
+                speechReader.hablar(textoParaLeer) {
+                    // Tras terminar la lectura, ofrecer responder por voz.
+                    // El servicio ya verificará el permiso de micrófono internamente.
+                    val intent = Intent(this, LectorAsistenteService::class.java)
+                        .setAction(LectorAsistenteService.ACTION_RESPONDER)
+                        .putExtra(LectorAsistenteService.EXTRA_REMITENTE, mensaje.remitente)
+                        .putExtra(LectorAsistenteService.EXTRA_TEXTO, textoParaLeer)
+                        .putExtra(
+                            LectorAsistenteService.EXTRA_PENDING_INTENT_RESPONDER,
+                            pendingResponder as? android.os.Parcelable
+                        )
+                        .putStringArrayListExtra(
+                            LectorAsistenteService.EXTRA_CLAVES_REMOTE_INPUT,
+                            ArrayList(clavesRemoteInput)
+                        )
+                    ContextCompat.startForegroundService(this, intent)
+                }
             } else {
                 // Modo "preguntar": delega en el servicio en primer plano.
                 Log.d(TAG, "Mensaje de '${mensaje.remitente}' -> modo preguntar")
@@ -77,6 +100,14 @@ class WhatsAppNotificationListener : NotificationListenerService() {
                     .setAction(LectorAsistenteService.ACTION_PREGUNTAR)
                     .putExtra(LectorAsistenteService.EXTRA_REMITENTE, mensaje.remitente)
                     .putExtra(LectorAsistenteService.EXTRA_TEXTO, textoParaLeer)
+                    .putExtra(
+                        LectorAsistenteService.EXTRA_PENDING_INTENT_RESPONDER,
+                        pendingResponder as? android.os.Parcelable
+                    )
+                    .putStringArrayListExtra(
+                        LectorAsistenteService.EXTRA_CLAVES_REMOTE_INPUT,
+                        ArrayList(clavesRemoteInput)
+                    )
                 ContextCompat.startForegroundService(this, intent)
             }
         } catch (e: Exception) {
@@ -87,6 +118,25 @@ class WhatsAppNotificationListener : NotificationListenerService() {
 
     override fun onNotificationRemoved(sbn: StatusBarNotification) {
         super.onNotificationRemoved(sbn)
+    }
+
+    /**
+     * Extrae de la notificación la acción de respuesta con RemoteInput:
+     * el PendingIntent que hay que lanzar para responder y las claves de los
+     * RemoteInput (necesarias para rellenar el resultado con el texto dictado).
+     *
+     * Devuelve null cuando la notificación no trae acción de respuesta (p. ej.
+     * un aviso sin la acción "Responder"), en cuyo caso no se podrá enviar.
+     */
+    private fun extraerDatosRespuesta(sbn: StatusBarNotification): Pair<android.os.Parcelable?, List<String>> {
+        val accionRespuesta: Notification.Action? = sbn.notification.actions
+            ?.firstOrNull { !it.remoteInputs.isNullOrEmpty() }
+        val pendingIntent = accionRespuesta?.actionIntent
+        val claves = accionRespuesta?.remoteInputs
+            ?.map { it.resultKey }
+            ?.filter { it.isNotBlank() }
+            ?: emptyList()
+        return pendingIntent to claves
     }
 
     companion object {

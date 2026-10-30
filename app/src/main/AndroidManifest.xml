@@ -8,9 +8,10 @@
     <uses-permission android:name="android.permission.BLUETOOTH_SCAN" />
     <uses-permission android:name="android.permission.RECORD_AUDIO" />
     <uses-permission android:name="android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS" />
-    <!-- Micrófono en primer plano para el asistente de voz (preguntar antes de leer). -->
+    <!-- Servicios en primer plano para el asistente de voz (preguntar antes de leer / responder). -->
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MICROPHONE" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_SPECIAL_USE" />
 
     <application
         android:allowBackup="true"
@@ -69,13 +70,21 @@
             </intent-filter>
         </service>
 
-        <!-- Servicio en primer plano (micrófono) para el asistente de voz:
-             hace la pregunta y escucha la respuesta cuando Walink está en modo
-             "preguntar antes de leer". -->
+        <!-- Servicio en primer plano para el asistente de voz: hace la pregunta,
+             escucha la respuesta y permite responder por voz. Se declaran dos tipos
+             de FGS porque en Android 14+ (API 34) un FGS de tipo "microphone" NO
+             puede arrancar desde segundo plano (p. ej. al llegar una notificación
+             de WhatsApp con la app cerrada); con "specialUse" ese arranque sí está
+             permitido. En APIs < 34 se usa "microphone" como tipo en tiempo de
+             ejecución, por lo que el manifest declara ambos. -->
         <service
             android:name=".speech.LectorAsistenteService"
             android:exported="false"
-            android:foregroundServiceType="microphone" />
+            android:foregroundServiceType="microphone|specialUse">
+            <property
+                android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE"
+                android:value="Asistente de voz para leer y responder mensajes de WhatsApp mientras conduces" />
+        </service>
 
     </application>
 
