@@ -1,8 +1,17 @@
 # Walink 🚗💬
 
-App nativa de Android (Kotlin + Jetpack Compose) que lee en voz alta los mensajes de WhatsApp mientras conduces, sin tocar el teléfono, y permite responder por voz. Uso personal, instalación manual (sin Play Store).
+App nativa de Android (Kotlin + Jetpack Compose), pensada para **uso personal e instalación manual** (no está en Play Store), que lee en voz alta los mensajes de WhatsApp y permite responder por voz **mientras conduces, sin tocar el teléfono**.
 
-> **Estado actual:** **Fase 4 completada** (filtros, grupos, velocidad de voz, modo pruebas, detección de notas de voz y optimización R8/ProGuard).
+### El porqué de Walink
+
+Algunos vehículos con sistemas de infoentretenimiento propietarios (p. ej. **Tesla**) o con el sistema operativo **Android Automotive** no ofrecen aplicaciones nativas de mensajería (WhatsApp, Telegram, etc.), y en muchos casos tampoco permiten vincular el móvil mediante **Android Auto** o **CarPlay**.
+
+Coches así suelen aceptar, en cambio, la conexión **Bluetooth** con el teléfono. De esa idea nace Walink: aprovechar la tecnología de notificaciones de Android y esa conexión Bluetooth para que, mientras conduces y **sin tocar el móvil**, la app:
+
+- Te **informe por voz de la recepción** de un mensaje de WhatsApp (o Telegram, ampliable) y lo **lea en voz alta** en español de España.
+- Te permita **responder por voz** (dictado) y **enviar la respuesta** usando la acción oficial de respuesta de la propia notificación, sin Accessibility, ni apps de terceros, ni APIs no oficiales.
+
+Todo ello con una **privacidad estricta**: el procesamiento es 100 % local, sin red y sin analítica.
 
 ---
 
