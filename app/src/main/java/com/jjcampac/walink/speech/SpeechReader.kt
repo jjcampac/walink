@@ -102,6 +102,11 @@ class SpeechReader private constructor(private val contexto: Context) : TextToSp
         }
     }
 
+    /** Actualiza la velocidad de voz aplicada al motor TTS. */
+    fun actualizarVelocidad(velocidad: Float) {
+        tts?.setSpeechRate(velocidad)
+    }
+
     /** Aplica la voz: respeta la guardada si es local; si es de red, prefiere una local. */
     private fun aplicarVozGuardada() {
         val tts = tts ?: return

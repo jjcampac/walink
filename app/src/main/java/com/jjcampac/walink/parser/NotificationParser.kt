@@ -21,7 +21,8 @@ data class MensajeWhatsApp(
     val remitente: String,
     val texto: String,
     val esGrupo: Boolean,
-    val paqueteOrigen: String
+    val paqueteOrigen: String,
+    val esNotaDeVoz: Boolean = false
 )
 
 /**
@@ -110,12 +111,14 @@ object NotificationParser {
         // texto como "RemitenteGrupo: mensaje" o el título coincide con un grupo.
         val infoTexto = extras.getString(Notification.EXTRA_INFO_TEXT) ?: ""
         val (remitente, textoLimpio, esGrupo) = separarRemitenteGrupo(titulo, texto, infoTexto)
+        val esAudio = esMensajeDeVoz(textoLimpio.lowercase())
 
         return MensajeWhatsApp(
             remitente = if (remitente.isNotBlank()) remitente.trim() else "Desconocido",
             texto = if (textoLimpio.isNotBlank()) textoLimpio.trim() else "",
             esGrupo = esGrupo,
-            paqueteOrigen = paquete
+            paqueteOrigen = paquete,
+            esNotaDeVoz = esAudio
         )
     }
 
@@ -159,12 +162,28 @@ object NotificationParser {
         val textoLower = texto.lowercase()
         if (textoLower.contains("llamada") || textoLower.contains("video call")) return null
 
+        val esAudio = esMensajeDeVoz(textoLower, ultimoMensaje.dataMimeType)
+
         return MensajeWhatsApp(
             remitente = remitenteLeer.ifBlank { "Desconocido" },
             texto = texto,
             esGrupo = esGrupo,
-            paqueteOrigen = paquete
+            paqueteOrigen = paquete,
+            esNotaDeVoz = esAudio
         )
+    }
+
+    /**
+     * Determina si el texto o mimeType corresponde a un mensaje/nota de voz de WhatsApp.
+     */
+    private fun esMensajeDeVoz(textoLower: String, dataMimeType: String? = null): Boolean {
+        if (dataMimeType?.startsWith("audio/") == true) return true
+        return textoLower.contains("mensaje de voz") ||
+               textoLower.contains("nota de voz") ||
+               textoLower.contains("voice message") ||
+               textoLower.contains("audio (") ||
+               textoLower.startsWith("🎤") ||
+               textoLower.contains("🎤 mensaje de voz")
     }
 
     /**

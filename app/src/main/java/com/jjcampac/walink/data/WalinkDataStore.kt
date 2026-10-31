@@ -17,6 +17,7 @@ private object WalinkKeys {
     const val LEER_TRAS_PREGUNTAR = "leer_tras_preguntar"
     const val VOLUMEN_ATENUAR = "volumen_atenuar"
     const val RETRASO_BLUETOOTH = "retraso_bluetooth"
+    const val LEER_SIN_COCHE = "leer_sin_coche"
     const val BORRADOR_REMITENTE = "borrador_remitente"
     const val BORRADOR_TEXTO = "borrador_texto"
     const val BORRADOR_TIMESTAMP = "borrador_timestamp"
@@ -146,6 +147,14 @@ class WalinkDataStore private constructor(private val context: Context) {
 
     suspend fun setRetrasoBluetoothMs(milisegundos: Int) {
         prefs.edit().putInt(WalinkKeys.RETRASO_BLUETOOTH, milisegundos).apply()
+    }
+
+    // ---- LEER SIN COCHE (para pruebas, false por defecto) ----
+    val leerSinCoche: Boolean
+        get() = prefs.getBoolean(WalinkKeys.LEER_SIN_COCHE, false)
+
+    suspend fun setLeerSinCoche(leer: Boolean) {
+        prefs.edit().putBoolean(WalinkKeys.LEER_SIN_COCHE, leer).apply()
     }
 
     // ---- BORRADOR DE RESPUESTA POR VOZ (dictado tras leer un mensaje) ----

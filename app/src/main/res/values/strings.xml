@@ -138,4 +138,22 @@
     <string name="aviso_no_enviado">No he podido enviar la respuesta</string>
     <string name="pendiente_intent_no_disponible">No se puede enviar: no hay acción de respuesta disponible</string>
     <string name="microfono_no_concedido_responder">Micrófono no concedido: no se puede responder por voz.</string>
+
+    <!-- Fase 4: Ajustes adicionales -->
+    <string name="ajuste_leer_sin_coche">Leer también sin coche (pruebas)</string>
+    <string name="ajuste_leer_sin_coche_desc">Si tienes un coche seleccionado pero no está conectado, leer de todos modos por el teléfono</string>
+    <string name="ajuste_grupos_titulo">Mensajes de grupos</string>
+    <string name="ajuste_grupos_desc">Elegir si se leen o ignoran los mensajes provenientes de chats de grupo</string>
+    <string name="ajuste_grupos_activado">Leer mensajes de grupos</string>
+    <string name="ajuste_grupos_desactivado">Ignorar grupos (solo chats individuales)</string>
+    <string name="ajuste_velocidad_titulo">Velocidad de la voz</string>
+    <string name="ajuste_velocidad_desc">Ajusta la rapidez con la que habla el asistente (%1$.2fx)</string>
+    <string name="ajuste_filtros_contacto_titulo">Filtro de contactos</string>
+    <string name="ajuste_filtros_contacto_desc">Limitar o bloquear qué contactos se leen en voz alta</string>
+    <string name="filtro_modo_todos">Leer todos los contactos</string>
+    <string name="filtro_modo_permitidos">Solo contactos permitidos (lista blanca)</string>
+    <string name="filtro_modo_bloqueados">Bloquear contactos específicos (lista negra)</string>
+    <string name="filtro_contactos_hint">Nombres separados por comas (ej: Mamá, Juan, Trabajo)</string>
+    <string name="filtro_contactos_guardar">Guardar lista</string>
+    <string name="nota_de_voz_detectada">Mensaje de voz de WhatsApp (%1$s)</string>
 </resources>

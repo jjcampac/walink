@@ -55,7 +55,9 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.RadioButton
+import androidx.compose.material3.Slider
 import androidx.compose.material3.Surface
+import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -79,6 +81,7 @@ import com.jjcampac.walink.data.WalinkDataStore
 import com.jjcampac.walink.debug.DebugSimulator
 import com.jjcampac.walink.service.BluetoothCoche
 import com.jjcampac.walink.service.WhatsAppNotificationListener
+import com.jjcampac.walink.speech.SpeechReader
 import com.jjcampac.walink.ui.theme.*
 import java.util.Locale
 import kotlinx.coroutines.launch
@@ -147,6 +150,14 @@ class MainActivity : ComponentActivity() {
     private var dispositivoSeleccionado by mutableStateOf<String?>(null)      // dirección MAC
     private var dispositivosEmparejados by mutableStateOf<List<BluetoothCoche.Dispositivo>>(emptyList())
     private var dispositivoConectado by mutableStateOf(false)
+
+    // ---- Fase 4: Ajustes adicionales ----
+    private var leerSinCoche by mutableStateOf(false)
+    private var leerGrupos by mutableStateOf(true)
+    private var velocidadVoz by mutableStateOf(1.0f)
+    private var contactosPermitidosTexto by mutableStateOf("")
+    private var contactosBloqueadosTexto by mutableStateOf("")
+    private var modoFiltroContactos by mutableStateOf(0) // 0: todos, 1: permitidos, 2: bloqueados
 
     /**
      * Comprueba si Walink tiene concedido el "Acceso a notificaciones" del
@@ -338,6 +349,16 @@ class MainActivity : ComponentActivity() {
         leerTrasPreguntar = dataStore.leerTrasPreguntar
         audioBajaVolumen = dataStore.bajarVolumenEnLugarDePausar
         dispositivoSeleccionado = dataStore.dispositivoBluetooth
+        leerSinCoche = dataStore.leerSinCoche
+        leerGrupos = dataStore.leerGrupos
+        velocidadVoz = dataStore.velocidadVoz
+        contactosPermitidosTexto = dataStore.contactosPermitidos.joinToString(", ")
+        contactosBloqueadosTexto = dataStore.contactosBloqueados.joinToString(", ")
+        modoFiltroContactos = when {
+            dataStore.contactosPermitidos.isNotEmpty() -> 1
+            dataStore.contactosBloqueados.isNotEmpty() -> 2
+            else -> 0
+        }
         refrescarDispositivosBluetooth()
 
         // Crea un TTS "explorador" para listar las voces disponibles del motor.
@@ -420,6 +441,68 @@ class MainActivity : ComponentActivity() {
                             }
                         },
                         onRefrescarDispositivos = { refrescarDispositivosBluetooth() },
+                        leerSinCoche = leerSinCoche,
+                        onCambiarLeerSinCoche = { activo ->
+                            lifecycleScope.launch {
+                                dataStore.setLeerSinCoche(activo)
+                                leerSinCoche = activo
+                            }
+                        },
+                        leerGrupos = leerGrupos,
+                        onCambiarLeerGrupos = { leer ->
+                            lifecycleScope.launch {
+                                dataStore.setLeerGrupos(leer)
+                                leerGrupos = leer
+                            }
+                        },
+                        velocidadVoz = velocidadVoz,
+                        onCambiarVelocidadVoz = { vel ->
+                            lifecycleScope.launch {
+                                dataStore.setVelocidadVoz(vel)
+                                velocidadVoz = vel
+                                SpeechReader.obtener(applicationContext).actualizarVelocidad(vel)
+                            }
+                        },
+                        modoFiltro = modoFiltroContactos,
+                        contactosPermitidosTexto = contactosPermitidosTexto,
+                        contactosBloqueadosTexto = contactosBloqueadosTexto,
+                        onCambiarModoFiltro = { nuevoModo ->
+                            modoFiltroContactos = nuevoModo
+                            lifecycleScope.launch {
+                                when (nuevoModo) {
+                                    0 -> { // Todos
+                                        dataStore.setContactosPermitidos(emptySet())
+                                        dataStore.setContactosBloqueados(emptySet())
+                                    }
+                                    1 -> { // Permitidos
+                                        val permitidos = contactosPermitidosTexto.split(",")
+                                            .map { it.trim() }.filter { it.isNotBlank() }.toSet()
+                                        dataStore.setContactosPermitidos(permitidos)
+                                        dataStore.setContactosBloqueados(emptySet())
+                                    }
+                                    2 -> { // Bloqueados
+                                        val bloqueados = contactosBloqueadosTexto.split(",")
+                                            .map { it.trim() }.filter { it.isNotBlank() }.toSet()
+                                        dataStore.setContactosBloqueados(bloqueados)
+                                        dataStore.setContactosPermitidos(emptySet())
+                                    }
+                                }
+                            }
+                        },
+                        onGuardarContactosPermitidos = { texto ->
+                            contactosPermitidosTexto = texto
+                            val lista = texto.split(",").map { it.trim() }.filter { it.isNotBlank() }.toSet()
+                            lifecycleScope.launch {
+                                dataStore.setContactosPermitidos(lista)
+                            }
+                        },
+                        onGuardarContactosBloqueados = { texto ->
+                            contactosBloqueadosTexto = texto
+                            val lista = texto.split(",").map { it.trim() }.filter { it.isNotBlank() }.toSet()
+                            lifecycleScope.launch {
+                                dataStore.setContactosBloqueados(lista)
+                            }
+                        },
                         onProbarVoz = { reproducirPruebaVoz() },
                         onIrAjustesNotificaciones = {
                             startActivity(Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS))
@@ -559,6 +642,18 @@ private fun PantallaPrincipal(
     dispositivoConectado: Boolean,
     onSeleccionarDispositivo: (String?) -> Unit,
     onRefrescarDispositivos: () -> Unit,
+    leerSinCoche: Boolean,
+    onCambiarLeerSinCoche: (Boolean) -> Unit,
+    leerGrupos: Boolean,
+    onCambiarLeerGrupos: (Boolean) -> Unit,
+    velocidadVoz: Float,
+    onCambiarVelocidadVoz: (Float) -> Unit,
+    modoFiltro: Int,
+    contactosPermitidosTexto: String,
+    contactosBloqueadosTexto: String,
+    onCambiarModoFiltro: (Int) -> Unit,
+    onGuardarContactosPermitidos: (String) -> Unit,
+    onGuardarContactosBloqueados: (String) -> Unit,
     onIrAjustesNotificaciones: () -> Unit,
     onIrAjustesBateria: () -> Unit,
     onSolicitarMicrofono: () -> Unit,
@@ -640,7 +735,31 @@ private fun PantallaPrincipal(
                 seleccionado = dispositivoSeleccionado,
                 conectado = dispositivoConectado,
                 onSeleccionarDispositivo = onSeleccionarDispositivo,
-                onRefrescar = onRefrescarDispositivos
+                onRefrescar = onRefrescarDispositivos,
+                leerSinCoche = leerSinCoche,
+                onCambiarLeerSinCoche = onCambiarLeerSinCoche
+            )
+
+            // Grupos: opción de leer o ignorar mensajes de grupo.
+            TarjetaGrupos(
+                leerGrupos = leerGrupos,
+                onCambiarLeerGrupos = onCambiarLeerGrupos
+            )
+
+            // Velocidad de voz: slider interactivo.
+            TarjetaVelocidadVoz(
+                velocidad = velocidadVoz,
+                onCambiarVelocidad = onCambiarVelocidadVoz
+            )
+
+            // Filtro por contactos: todos, permitidos o bloqueados.
+            TarjetaFiltroContactos(
+                modo = modoFiltro,
+                contactosPermitidosTexto = contactosPermitidosTexto,
+                contactosBloqueadosTexto = contactosBloqueadosTexto,
+                onCambiarModo = onCambiarModoFiltro,
+                onGuardarPermitidos = onGuardarContactosPermitidos,
+                onGuardarBloqueados = onGuardarContactosBloqueados
             )
 
             Spacer(modifier = Modifier.height(24.dp))
@@ -918,7 +1037,9 @@ private fun TarjetaDispositivoCoche(
     seleccionado: String?,
     conectado: Boolean,
     onSeleccionarDispositivo: (String?) -> Unit,
-    onRefrescar: () -> Unit
+    onRefrescar: () -> Unit,
+    leerSinCoche: Boolean = false,
+    onCambiarLeerSinCoche: (Boolean) -> Unit = {}
 ) {
     var menuAbierto by remember { mutableStateOf(false) }
 
@@ -1044,6 +1165,239 @@ private fun TarjetaDispositivoCoche(
                         color = colorEstado,
                         modifier = Modifier.padding(top = 2.dp)
                     )
+                }
+
+                // Ajuste adicional: Leer también sin coche (pruebas)
+                if (!seleccionado.isNullOrBlank()) {
+                    Spacer(modifier = Modifier.height(12.dp))
+                    HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
+                    Spacer(modifier = Modifier.height(10.dp))
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clip(RoundedCornerShape(8.dp))
+                            .clickable { onCambiarLeerSinCoche(!leerSinCoche) }
+                            .padding(vertical = 4.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(
+                                text = stringResource(id = R.string.ajuste_leer_sin_coche),
+                                style = MaterialTheme.typography.bodyMedium,
+                                fontWeight = FontWeight.Medium
+                            )
+                            Text(
+                                text = stringResource(id = R.string.ajuste_leer_sin_coche_desc),
+                                style = MaterialTheme.typography.bodySmall,
+                                color = GrisEstado
+                            )
+                        }
+                        Switch(
+                            checked = leerSinCoche,
+                            onCheckedChange = onCambiarLeerSinCoche
+                        )
+                    }
+                }
+            }
+        }
+    }
+}
+
+/** Tarjeta para configurar si se leen mensajes de grupos de WhatsApp. */
+@Composable
+private fun TarjetaGrupos(
+    leerGrupos: Boolean,
+    onCambiarLeerGrupos: (Boolean) -> Unit
+) {
+    Card(
+        modifier = Modifier.fillMaxWidth().padding(vertical = 6.dp),
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.surfaceContainer
+        ),
+        elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
+    ) {
+        Column(modifier = Modifier.fillMaxWidth().padding(16.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text(text = "👥", fontSize = 24.sp)
+                Spacer(modifier = Modifier.width(14.dp))
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = stringResource(id = R.string.ajuste_grupos_titulo),
+                        style = MaterialTheme.typography.bodyMedium,
+                        fontWeight = FontWeight.SemiBold,
+                        color = MaterialTheme.colorScheme.onSurface
+                    )
+                    Text(
+                        text = stringResource(id = R.string.ajuste_grupos_desc),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = GrisEstado
+                    )
+                }
+                Switch(
+                    checked = leerGrupos,
+                    onCheckedChange = onCambiarLeerGrupos
+                )
+            }
+            Spacer(modifier = Modifier.height(6.dp))
+            Text(
+                text = if (leerGrupos) stringResource(id = R.string.ajuste_grupos_activado)
+                       else stringResource(id = R.string.ajuste_grupos_desactivado),
+                style = MaterialTheme.typography.bodySmall,
+                color = if (leerGrupos) VerdeOk else GrisEstado
+            )
+        }
+    }
+}
+
+/** Tarjeta con Slider interactivo para regular la velocidad de voz TTS. */
+@Composable
+private fun TarjetaVelocidadVoz(
+    velocidad: Float,
+    onCambiarVelocidad: (Float) -> Unit
+) {
+    Card(
+        modifier = Modifier.fillMaxWidth().padding(vertical = 6.dp),
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.surfaceContainer
+        ),
+        elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
+    ) {
+        Column(modifier = Modifier.fillMaxWidth().padding(16.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text(text = "⚡", fontSize = 24.sp)
+                Spacer(modifier = Modifier.width(14.dp))
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = stringResource(id = R.string.ajuste_velocidad_titulo),
+                        style = MaterialTheme.typography.bodyMedium,
+                        fontWeight = FontWeight.SemiBold,
+                        color = MaterialTheme.colorScheme.onSurface
+                    )
+                    Text(
+                        text = stringResource(id = R.string.ajuste_velocidad_desc, velocidad),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = GrisEstado
+                    )
+                }
+            }
+            Spacer(modifier = Modifier.height(8.dp))
+            Slider(
+                value = velocidad,
+                onValueChange = { onCambiarVelocidad((Math.round(it * 10f) / 10f)) },
+                valueRange = 0.5f..2.0f,
+                steps = 14
+            )
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                Text("0.5x (Lenta)", style = MaterialTheme.typography.labelSmall, color = GrisEstado)
+                Text("1.0x (Normal)", style = MaterialTheme.typography.labelSmall, color = GrisEstado)
+                Text("2.0x (Rápida)", style = MaterialTheme.typography.labelSmall, color = GrisEstado)
+            }
+        }
+    }
+}
+
+/** Tarjeta para configurar lista blanca / negra de contactos. */
+@Composable
+private fun TarjetaFiltroContactos(
+    modo: Int, // 0: Todos, 1: Permitidos, 2: Bloqueados
+    contactosPermitidosTexto: String,
+    contactosBloqueadosTexto: String,
+    onCambiarModo: (Int) -> Unit,
+    onGuardarPermitidos: (String) -> Unit,
+    onGuardarBloqueados: (String) -> Unit
+) {
+    var textoEditadoPermitidos by remember(contactosPermitidosTexto) { mutableStateOf(contactosPermitidosTexto) }
+    var textoEditadoBloqueados by remember(contactosBloqueadosTexto) { mutableStateOf(contactosBloqueadosTexto) }
+
+    Card(
+        modifier = Modifier.fillMaxWidth().padding(vertical = 6.dp),
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.surfaceContainer
+        ),
+        elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
+    ) {
+        Column(modifier = Modifier.fillMaxWidth().padding(16.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text(text = "🛡️", fontSize = 24.sp)
+                Spacer(modifier = Modifier.width(14.dp))
+                Column {
+                    Text(
+                        text = stringResource(id = R.string.ajuste_filtros_contacto_titulo),
+                        style = MaterialTheme.typography.bodyMedium,
+                        fontWeight = FontWeight.SemiBold,
+                        color = MaterialTheme.colorScheme.onSurface
+                    )
+                    Text(
+                        text = stringResource(id = R.string.ajuste_filtros_contacto_desc),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = GrisEstado
+                    )
+                }
+            }
+
+            Spacer(modifier = Modifier.height(10.dp))
+
+            FilaModoLectura(
+                emoji = "🌐",
+                titulo = stringResource(id = R.string.filtro_modo_todos),
+                descripcion = "Sin restricciones: se leen todos los chats",
+                seleccionado = modo == 0,
+                onClick = { onCambiarModo(0) }
+            )
+            FilaModoLectura(
+                emoji = "✅",
+                titulo = stringResource(id = R.string.filtro_modo_permitidos),
+                descripcion = "Solo se leen los contactos de la lista blanca",
+                seleccionado = modo == 1,
+                onClick = { onCambiarModo(1) }
+            )
+            if (modo == 1) {
+                Column(modifier = Modifier.padding(start = 16.dp, top = 6.dp, end = 8.dp)) {
+                    OutlinedTextField(
+                        value = textoEditadoPermitidos,
+                        onValueChange = { textoEditadoPermitidos = it },
+                        modifier = Modifier.fillMaxWidth(),
+                        placeholder = { Text(stringResource(id = R.string.filtro_contactos_hint)) },
+                        singleLine = false,
+                        maxLines = 3
+                    )
+                    Spacer(modifier = Modifier.height(6.dp))
+                    Button(
+                        onClick = { onGuardarPermitidos(textoEditadoPermitidos) },
+                        modifier = Modifier.align(Alignment.End)
+                    ) {
+                        Text(stringResource(id = R.string.filtro_contactos_guardar))
+                    }
+                }
+            }
+
+            FilaModoLectura(
+                emoji = "🚫",
+                titulo = stringResource(id = R.string.filtro_modo_bloqueados),
+                descripcion = "Se ignoran los contactos añadidos a la lista negra",
+                seleccionado = modo == 2,
+                onClick = { onCambiarModo(2) }
+            )
+            if (modo == 2) {
+                Column(modifier = Modifier.padding(start = 16.dp, top = 6.dp, end = 8.dp)) {
+                    OutlinedTextField(
+                        value = textoEditadoBloqueados,
+                        onValueChange = { textoEditadoBloqueados = it },
+                        modifier = Modifier.fillMaxWidth(),
+                        placeholder = { Text(stringResource(id = R.string.filtro_contactos_hint)) },
+                        singleLine = false,
+                        maxLines = 3
+                    )
+                    Spacer(modifier = Modifier.height(6.dp))
+                    Button(
+                        onClick = { onGuardarBloqueados(textoEditadoBloqueados) },
+                        modifier = Modifier.align(Alignment.End)
+                    ) {
+                        Text(stringResource(id = R.string.filtro_contactos_guardar))
+                    }
                 }
             }
         }

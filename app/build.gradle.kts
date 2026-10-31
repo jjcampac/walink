@@ -21,13 +21,12 @@ android {
 
     buildTypes {
         release {
-            // R8 optimization disabled to avoid stripping code that's only called
-            // via reflection or that R8 considers unused. Re-enable once ProGuard
-            // rules are properly configured.
-            // optimization {
-            //     enable = true
-            //     packageScope = setOf("androidx.**", "kotlin.**", "kotlinx.**")
-            // }
+            isMinifyEnabled = true
+            isShrinkResources = true
+            proguardFiles(
+                getDefaultProguardFile("proguard-android-optimize.txt"),
+                "proguard-rules.pro"
+            )
         }
     }
     compileOptions {

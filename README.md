@@ -2,7 +2,7 @@
 
 App nativa de Android (Kotlin + Jetpack Compose) que lee en voz alta los mensajes de WhatsApp mientras conduces, sin tocar el teléfono, y permite responder por voz. Uso personal, instalación manual (sin Play Store).
 
-> **Estado actual:** **Fase 3 completada** (dictado, corrección y envío de respuesta por voz). **Fase 4** (notas de voz, filtros y pulido) pendiente.
+> **Estado actual:** **Fase 4 completada** (filtros, grupos, velocidad de voz, modo pruebas, detección de notas de voz y optimización R8/ProGuard).
 
 ---
 
@@ -45,14 +45,20 @@ App nativa de Android (Kotlin + Jetpack Compose) que lee en voz alta los mensaje
 - ✅ **Borrador de respuesta** persistente en `WalinkDataStore` (`borrador_remitente`, `borrador_texto`, `borrador_timestamp`).
 - ✅ Verificado con el simulador: el `DebugReplyReceiver` muestra en Logcat la respuesta enviada por RemoteInput.
 
-## ⏳ Fase 4 — Pendiente
+## ✅ Fase 4 — Filtros, grupos, velocidad, modo pruebas y pulido *(completada)*
 
-- ⏳ **Notas de voz (.opus):** la notificación no incluye el audio; hay que localizar el archivo en el almacenamiento de WhatsApp y reproducirlo. Verificar la ruta real y el método de acceso antes de implementar.
-- ⏳ **Filtros por contacto:** contactos permitidos/bloqueados (preferencia creada; UI y aplicación real del filtro pendiente).
-- ⏳ **Grupos:** opción de leer/ignorar mensajes de grupos (preferencia creada; UI pendiente).
-- ⏳ Ajuste **"Leer también sin coche (pruebas)"** (desactivado por defecto).
-- ⏳ **Velocidad de voz** (preferencia creada; exposición en UI y verificación pendientes).
-- ⏳ **Pulido final:** activar R8/ProGuard en release y pruebas generales en el móvil real.
+- ✅ **Filtros por contacto:** interfaz completa y filtrado efectivo en `WhatsAppNotificationListener` para:
+  - Lista blanca (solo se leen contactos permitidos).
+  - Lista negra (se ignoran contactos bloqueados).
+  - Todos los contactos (sin restricción).
+- ✅ **Grupos:** interruptor en UI y filtro en el listener para leer o ignorar mensajes de chats de grupo.
+- ✅ **Ajuste "Leer también sin coche (pruebas)":** interruptor cuando hay un coche seleccionado para permitir probar lecturas por el altavoz del teléfono sin estar conectado físicamente al vehículo.
+- ✅ **Velocidad de voz:** Slider interactivo (de 0.5x a 2.0x) con guardado persistente y actualización en vivo del motor `TextToSpeech` (`setSpeechRate`).
+- ✅ **Detección de notas de voz:** `NotificationParser` detecta audios/notas de voz de WhatsApp y locuta amigablemente que se ha recibido una nota de voz.
+- ✅ **Pulido final con R8 / ProGuard:**
+  - `isMinifyEnabled = true` y `isShrinkResources = true` activados para el buildType `release`.
+  - Archivo `proguard-rules.pro` configurado para mantener componentes Android, servicios en primer plano y serializaciones.
+  - Compilación `assembleRelease` y `assembleDebug` verificadas con éxito.
 
 ---
 
