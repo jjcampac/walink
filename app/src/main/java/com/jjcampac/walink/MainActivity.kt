@@ -304,6 +304,7 @@ class MainActivity : ComponentActivity() {
             @Suppress("DEPRECATION")
             tts.setLanguage(Locale("es", ""))
         }
+        tts.setSpeechRate(velocidadVoz)
         tts.speak(
             getString(R.string.voz_prueba_frase),
             TextToSpeech.QUEUE_FLUSH,
@@ -718,38 +719,6 @@ private fun PantallaPrincipal(
             when (tabSeleccionada) {
                 0 -> {
                     // PESTAÑA 1: CONDUCCIÓN
-                    // Cómo activar/desactivar desde el mosaico de accesos rápidos
-                    Card(
-                        modifier = Modifier.fillMaxWidth(),
-                        colors = CardDefaults.cardColors(
-                            containerColor = MaterialTheme.colorScheme.surfaceContainer
-                        ),
-                        elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
-                    ) {
-                        Row(
-                            modifier = Modifier.fillMaxWidth().padding(14.dp),
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Text(text = "📲", fontSize = 24.sp)
-                            Spacer(modifier = Modifier.width(12.dp))
-                            Column(modifier = Modifier.weight(1f)) {
-                                Text(
-                                    text = stringResource(id = R.string.tile_como_activar_titulo),
-                                    style = MaterialTheme.typography.titleSmall,
-                                    fontWeight = FontWeight.SemiBold
-                                )
-                                Text(
-                                    text = stringResource(id = R.string.tile_como_activar_desc),
-                                    style = MaterialTheme.typography.bodySmall,
-                                    color = GrisTextoSuave,
-                                    modifier = Modifier.padding(top = 2.dp)
-                                )
-                            }
-                        }
-                    }
-
-                    Spacer(modifier = Modifier.height(14.dp))
-
                     // Coche y Conectividad
                     TarjetaCocheConectividad(
                         permisoBluetooth = permisoBluetooth,
@@ -915,10 +884,43 @@ private fun CabeceraWalink(servicioActivado: Boolean) {
                 textAlign = TextAlign.Center,
                 modifier = Modifier.padding(top = 4.dp)
             )
+
+            // Tarjeta "¿Cómo activar Walink?": integrada en la cabecera verde
+            Surface(
+                color = Color.White.copy(alpha = 0.14f),
+                shape = RoundedCornerShape(14.dp),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(top = 14.dp)
+            ) {
+                Row(
+                    modifier = Modifier.padding(horizontal = 14.dp, vertical = 10.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(text = "📲", fontSize = 22.sp)
+                    Spacer(modifier = Modifier.width(12.dp))
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            text = stringResource(id = R.string.tile_como_activar_titulo),
+                            style = MaterialTheme.typography.titleSmall,
+                            fontWeight = FontWeight.SemiBold,
+                            color = Color.White
+                        )
+                        Text(
+                            text = stringResource(id = R.string.tile_como_activar_desc),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = Color.White.copy(alpha = 0.9f),
+                            modifier = Modifier.padding(top = 2.dp)
+                        )
+                    }
+                }
+            }
+
+            // Estado de la aplicación (Activo / Inactivo)
             Surface(
                 color = Color.White.copy(alpha = 0.16f),
                 shape = RoundedCornerShape(50),
-                modifier = Modifier.padding(top = 18.dp)
+                modifier = Modifier.padding(top = 14.dp)
             ) {
                 Row(
                     modifier = Modifier.padding(horizontal = 16.dp, vertical = 7.dp),
