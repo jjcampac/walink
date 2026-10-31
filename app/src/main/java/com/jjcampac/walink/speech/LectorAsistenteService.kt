@@ -162,6 +162,25 @@ class LectorAsistenteService : Service(), RecognitionListener {
         Log.d(TAG, "WakeLock liberado")
     }
 
+    /**
+     * Marca el FGS como tipo "microphone" mientras usamos el reconocedor. Al arrancar
+     * desde segundo plano en API 34+ usamos "specialUse" (el tipo "microphone" no puede
+     * iniciarse en ese caso). Pero el tipo "specialUse" no mantiene el micrófono activo
+     * "while-in-use": con pantalla apagada, el SpeechRecognizer solo capta el primer
+     * buffer y luego se queda sin audio (NO_MATCH). Pasando el FGS ya en marcha a tipo
+     * "microphone", el sistema concede el uso continuo del micrófono.
+     */
+    private fun activarFgMicrofono() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
+            try {
+                startForeground(NOTIF_ID, notificacionActiva(), ServiceInfo.FOREGROUND_SERVICE_TYPE_MICROPHONE)
+                Log.d(TAG, "FGS marcado como tipo micrófono (API 34+)")
+            } catch (e: Exception) {
+                Log.w(TAG, "No se pudo marcar el FGS como micrófono", e)
+            }
+        }
+    }
+
     /** Reproduce la pregunta por voz y, al terminar, activa el micrófono. */
     private fun hacerPregunta() {
         val pregunta = if (intentos == 0) {
@@ -213,13 +232,8 @@ class LectorAsistenteService : Service(), RecognitionListener {
         }
         recognizer = sr.apply { setRecognitionListener(this@LectorAsistenteService) }
 
-        val intentReconocimiento = Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH).apply {
-            putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)
-            putExtra(RecognizerIntent.EXTRA_LANGUAGE, "es-ES")
-            putExtra(RecognizerIntent.EXTRA_PROMPT, getString(R.string.pregunta_voz_prompt))
-            putExtra(RecognizerIntent.EXTRA_PARTIAL_RESULTS, false)
-            putExtra("android.speech.extra.MAX_RESULTS", 1)
-        }
+        val intentReconocimiento = construyeIntentReconocimiento(R.string.pregunta_voz_prompt)
+        activarFgMicrofono()
         recognizer?.startListening(intentReconocimiento)
         Log.d(TAG, "SpeechRecognizer escuchando...")
 
@@ -526,13 +540,8 @@ class LectorAsistenteService : Service(), RecognitionListener {
         }
         recognizer = sr.apply { setRecognitionListener(this@LectorAsistenteService) }
 
-        val intentReconocimiento = Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH).apply {
-            putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)
-            putExtra(RecognizerIntent.EXTRA_LANGUAGE, "es-ES")
-            putExtra(RecognizerIntent.EXTRA_PROMPT, getString(R.string.pregunta_voz_prompt))
-            putExtra(RecognizerIntent.EXTRA_PARTIAL_RESULTS, false)
-            putExtra("android.speech.extra.MAX_RESULTS", 1)
-        }
+        val intentReconocimiento = construyeIntentReconocimiento(R.string.pregunta_voz_prompt)
+        activarFgMicrofono()
         recognizer?.startListening(intentReconocimiento)
         Log.d(TAG, "SpeechRecognizer escuchando dictado...")
 
@@ -544,6 +553,24 @@ class LectorAsistenteService : Service(), RecognitionListener {
         tiempoEscucha = tarea
         lector.mainHandler.postDelayed(tarea, TIEMPO_ESCUCHA_MS)
     }
+
+    /**
+     * Construye el intent de reconocimiento de voz. Comparte configuración entre la
+     * pregunta sí/no y el dictado. Pide 3 resultados y deja un margen de silencio
+     * para no cortar respuestas muy cortas ("sí"/"no") ni dar por terminado el habla
+     * con el primer silencio breve.
+     */
+    private fun construyeIntentReconocimiento(promptRes: Int): Intent =
+        Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH).apply {
+            putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)
+            putExtra(RecognizerIntent.EXTRA_LANGUAGE, "es-ES")
+            putExtra(RecognizerIntent.EXTRA_PROMPT, getString(promptRes))
+            putExtra(RecognizerIntent.EXTRA_PARTIAL_RESULTS, false)
+            putExtra("android.speech.extra.MAX_RESULTS", 3)
+            // Margen de silencio (ms) antes de dar por terminado el habla, para que
+            // no descartar respuestas cortas como "sí"/"no" con un silencio breve.
+            putExtra(RecognizerIntent.EXTRA_SPEECH_INPUT_COMPLETE_SILENCE_LENGTH_MILLIS, 1500L)
+        }
 
     /** Lanza ACTION_RESPONDER para ofrecer responder tras leer un mensaje. */
     private fun lanzarOfrecerResponder() {
