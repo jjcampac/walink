@@ -18,6 +18,7 @@ private object WalinkKeys {
     const val VOLUMEN_ATENUAR = "volumen_atenuar"
     const val RETRASO_BLUETOOTH = "retraso_bluetooth"
     const val LEER_SIN_COCHE = "leer_sin_coche"
+    const val COCHE_ACL_CONECTADOS = "coche_acl_conectados"
     const val BORRADOR_REMITENTE = "borrador_remitente"
     const val BORRADOR_TEXTO = "borrador_texto"
     const val BORRADOR_TIMESTAMP = "borrador_timestamp"
@@ -59,6 +60,25 @@ class WalinkDataStore private constructor(private val context: Context) {
 
     suspend fun setDispositivoBluetooth(direccionMac: String?) {
         prefs.edit().putString(WalinkKeys.DISPOSITIVO_BLUETOOTH, direccionMac).apply()
+    }
+
+    // ---- CONEXIÓN BLUETOOTH POR ENLACE ACL (por dispositivo) ----
+    // Conjunto de MACs de dispositivos Bluetooth actualmente conectados por enlace
+    // ACL. Lo mantienen BluetoothAclReceiver y refrescarConectado. Al ser POR
+    // dispositivo, cada uno es independiente: cambiar de coche no arrastra el estado
+    // de otro dispositivo que pueda seguir conectado.
+    val cochesConectadosAcl: Set<String>
+        get() = prefs.getStringSet(WalinkKeys.COCHE_ACL_CONECTADOS, emptySet())
+            ?: emptySet()
+
+    fun setCocheConectadoAcl(direccionMac: String, conectado: Boolean) {
+        val actual = cochesConectadosAcl.toMutableSet()
+        if (conectado) {
+            actual.add(direccionMac)
+        } else {
+            actual.remove(direccionMac)
+        }
+        prefs.edit().putStringSet(WalinkKeys.COCHE_ACL_CONECTADOS, actual).apply()
     }
 
     // ---- CONTACTOS PERMITIDOS ----

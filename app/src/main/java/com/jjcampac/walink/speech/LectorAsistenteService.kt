@@ -52,6 +52,8 @@ class LectorAsistenteService : Service(), RecognitionListener {
     private var ciclo = 0
     private var preguntaHablando = false
     private var tareaWatchdogPregunta: Runnable? = null
+    // Pico de nivel de audio (onRmsChanged) del reconocedor, para diagnóstico.
+    private var nivelPicoRms = 0f
 
     // ---- Flujo de responder tras leer ----
     // 0 = idle, 1 = ¿leer el mensaje? (ACTION_PREGUNTAR), 2 = ¿responder? (ACTION_RESPONDER), 3 = dictado libre, 4 = ¿enviar o corregir?
@@ -346,17 +348,48 @@ class LectorAsistenteService : Service(), RecognitionListener {
 
     override fun onError(error: Int) {
         cancelarTiempoEscucha()
-        Log.w(TAG, "Error de reconocimiento ($error)")
+        Log.w(TAG, "Error de reconocimiento: ${nombreError(error)} ($error), pico RMS=${"%.0f".format(nivelPicoRms)}")
         reintentarONoEntendido()
     }
 
-    override fun onReadyForSpeech(params: Bundle?) {}
-    override fun onBeginningOfSpeech() {}
-    override fun onRmsChanged(rmsdB: Float) {}
-    override fun onBufferReceived(buffer: ByteArray?) {}
-    override fun onEndOfSpeech() {}
-    override fun onPartialResults(partialResults: Bundle?) {}
+    override fun onReadyForSpeech(params: Bundle?) {
+        nivelPicoRms = 0f
+        Log.d(TAG, "onReadyForSpeech: reconocedor listo, escuchando...")
+    }
+    override fun onBeginningOfSpeech() {
+        Log.d(TAG, "onBeginningOfSpeech: el sistema ha detectado voz")
+    }
+    override fun onRmsChanged(rmsdB: Float) {
+        // Si el micro está captando, este valor sube y baja al hablar. Registramos
+        // sobre todo los picos para diagnosticar si se oye audio con pantalla apagada.
+        if (rmsdB > nivelPicoRms) {
+            nivelPicoRms = rmsdB
+            if (rmsdB >= 1f) {
+                Log.d(TAG, "onRmsChanged: nivel micro sube a ${"%.1f".format(rmsdB)}")
+            }
+        }
+    }
+    override fun onBufferReceived(buffer: ByteArray?) { /* audio crudo, no se usa */ }
+    override fun onEndOfSpeech() {
+        Log.d(TAG, "onEndOfSpeech: fin de voz detectado")
+    }
+    override fun onPartialResults(partialResults: Bundle?) {
+        val parcial = partialResults?.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION)
+        Log.d(TAG, "onPartialResults: ${parcial?.joinToString(" ")}")
+    }
     override fun onEvent(eventType: Int, params: Bundle?) {}
+
+    private fun nombreError(e: Int): String = when (e) {
+        SpeechRecognizer.ERROR_AUDIO -> "ERROR_AUDIO"
+        SpeechRecognizer.ERROR_CLIENT -> "ERROR_CLIENT"
+        SpeechRecognizer.ERROR_INSUFFICIENT_PERMISSIONS -> "ERROR_INSUFFICIENT_PERMISSIONS"
+        SpeechRecognizer.ERROR_NETWORK -> "ERROR_NETWORK"
+        SpeechRecognizer.ERROR_SPEECH_TIMEOUT -> "ERROR_SPEECH_TIMEOUT"
+        SpeechRecognizer.ERROR_NO_MATCH -> "ERROR_NO_MATCH"
+        SpeechRecognizer.ERROR_RECOGNIZER_BUSY -> "ERROR_RECOGNIZER_BUSY"
+        SpeechRecognizer.ERROR_SERVER -> "ERROR_SERVER"
+        else -> "ERROR_DESCONOCIDO"
+    }
 
     private fun reintentarONoEntendido() {
         cancelarTiempoEscucha()

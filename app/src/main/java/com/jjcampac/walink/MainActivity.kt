@@ -71,6 +71,7 @@ import androidx.compose.material3.Tab
 import androidx.compose.material3.TabRow
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -96,6 +97,7 @@ import com.jjcampac.walink.service.WhatsAppNotificationListener
 import com.jjcampac.walink.speech.SpeechReader
 import com.jjcampac.walink.ui.theme.*
 import java.util.Locale
+import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.launch
 
 /**
@@ -438,6 +440,25 @@ class MainActivity : ComponentActivity() {
                         }
                     )
                 } else {
+                    // Estado en vivo del coche: reacciona a las conexiones/desconexiones
+                    // Bluetooth (enlace ACL) sin necesidad de pulsar "actualizar".
+                    LaunchedEffect(dispositivoSeleccionado, permisoBluetooth) {
+                        if (permisoBluetooth) {
+                            val dir = dispositivoSeleccionado
+                            if (!dir.isNullOrBlank()) {
+                                dispositivoConectado = BluetoothCoche.estaConectado(applicationContext, dir)
+                            } else {
+                                dispositivoConectado = false
+                            }
+                            // El estado es POR dispositivo (conjunto de MACs conectadas):
+                            // solo marca conectado si el dispositivo elegido está en él.
+                            BluetoothCoche.estadoConectado.collect { macsConectados ->
+                                dispositivoConectado = dispositivoSeleccionado?.let { sel ->
+                                    macsConectados.any { it.equals(sel, ignoreCase = true) }
+                                } ?: false
+                            }
+                        }
+                    }
                     PantallaPrincipal(
                         permisoNotificaciones = permisoNotificaciones,
                         permisoPostNotificaciones = permisoPostNotificaciones,
@@ -479,6 +500,9 @@ class MainActivity : ComponentActivity() {
                                 }
                                 dispositivoSeleccionado = direccionMac
                                 refrescarEstadoConexion()
+                                // Consulta el estado real del dispositivo recién elegido
+                                // (por perfil), para marcarlo conectado/desconectado ya.
+                                BluetoothCoche.refrescarConectado(applicationContext)
                             }
                         },
                         onRefrescarDispositivos = { refrescarDispositivosBluetooth() },
@@ -768,9 +792,7 @@ private fun PantallaPrincipal(
                         seleccionado = dispositivoSeleccionado,
                         conectado = dispositivoConectado,
                         onSeleccionarDispositivo = onSeleccionarDispositivo,
-                        onRefrescar = onRefrescarDispositivos,
-                        leerSinCoche = leerSinCoche,
-                        onCambiarLeerSinCoche = onCambiarLeerSinCoche
+                        onRefrescar = onRefrescarDispositivos
                     )
 
                     Spacer(modifier = Modifier.height(14.dp))
@@ -890,7 +912,11 @@ private fun PantallaPrincipal(
 
                     if (BuildConfig.DEBUG) {
                         Spacer(modifier = Modifier.height(14.dp))
-                        TarjetaDepuracionPlegable(onSimularMensaje = onSimularMensaje)
+                        TarjetaDepuracionPlegable(
+                            onSimularMensaje = onSimularMensaje,
+                            leerSinCoche = leerSinCoche,
+                            onCambiarLeerSinCoche = onCambiarLeerSinCoche
+                        )
                     }
                 }
             }
@@ -1063,9 +1089,7 @@ private fun TarjetaCocheConectividad(
     seleccionado: String?,
     conectado: Boolean,
     onSeleccionarDispositivo: (String?) -> Unit,
-    onRefrescar: () -> Unit,
-    leerSinCoche: Boolean,
-    onCambiarLeerSinCoche: (Boolean) -> Unit
+    onRefrescar: () -> Unit
 ) {
     var menuAbierto by remember { mutableStateOf(false) }
     val dispositivoActual = dispositivos.firstOrNull { it.direccion == seleccionado }
@@ -1172,37 +1196,7 @@ private fun TarjetaCocheConectividad(
                     )
                 }
 
-                // Modo pruebas (leer sin coche)
-                if (!seleccionado.isNullOrBlank()) {
-                    Spacer(modifier = Modifier.height(10.dp))
-                    HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f))
-                    Spacer(modifier = Modifier.height(8.dp))
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .clip(RoundedCornerShape(8.dp))
-                            .clickable { onCambiarLeerSinCoche(!leerSinCoche) }
-                            .padding(vertical = 4.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Column(modifier = Modifier.weight(1f)) {
-                            Text(
-                                text = stringResource(id = R.string.ajuste_leer_sin_coche),
-                                style = MaterialTheme.typography.bodyMedium,
-                                fontWeight = FontWeight.Medium
-                            )
-                            Text(
-                                text = stringResource(id = R.string.ajuste_leer_sin_coche_desc),
-                                style = MaterialTheme.typography.bodySmall,
-                                color = GrisEstado
-                            )
-                        }
-                        Switch(
-                            checked = leerSinCoche,
-                            onCheckedChange = onCambiarLeerSinCoche
-                        )
-                    }
-                }
+                // (el ajuste "leer sin coche" vive ahora en Modo depuración, pestaña Permisos)
             }
         }
     }
@@ -1690,7 +1684,9 @@ private fun CabeceraTarjetaTematica(
 /** Tarjeta colapsable para la zona de depuración. */
 @Composable
 private fun TarjetaDepuracionPlegable(
-    onSimularMensaje: (remitente: String, texto: String) -> Unit
+    onSimularMensaje: (remitente: String, texto: String) -> Unit,
+    leerSinCoche: Boolean,
+    onCambiarLeerSinCoche: (Boolean) -> Unit
 ) {
     var expandido by remember { mutableStateOf(false) }
 
@@ -1728,7 +1724,11 @@ private fun TarjetaDepuracionPlegable(
                 exit = shrinkVertically() + fadeOut()
             ) {
                 Column(modifier = Modifier.padding(top = 10.dp)) {
-                    SeccionDepuracion(onSimularMensaje = onSimularMensaje)
+                    SeccionDepuracion(
+                            onSimularMensaje = onSimularMensaje,
+                            leerSinCoche = leerSinCoche,
+                            onCambiarLeerSinCoche = onCambiarLeerSinCoche
+                        )
                 }
             }
         }
@@ -1935,7 +1935,9 @@ private fun FilaPermisoOnboarding(titulo: String, estado: String, concedido: Boo
  */
 @Composable
 private fun SeccionDepuracion(
-    onSimularMensaje: (remitente: String, texto: String) -> Unit
+    onSimularMensaje: (remitente: String, texto: String) -> Unit,
+    leerSinCoche: Boolean,
+    onCambiarLeerSinCoche: (Boolean) -> Unit
 ) {
     // Valores editables por defecto para la simulación.
     var remitente by remember { mutableStateOf("Ana (Prueba)") }
@@ -1982,5 +1984,32 @@ private fun SeccionDepuracion(
             style = MaterialTheme.typography.bodySmall,
             color = Color(0xFF666666)
         )
+
+        HorizontalDivider(color = Color(0xFFCCCCCC))
+
+        // Ajuste "leer también sin coche": solo útil en pruebas, por eso vive aquí.
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .clickable { onCambiarLeerSinCoche(!leerSinCoche) },
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = stringResource(id = R.string.ajuste_leer_sin_coche),
+                    style = MaterialTheme.typography.bodySmall,
+                    fontWeight = FontWeight.Medium
+                )
+                Text(
+                    text = stringResource(id = R.string.ajuste_leer_sin_coche_desc),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = Color(0xFF666666)
+                )
+            }
+            Switch(
+                checked = leerSinCoche,
+                onCheckedChange = onCambiarLeerSinCoche
+            )
+        }
     }
 }
