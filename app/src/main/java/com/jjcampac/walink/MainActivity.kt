@@ -67,6 +67,8 @@ import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Slider
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Switch
+import androidx.compose.material3.Tab
+import androidx.compose.material3.TabRow
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -670,114 +672,216 @@ private fun PantallaPrincipal(
     onSolicitarNotificacionesPost: () -> Unit,
     onSimularMensaje: (remitente: String, texto: String) -> Unit
 ) {
+    var tabSeleccionada by remember { mutableStateOf(0) }
+    val titulosTabs = listOf(
+        "🚗 " + stringResource(id = R.string.tab_conduccion),
+        "🎧 " + stringResource(id = R.string.tab_voz_filtros),
+        "⚙️ " + stringResource(id = R.string.tab_ajustes_permisos)
+    )
+
     Column(
         modifier = Modifier
             .fillMaxSize()
             .background(MaterialTheme.colorScheme.background)
-            .verticalScroll(rememberScrollState())
     ) {
         CabeceraWalink(servicioActivado = servicioActivado)
+
+        // Barra de Pestañas (TabRow de Material 3)
+        TabRow(
+            selectedTabIndex = tabSeleccionada,
+            containerColor = MaterialTheme.colorScheme.surfaceContainer,
+            contentColor = MaterialTheme.colorScheme.primary
+        ) {
+            titulosTabs.forEachIndexed { indice, titulo ->
+                Tab(
+                    selected = tabSeleccionada == indice,
+                    onClick = { tabSeleccionada = indice },
+                    text = {
+                        Text(
+                            text = titulo,
+                            style = MaterialTheme.typography.bodySmall,
+                            fontWeight = if (tabSeleccionada == indice) FontWeight.Bold else FontWeight.Normal
+                        )
+                    }
+                )
+            }
+        }
 
         Column(
             modifier = Modifier
                 .fillMaxWidth()
+                .weight(1f)
+                .verticalScroll(rememberScrollState())
                 .navigationBarsPadding()
-                .padding(horizontal = 16.dp, vertical = 16.dp)
+                .padding(horizontal = 16.dp, vertical = 14.dp)
         ) {
-            // Cómo activar/desactivar desde el mosaico de accesos rápidos.
-            Card(
-                modifier = Modifier.fillMaxWidth(),
-                colors = CardDefaults.cardColors(
-                    containerColor = MaterialTheme.colorScheme.surfaceContainer
-                ),
-                elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
-            ) {
-                Row(
-                    modifier = Modifier.fillMaxWidth().padding(14.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Text(text = "📲", fontSize = 24.sp)
-                    Spacer(modifier = Modifier.width(12.dp))
-                    Column(modifier = Modifier.weight(1f)) {
-                        Text(
-                            text = stringResource(id = R.string.tile_como_activar_titulo),
-                            style = MaterialTheme.typography.titleSmall,
-                            fontWeight = FontWeight.SemiBold
-                        )
-                        Text(
-                            text = stringResource(id = R.string.tile_como_activar_desc),
-                            style = MaterialTheme.typography.bodySmall,
-                            color = GrisTextoSuave,
-                            modifier = Modifier.padding(top = 2.dp)
-                        )
+            when (tabSeleccionada) {
+                0 -> {
+                    // PESTAÑA 1: CONDUCCIÓN
+                    // Cómo activar/desactivar desde el mosaico de accesos rápidos
+                    Card(
+                        modifier = Modifier.fillMaxWidth(),
+                        colors = CardDefaults.cardColors(
+                            containerColor = MaterialTheme.colorScheme.surfaceContainer
+                        ),
+                        elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
+                    ) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth().padding(14.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text(text = "📲", fontSize = 24.sp)
+                            Spacer(modifier = Modifier.width(12.dp))
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text(
+                                    text = stringResource(id = R.string.tile_como_activar_titulo),
+                                    style = MaterialTheme.typography.titleSmall,
+                                    fontWeight = FontWeight.SemiBold
+                                )
+                                Text(
+                                    text = stringResource(id = R.string.tile_como_activar_desc),
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = GrisTextoSuave,
+                                    modifier = Modifier.padding(top = 2.dp)
+                                )
+                            }
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(14.dp))
+
+                    // Coche y Conectividad
+                    TarjetaCocheConectividad(
+                        permisoBluetooth = permisoBluetooth,
+                        dispositivos = dispositivosEmparejados,
+                        seleccionado = dispositivoSeleccionado,
+                        conectado = dispositivoConectado,
+                        onSeleccionarDispositivo = onSeleccionarDispositivo,
+                        onRefrescar = onRefrescarDispositivos,
+                        leerSinCoche = leerSinCoche,
+                        onCambiarLeerSinCoche = onCambiarLeerSinCoche
+                    )
+
+                    Spacer(modifier = Modifier.height(14.dp))
+
+                    // Modo de lectura (¿Cuándo leer?)
+                    Card(
+                        modifier = Modifier.fillMaxWidth(),
+                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainer),
+                        elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
+                    ) {
+                        Column(modifier = Modifier.fillMaxWidth().padding(16.dp)) {
+                            CabeceraTarjetaTematica(
+                                emoji = "🔔",
+                                titulo = stringResource(id = R.string.modo_lectura_titulo),
+                                subtitulo = stringResource(id = R.string.modo_lectura_desc)
+                            )
+                            Spacer(modifier = Modifier.height(12.dp))
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                            ) {
+                                FilterChip(
+                                    selected = !leerTrasPreguntar,
+                                    onClick = { onCambiarModoLectura(false) },
+                                    label = { Text("⚡ Inmediato") },
+                                    modifier = Modifier.weight(1f)
+                                )
+                                FilterChip(
+                                    selected = leerTrasPreguntar,
+                                    onClick = { onCambiarModoLectura(true) },
+                                    label = { Text("❓ Preguntar") },
+                                    modifier = Modifier.weight(1f)
+                                )
+                            }
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(14.dp))
+
+                    // Música de fondo
+                    Card(
+                        modifier = Modifier.fillMaxWidth(),
+                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainer),
+                        elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
+                    ) {
+                        Column(modifier = Modifier.fillMaxWidth().padding(16.dp)) {
+                            CabeceraTarjetaTematica(
+                                emoji = "🎵",
+                                titulo = stringResource(id = R.string.audio_fondo_titulo),
+                                subtitulo = stringResource(id = R.string.audio_fondo_desc)
+                            )
+                            Spacer(modifier = Modifier.height(12.dp))
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                            ) {
+                                FilterChip(
+                                    selected = bajarVolumen,
+                                    onClick = { onCambiarAudioFondo(true) },
+                                    label = { Text("🔉 Bajar volumen") },
+                                    modifier = Modifier.weight(1f)
+                                )
+                                FilterChip(
+                                    selected = !bajarVolumen,
+                                    onClick = { onCambiarAudioFondo(false) },
+                                    label = { Text("⏸️ Pausar música") },
+                                    modifier = Modifier.weight(1f)
+                                )
+                            }
+                        }
                     }
                 }
-            }
 
-            Spacer(modifier = Modifier.height(14.dp))
+                1 -> {
+                    // PESTAÑA 2: VOZ Y FILTROS
+                    TarjetaVozAudio(
+                        vozActual = vozActual,
+                        voces = voces,
+                        onSeleccionarVoz = onSeleccionarVoz,
+                        onProbarVoz = onProbarVoz,
+                        velocidad = velocidadVoz,
+                        onCambiarVelocidad = onCambiarVelocidadVoz,
+                        bajarVolumen = bajarVolumen,
+                        onCambiarAudioFondo = onCambiarAudioFondo
+                    )
 
-            // 1. Tarjeta Temática: Coche y Conectividad
-            TarjetaCocheConectividad(
-                permisoBluetooth = permisoBluetooth,
-                dispositivos = dispositivosEmparejados,
-                seleccionado = dispositivoSeleccionado,
-                conectado = dispositivoConectado,
-                onSeleccionarDispositivo = onSeleccionarDispositivo,
-                onRefrescar = onRefrescarDispositivos,
-                leerSinCoche = leerSinCoche,
-                onCambiarLeerSinCoche = onCambiarLeerSinCoche
-            )
+                    Spacer(modifier = Modifier.height(14.dp))
 
-            Spacer(modifier = Modifier.height(14.dp))
+                    TarjetaLecturaPrivacidad(
+                        leerTrasPreguntar = leerTrasPreguntar,
+                        onCambiarModoLectura = onCambiarModoLectura,
+                        leerGrupos = leerGrupos,
+                        onCambiarLeerGrupos = onCambiarLeerGrupos,
+                        modoFiltro = modoFiltro,
+                        contactosPermitidosTexto = contactosPermitidosTexto,
+                        contactosBloqueadosTexto = contactosBloqueadosTexto,
+                        onCambiarModoFiltro = onCambiarModoFiltro,
+                        onGuardarPermitidos = onGuardarContactosPermitidos,
+                        onGuardarBloqueados = onGuardarContactosBloqueados
+                    )
+                }
 
-            // 2. Tarjeta Temática: Voz y Audio
-            TarjetaVozAudio(
-                vozActual = vozActual,
-                voces = voces,
-                onSeleccionarVoz = onSeleccionarVoz,
-                onProbarVoz = onProbarVoz,
-                velocidad = velocidadVoz,
-                onCambiarVelocidad = onCambiarVelocidadVoz,
-                bajarVolumen = bajarVolumen,
-                onCambiarAudioFondo = onCambiarAudioFondo
-            )
+                2 -> {
+                    // PESTAÑA 3: PERMISOS Y DEPURACIÓN
+                    TarjetaPermisosSistema(
+                        permisoNotificaciones = permisoNotificaciones,
+                        permisoPostNotificaciones = permisoPostNotificaciones,
+                        permisoMicrofono = permisoMicrofono,
+                        permisoBluetooth = permisoBluetooth,
+                        bateriaExcluida = bateriaExcluida,
+                        onIrAjustesNotificaciones = onIrAjustesNotificaciones,
+                        onSolicitarNotificacionesPost = onSolicitarNotificacionesPost,
+                        onSolicitarMicrofono = onSolicitarMicrofono,
+                        onSolicitarBluetooth = onSolicitarBluetooth,
+                        onIrAjustesBateria = onIrAjustesBateria
+                    )
 
-            Spacer(modifier = Modifier.height(14.dp))
-
-            // 3. Tarjeta Temática: Lectura y Privacidad
-            TarjetaLecturaPrivacidad(
-                leerTrasPreguntar = leerTrasPreguntar,
-                onCambiarModoLectura = onCambiarModoLectura,
-                leerGrupos = leerGrupos,
-                onCambiarLeerGrupos = onCambiarLeerGrupos,
-                modoFiltro = modoFiltro,
-                contactosPermitidosTexto = contactosPermitidosTexto,
-                contactosBloqueadosTexto = contactosBloqueadosTexto,
-                onCambiarModoFiltro = onCambiarModoFiltro,
-                onGuardarPermitidos = onGuardarContactosPermitidos,
-                onGuardarBloqueados = onGuardarContactosBloqueados
-            )
-
-            Spacer(modifier = Modifier.height(14.dp))
-
-            // 4. Tarjeta Temática Colapsable: Permisos del Sistema
-            TarjetaPermisosSistema(
-                permisoNotificaciones = permisoNotificaciones,
-                permisoPostNotificaciones = permisoPostNotificaciones,
-                permisoMicrofono = permisoMicrofono,
-                permisoBluetooth = permisoBluetooth,
-                bateriaExcluida = bateriaExcluida,
-                onIrAjustesNotificaciones = onIrAjustesNotificaciones,
-                onSolicitarNotificacionesPost = onSolicitarNotificacionesPost,
-                onSolicitarMicrofono = onSolicitarMicrofono,
-                onSolicitarBluetooth = onSolicitarBluetooth,
-                onIrAjustesBateria = onIrAjustesBateria
-            )
-
-            // ---- Sección solo visible en buildType DEBUG (Plegable) ----
-            if (BuildConfig.DEBUG) {
-                Spacer(modifier = Modifier.height(14.dp))
-                TarjetaDepuracionPlegable(onSimularMensaje = onSimularMensaje)
+                    if (BuildConfig.DEBUG) {
+                        Spacer(modifier = Modifier.height(14.dp))
+                        TarjetaDepuracionPlegable(onSimularMensaje = onSimularMensaje)
+                    }
+                }
             }
             Spacer(modifier = Modifier.height(16.dp))
         }

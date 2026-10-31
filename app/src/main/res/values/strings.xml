@@ -166,4 +166,9 @@
     <string name="seccion_lectura_filtros_desc">Modo de aviso, chats de grupo y filtros de contactos</string>
     <string name="seccion_permisos_ok">Todos los permisos necesarios concedidos ✓</string>
     <string name="seccion_permisos_atencion">%1$d permiso(s) requieren tu atención</string>
+
+    <!-- Pestañas Opción B -->
+    <string name="tab_conduccion">Conducción</string>
+    <string name="tab_voz_filtros">Voz y Filtros</string>
+    <string name="tab_ajustes_permisos">Permisos</string>
 </resources>
