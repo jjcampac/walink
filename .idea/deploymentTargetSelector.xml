@@ -2,7 +2,7 @@
 <project version="4">
   <component name="deploymentTargetSelector">
     <selectionStates>
-      <SelectionState runConfigName="app">
+      <SelectionState runConfigName="walink">
         <option name="selectionMode" value="DROPDOWN" />
         <DropdownSelection timestamp="2026-10-26T12:00:54.536946415Z">
           <Target type="DEFAULT_BOOT">

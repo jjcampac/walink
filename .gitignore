@@ -14,3 +14,8 @@
 .cxx
 local.properties
 .kotlin/
+# Credenciales y keystore de firma del release (no versionar nunca)
+keystore.properties
+*.jks
+*.keystore
+/release
