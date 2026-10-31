@@ -41,6 +41,8 @@ Dispositivo de pruebas: Nothing Phone (3a).
 - Sólo haz commit en Git cuando te lo pida.
 
 ## Estado actual (actualizar al terminar cada fase)
-- Fases 1 y 2 implementadas (listener de notificaciones, lectura por TTS, detección de Bluetooth, foreground service).
-- Pendiente de corregir: "Preguntar antes de leer", bajada de volumen, retraso inicial por Bluetooth, selección del dispositivo del coche y reproducción de notas de voz.
-- Pendientes: fase 3 (dictado, confirmación y respuesta por RemoteInput) y fase 4 (ajustes, filtros y pulido).
+- Fase 1 (listener de notificaciones) y Fase 2 (lectura por TTS, detección del coche por Bluetooth ACL + estado reactivo por dispositivo, foreground service): implementadas.
+- Fase 3 (preguntar antes, dictado, confirmación "enviar/corregir/cancelar" y respuesta por RemoteInput) y Fase 4 (ajustes, filtros/grupos, velocidad de voz, modo pruebas, i18n ES/EN/DE/IT/FR/JA): implementadas.
+- **RESUELTO (rama `fix/microfono` pending de merge)**: el micrófono con pantalla apagada no captaba en el `SpeechRecognizer` (solo el primer buffer y luego `ERROR_NO_MATCH`). Causa: el FGS corría con tipo `specialUse`, que no mantiene el micrófono "while-in-use". Solución: arrancar como `specialUse` (requisito para iniciar en segundo plano en Android 14+) y conmutar el FGS a tipo `microphone` justo antes de `startListening`; se piden 3 resultados con margen de silencio para respuestas cortas. Confirmado funcionando por el usuario.
+- Selección del coche por Bluetooth: estado "conectado" por dispositivo (MAC), no global; cambiar de coche muestra el estado correcto del elegido.
+- Pendiente de revisar: reproducción de notas de voz (.opus vía almacenamiento de WhatsApp) y terminar de pulir "Preguntar antes de leer".
