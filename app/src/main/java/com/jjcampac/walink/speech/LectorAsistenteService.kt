@@ -3,8 +3,9 @@ package com.jjcampac.walink.speech
 import android.Manifest
 import android.app.NotificationChannel
 import android.app.NotificationManager
-import android.app.Service
+import android.content.Context
 import android.content.Intent
+import android.app.Service
 import android.content.pm.PackageManager
 import android.content.pm.ServiceInfo
 import android.os.Build
@@ -16,9 +17,10 @@ import androidx.core.content.ContextCompat
 import android.speech.RecognizerIntent
 import android.speech.SpeechRecognizer
 import android.util.Log
-import androidx.core.app.NotificationCompat
 import com.jjcampac.walink.R
 import com.jjcampac.walink.data.WalinkDataStore
+import com.jjcampac.walink.idioma.IdiomaHelper
+import androidx.core.app.NotificationCompat
 
 /**
  * Servicio en primer plano (tipo micrófono) SOLO para el modo "preguntar antes de
@@ -31,6 +33,9 @@ import com.jjcampac.walink.data.WalinkDataStore
  * El modo "leer inmediatamente" no pasa por este servicio: lo gestiona
  * [com.jjcampac.walink.service.WhatsAppNotificationListener] leyendo directamente,
  * ya que no requiere micrófono y así evitamos servicios en primer plano innecesarios.
+ *
+ * @author jjcampac
+ * @author cline
  */
 class LectorAsistenteService : Service(), RecognitionListener {
 
@@ -54,6 +59,9 @@ class LectorAsistenteService : Service(), RecognitionListener {
 
     override fun onBind(intent: Intent?): IBinder? = null
 
+    override fun attachBaseContext(newBase: Context) {
+        super.attachBaseContext(IdiomaHelper.contextoLocalizado(newBase))
+    }
     override fun onCreate() {
         super.onCreate()
         lector = SpeechReader.obtener(this)

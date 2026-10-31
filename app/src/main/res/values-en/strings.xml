@@ -1,0 +1,193 @@
+<resources>
+    <!-- Pantalla principal -->
+    <string name="app_name">Walink</string>
+    <string name="title_principal">Walink</string>
+    <string name="subtitle_principal">WhatsApp message read-out for the car</string>
+    <string name="estado_activo">Active</string>
+    <string name="estado_inactivo">Inactive</string>
+    <string name="switch_activar">Enable Walink</string>
+    <string name="btn_conceder_notificaciones">Grant notification access</string>
+    <string name="btn_conceder_microfono">Grant microphone permission</string>
+    <string name="btn_conceder_bluetooth">Grant Bluetooth permission</string>
+    <string name="btn_optimizacion_bateria">Disable battery optimization</string>
+    <string name="permiso_notificaciones_no_concedido">Notification access: NOT granted</string>
+    <string name="permiso_notificaciones_concedido">Notification access: granted</string>
+    <string name="permiso_microfono_no_concedido">Microphone: NOT granted</string>
+    <string name="permiso_microfono_concedido">Microphone: granted</string>
+    <string name="permiso_bluetooth_no_concedido">Bluetooth: NOT granted</string>
+    <string name="permiso_bluetooth_concedido">Bluetooth: granted</string>
+    <string name="msg_escuchando">Listening to WhatsApp notifications…</string>
+    <string name="msg_detenido">Service stopped</string>
+
+    <!-- TTS -->
+    <string name="tts_formato">Message from %1$s: %2$s</string>
+
+    <!-- Ajustes -->
+    <string name="titulo_ajustes">Settings</string>
+    <string name="ajuste_contactos_permitidos">Allowed contacts</string>
+    <string name="ajuste_contactos_bloqueados">Blocked contacts</string>
+    <string name="ajuste_leer_grupos">Read group messages</string>
+    <string name="ajuste_leer_texto">Read the full text (if off, only the sender)</string>
+    <string name="ajuste_velocidad_voz">Speech rate</string>
+    <string name="ajuste_dispositivo_bluetooth">Car Bluetooth device</string>
+    <string name="ajuste_dispositivo_bluetooth_desc">If you pick one, Walink only reads messages when that device is connected</string>
+    <string name="dispositivo_ninguno">None · always read on the phone</string>
+    <string name="dispositivo_sin_emparejados">No paired devices on the phone</string>
+    <string name="dispositivo_no_emparejado">This device is no longer paired</string>
+    <string name="dispositivo_permiso_faltante">Grant the Bluetooth permission (permissions section below) to choose the car</string>
+    <string name="dispositivo_conectado">Connected ✓</string>
+    <string name="dispositivo_no_conectado">Not connected</string>
+    <string name="dispositivo_elegir">Choose car</string>
+    <string name="dispositivo_actualizar">Refresh list</string>
+    <string name="dispositivo_estado_desc">Status: %1$s</string>
+
+    <!-- Quick Settings Tile -->
+    <string name="tile_label">Walink</string>
+    <string name="tile_descripcion_activo">Reading messages</string>
+    <string name="tile_descripcion_inactivo">Tap to enable</string>
+
+    <!-- Onboarding -->
+    <string name="onboarding_titulo">Set up Walink</string>
+    <string name="onboarding_subtitulo">We need a few permissions to read your WhatsApp messages in the car.</string>
+    <string name="onboarding_permisos_listos">Permissions granted</string>
+    <string name="onboarding_bt_continuar">Continue</string>
+    <string name="onboarding_bt_terminar">Finish</string>
+    <string name="onboarding_acceso_notif">WhatsApp notification access</string>
+    <string name="onboarding_acceso_notif_desc">Allows Walink to read WhatsApp notifications</string>
+    <string name="onboarding_tile">Add to quick settings</string>
+    <string name="onboarding_tile_desc">Adds Walink to the quick settings tile</string>
+    <string name="onboarding_bateria">Battery optimization</string>
+    <string name="onboarding_bateria_desc">Excludes Walink so it does not stop in the background</string>
+    <string name="onboarding_skip">Skip</string>
+    <string name="onboarding_acceso_notif_claro">Enable Walink in "Notification access"</string>
+    <string name="onboarding_acceso_notif_desc_claro">WALINK will appear in the list (not WhatsApp). Turn it on so Walink can read your apps\' notifications.</string>
+    <string name="permiso_notif_titulo">Read notifications (Walink)</string>
+    <string name="permiso_notif_desc">WALINK is enabled in Settings &gt; Special access &gt; Notification access (WhatsApp does not appear: Walink is given permission to read)</string>
+
+    <!-- Pantalla principal rediseñada -->
+    <string name="chip_estado_activo">Active in the background</string>
+    <string name="chip_estado_inactivo">Inactive — tap the tile</string>
+    <string name="tile_como_activar_titulo">How do I enable Walink?</string>
+    <string name="tile_como_activar_desc">Swipe down from the top edge and tap the Walink tile. Press and hold to open the app.</string>
+    <string name="titulo_seccion_permisos">Permissions and settings</string>
+    <string name="bt_conceder">Grant</string>
+    <string name="bt_ajustes">Settings</string>
+    <string name="bt_excluir_bateria">Exclude</string>
+    <string name="permiso_bateria_estado_ok">Excluded ✓</string>
+    <string name="permiso_bateria_estado_pend">Under optimization — exclude it so it does not stop</string>
+    <string name="seccion_debug_titulo">🧪 Debug mode (debug only)</string>
+
+    <!-- Selección de voz TTS -->
+    <string name="voz_lectura_titulo">Reading voice</string>
+    <string name="voz_lectura_por_defecto">Default (Spanish)</string>
+    <string name="voz_lectura_cambiar">Change</string>
+    <string name="voz_lectura_sin_voces">No voices found</string>
+    <string name="voz_prueba_frase">Hello, this is Walink\'s voice.</string>
+    <string name="voz_prueba_bt">Hear a preview with this voice</string>
+
+    <!-- Modo de lectura -->
+    <string name="modo_lectura_titulo">When to read?</string>
+    <string name="modo_lectura_desc">Choose how each message is read</string>
+    <string name="modo_inmediato">Immediately</string>
+    <string name="modo_inmediato_desc">Read as soon as it arrives</string>
+    <string name="modo_preguntar">Ask me first</string>
+    <string name="modo_preguntar_desc">Show a prompt and read only if you confirm</string>
+
+    <!-- Audio de fondo -->
+    <string name="audio_fondo_titulo">Background music</string>
+    <string name="audio_fondo_desc">What to do with the music while Walink speaks</string>
+    <string name="audio_bajar_volumen">Lower the volume</string>
+    <string name="audio_bajar_volumen_desc">The music lowers a bit (system ducking)</string>
+    <string name="audio_pausar">Pause the music</string>
+    <string name="audio_pausar_desc">Silences the music completely while speaking (more effective)</string>
+
+    <!-- Responder por voz -->
+    <string name="pregunta_responder">Do you want to reply to %1$s?</string>
+    <string name="pregunta_responder_reintento">I did not hear you well. Say yes to reply, or no to cancel.</string>
+    <string name="pedir_dictado">Tell me your reply</string>
+    <string name="borrador_guardado">I have drafted your reply to %1$s: %2$s</string>
+    <string name="no_responder">Okay, I will not reply.</string>
+    <string name="aviso_no_respondido">I could not hear your reply, so I will not answer.</string>
+    <string name="pregunta_enviar_o_corregir">Send the reply or correct it?</string>
+    <string name="pregunta_enviar_o_corregir_reintento">Say send to send it, or correct to repeat the message.</string>
+    <string name="enviando_respuesta">Sending reply…</string>
+    <string name="respuesta_enviada">Reply sent to %1$s</string>
+    <string name="corrigiendo_respuesta">Okay, tell me the correction</string>
+    <string name="aviso_no_enviado">I could not send the reply</string>
+    <string name="pendiente_intent_no_disponible">Cannot send: there is no reply action available</string>
+    <string name="microfono_no_concedido_responder">Microphone not granted: cannot reply by voice.</string>
+
+    <!-- Fase 4: Ajustes adicionales -->
+    <string name="ajuste_leer_sin_coche">Also read without the car (testing)</string>
+    <string name="ajuste_leer_sin_coche_desc">If you have a car selected but it is not connected, read anyway on the phone</string>
+    <string name="ajuste_grupos_titulo">Group messages</string>
+    <string name="ajuste_grupos_desc">Choose whether to read or ignore messages from group chats</string>
+    <string name="ajuste_grupos_activado">Read group messages</string>
+    <string name="ajuste_grupos_desactivado">Ignore groups (only individual chats)</string>
+    <string name="ajuste_velocidad_titulo">Speech speed</string>
+    <string name="ajuste_velocidad_desc">Adjust how fast the assistant speaks (%1$.2fx)</string>
+    <string name="ajuste_filtros_contacto_titulo">Contact filter</string>
+    <string name="ajuste_filtros_contacto_desc">Limit or block which contacts are read aloud</string>
+    <string name="filtro_modo_todos">Read all contacts</string>
+    <string name="filtro_modo_permitidos">Only allowed contacts (whitelist)</string>
+    <string name="filtro_modo_bloqueados">Block specific contacts (blacklist)</string>
+    <string name="filtro_contactos_hint">Names separated by commas (e.g. Mom, John, Work)</string>
+    <string name="filtro_contactos_guardar">Save list</string>
+    <string name="nota_de_voz_detectada">WhatsApp voice message (%1$s)</string>
+
+    <!-- Rediseño UI -->
+    <string name="seccion_coche_titulo">Car and Connectivity</string>
+    <string name="seccion_coche_desc">Behaviour based on your vehicle\'s Bluetooth</string>
+    <string name="seccion_voz_audio_titulo">Voice and Audio</string>
+    <string name="seccion_voz_audio_desc">Tone, speech speed and background music</string>
+    <string name="seccion_lectura_filtros_titulo">Reading and Privacy</string>
+    <string name="seccion_lectura_filtros_desc">Alert mode, group chats and contact filters</string>
+    <string name="seccion_permisos_ok">All required permissions granted ✓</string>
+    <string name="seccion_permisos_atencion">%1$d permission(s) need your attention</string>
+
+    <!-- Pestañas -->
+    <string name="tab_conduccion">Driving</string>
+    <string name="tab_voz_filtros">Voice and Filters</string>
+    <string name="tab_ajustes_permisos">Permissions</string>
+
+    <!-- Idioma -->
+    <string name="idioma_titulo">Language</string>
+    <string name="idioma_seguir_sistema">Follow the device (automatic)</string>
+    <string name="idioma_desc">Texts, alerts and voice in the chosen language. By default: the phone\'s if it is supported.</string>
+    <string name="chip_inmediato">⚡ Immediate</string>
+    <string name="chip_preguntar">❓ Ask</string>
+    <string name="chip_bajar_volumen">🔉 Lower volume</string>
+    <string name="chip_pausar_musica">⏸️ Pause music</string>
+    <string name="vel_lenta">0.5x (Slow)</string>
+    <string name="vel_normal">1.0x (Normal)</string>
+    <string name="vel_rapida">2.0x (Fast)</string>
+    <string name="chip_filtro_todos">🌐 All</string>
+    <string name="chip_filtro_permitidos">✅ Allowed</string>
+    <string name="chip_filtro_bloqueados">🚫 Blocked</string>
+    <string name="estado_concedido">✓ Granted</string>
+    <string name="onboarding_paso1">1. Basic permissions</string>
+    <string name="onboarding_paso2">2. Background settings</string>
+    <string name="bt_configurar">Configure</string>
+    <string name="bt_anadir">Add</string>
+    <string name="debug_remitente">Sender</string>
+    <string name="debug_mensaje_prueba">Test message</string>
+    <string name="debug_simular">Simulate message</string>
+    <string name="debug_nota_respuesta">The RemoteInput reply is shown in Logcat (WalinkDebug tag).</string>
+
+    <!-- Notificación "preguntar antes de leer" y asistente de voz -->
+    <string name="notif_leer_titulo">Read message?</string>
+    <string name="accion_leer">Read now</string>
+    <string name="accion_descartar">Dismiss</string>
+    <string name="canal_solicitudes_lectura">Read requests</string>
+    <string name="canal_solicitudes_lectura_desc">Prompts to confirm the reading of a message</string>
+    <string name="pregunta_voz">Message from %1$s. Do you want me to read it?</string>
+    <string name="pregunta_voz_reintento">I did not hear you well. Say yes to read it, or no to ignore it.</string>
+    <string name="pregunta_voz_no_entendido">I did not understand. Try again. Say yes or no.</string>
+    <string name="pregunta_voz_no">Okay, I will not read it.</string>
+    <string name="aviso_no_leido">I could not hear your answer, so I will not read the message.</string>
+    <string name="pregunta_voz_prompt">Read message?</string>
+    <string name="canal_asistente_titulo">Voice assistant</string>
+    <string name="canal_asistente_desc">Voice questions and read-outs when messages arrive</string>
+    <string name="notif_escuchando_titulo">Walink is listening</string>
+    <string name="notif_escuchando_desc">Asking if you want to read a message…</string>
+</resources>

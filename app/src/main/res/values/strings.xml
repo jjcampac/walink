@@ -171,4 +171,30 @@
     <string name="tab_conduccion">Conducción</string>
     <string name="tab_voz_filtros">Voz y Filtros</string>
     <string name="tab_ajustes_permisos">Permisos</string>
+
+    <!-- Idioma de la app (multilengua) -->
+    <string name="idioma_titulo">Idioma</string>
+    <string name="idioma_seguir_sistema">Seguir el dispositivo (automático)</string>
+    <string name="idioma_desc">Textos, avisos y voz en el idioma elegido. Por defecto: el del teléfono si es compatible.</string>
+
+    <!-- Etiquetas cortas de chips y textos varios migradas a recursos -->
+    <string name="chip_inmediato">⚡ Inmediato</string>
+    <string name="chip_preguntar">❓ Preguntar</string>
+    <string name="chip_bajar_volumen">🔉 Bajar volumen</string>
+    <string name="chip_pausar_musica">⏸️ Pausar música</string>
+    <string name="vel_lenta">0.5x (Lenta)</string>
+    <string name="vel_normal">1.0x (Normal)</string>
+    <string name="vel_rapida">2.0x (Rápida)</string>
+    <string name="chip_filtro_todos">🌐 Todos</string>
+    <string name="chip_filtro_permitidos">✅ Permitidos</string>
+    <string name="chip_filtro_bloqueados">🚫 Bloqueados</string>
+    <string name="estado_concedido">✓ Concedido</string>
+    <string name="onboarding_paso1">1. Permisos básicos</string>
+    <string name="onboarding_paso2">2. Configuración en segundo plano</string>
+    <string name="bt_configurar">Configurar</string>
+    <string name="bt_anadir">Añadir</string>
+    <string name="debug_remitente">Remitente</string>
+    <string name="debug_mensaje_prueba">Mensaje de prueba</string>
+    <string name="debug_simular">Simular mensaje</string>
+    <string name="debug_nota_respuesta">La respuesta del RemoteInput se muestra en Logcat (etiqueta WalinkDebug).</string>
 </resources>

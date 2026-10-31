@@ -16,6 +16,9 @@ import com.jjcampac.walink.debug.DebugSimulator
  * @param texto Cuerpo del mensaje.
  * @param esGrupo true si la notificación proviene de un grupo de WhatsApp.
  * @param paqueteOrigen com.whatsapp o com.whatsapp.w4b (o el paquete propio en debug).
+ *
+ * @author jjcampac
+ * @author cline
  */
 data class MensajeWhatsApp(
     val remitente: String,
@@ -40,6 +43,9 @@ data class MensajeWhatsApp(
  *   - Notificaciones de resumen ("3 mensajes nuevos", "Varios contactos").
  *   - Notificaciones de llamadas.
  *   - Notificaciones sin texto usable.
+ *
+ * @author jjcampac
+ * @author cline
  */
 object NotificationParser {
 

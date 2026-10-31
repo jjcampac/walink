@@ -24,12 +24,20 @@ import androidx.core.content.ContextCompat
  * el manifest y solicitado en el onboarding). Sin permiso devolvemos una lista
  * vacía. La comprobación de "conectado" usa AudioManager (estado de audio), que
  * no requiere ningún permiso adicional.
+ *
+ * @author jjcampac
+ * @author cline
  */
 object BluetoothCoche {
 
     private const val TAG = "WalinkBluetooth"
 
-    /** Dispositivo Bluetooth emparejado tal y como se muestra en la UI. */
+    /**
+     * Dispositivo Bluetooth emparejado tal y como se muestra en la UI.
+     *
+     * @author jjcampac
+     * @author cline
+     */
     data class Dispositivo(val nombre: String, val direccion: String)
 
     /** true si el sistema nos deja consultar dispositivos Bluetooth. */

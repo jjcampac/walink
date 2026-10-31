@@ -1,6 +1,7 @@
 package com.jjcampac.walink.service
 
 import android.app.Notification
+import android.content.Context
 import android.content.Intent
 import android.service.notification.NotificationListenerService
 import android.service.notification.StatusBarNotification
@@ -9,6 +10,7 @@ import androidx.core.content.ContextCompat
 import com.jjcampac.walink.BuildConfig
 import com.jjcampac.walink.R
 import com.jjcampac.walink.data.WalinkDataStore
+import com.jjcampac.walink.idioma.IdiomaHelper
 import com.jjcampac.walink.parser.NotificationParser
 import com.jjcampac.walink.speech.LectorAsistenteService
 import com.jjcampac.walink.speech.SpeechReader
@@ -24,11 +26,18 @@ import com.jjcampac.walink.speech.SpeechReader
  *
  * Esta separación evita cuelgues por servicios en primer plano innecesarios y
  * garantiza que nunca haya dos lecturas a la vez.
+ *
+ * @author jjcampac
+ * @author cline
  */
 class WhatsAppNotificationListener : NotificationListenerService() {
 
     private lateinit var speechReader: SpeechReader
     private lateinit var dataStore: WalinkDataStore
+
+    override fun attachBaseContext(newBase: Context) {
+        super.attachBaseContext(IdiomaHelper.contextoLocalizado(newBase))
+    }
 
     override fun onCreate() {
         super.onCreate()
