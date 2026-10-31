@@ -44,12 +44,21 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.expandVertically
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.shrinkVertically
 import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.FilterChip
+import androidx.compose.material3.FilterChipDefaults
 import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
@@ -684,11 +693,11 @@ private fun PantallaPrincipal(
                 elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
             ) {
                 Row(
-                    modifier = Modifier.fillMaxWidth().padding(16.dp),
+                    modifier = Modifier.fillMaxWidth().padding(14.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Text(text = "📲", fontSize = 28.sp)
-                    Spacer(modifier = Modifier.width(14.dp))
+                    Text(text = "📲", fontSize = 24.sp)
+                    Spacer(modifier = Modifier.width(12.dp))
                     Column(modifier = Modifier.weight(1f)) {
                         Text(
                             text = stringResource(id = R.string.tile_como_activar_titulo),
@@ -705,31 +714,10 @@ private fun PantallaPrincipal(
                 }
             }
 
-            Spacer(modifier = Modifier.height(16.dp))
+            Spacer(modifier = Modifier.height(14.dp))
 
-            // Selección de la voz con la que se leen los mensajes.
-            TarjetaVoz(
-                vozActual = vozActual,
-                voces = voces,
-                onSeleccionarVoz = onSeleccionarVoz,
-                onProbarVoz = onProbarVoz
-            )
-
-            // Modo de lectura: inmediatamente o preguntar antes.
-            TarjetaModoLectura(
-                leerTrasPreguntar = leerTrasPreguntar,
-                onCambiarModoLectura = onCambiarModoLectura
-            )
-
-            // Qué hacer con la música de fondo mientras Walink habla.
-            TarjetaAudioFondo(
-                bajarVolumen = bajarVolumen,
-                onCambiarAudioFondo = onCambiarAudioFondo
-            )
-
-            // Dispositivo Bluetooth del coche: si se elige uno, Walink solo lee
-            // cuando ese dispositivo está conectado.
-            TarjetaDispositivoCoche(
+            // 1. Tarjeta Temática: Coche y Conectividad
+            TarjetaCocheConectividad(
                 permisoBluetooth = permisoBluetooth,
                 dispositivos = dispositivosEmparejados,
                 seleccionado = dispositivoSeleccionado,
@@ -740,92 +728,56 @@ private fun PantallaPrincipal(
                 onCambiarLeerSinCoche = onCambiarLeerSinCoche
             )
 
-            // Grupos: opción de leer o ignorar mensajes de grupo.
-            TarjetaGrupos(
-                leerGrupos = leerGrupos,
-                onCambiarLeerGrupos = onCambiarLeerGrupos
-            )
+            Spacer(modifier = Modifier.height(14.dp))
 
-            // Velocidad de voz: slider interactivo.
-            TarjetaVelocidadVoz(
+            // 2. Tarjeta Temática: Voz y Audio
+            TarjetaVozAudio(
+                vozActual = vozActual,
+                voces = voces,
+                onSeleccionarVoz = onSeleccionarVoz,
+                onProbarVoz = onProbarVoz,
                 velocidad = velocidadVoz,
-                onCambiarVelocidad = onCambiarVelocidadVoz
+                onCambiarVelocidad = onCambiarVelocidadVoz,
+                bajarVolumen = bajarVolumen,
+                onCambiarAudioFondo = onCambiarAudioFondo
             )
 
-            // Filtro por contactos: todos, permitidos o bloqueados.
-            TarjetaFiltroContactos(
-                modo = modoFiltro,
+            Spacer(modifier = Modifier.height(14.dp))
+
+            // 3. Tarjeta Temática: Lectura y Privacidad
+            TarjetaLecturaPrivacidad(
+                leerTrasPreguntar = leerTrasPreguntar,
+                onCambiarModoLectura = onCambiarModoLectura,
+                leerGrupos = leerGrupos,
+                onCambiarLeerGrupos = onCambiarLeerGrupos,
+                modoFiltro = modoFiltro,
                 contactosPermitidosTexto = contactosPermitidosTexto,
                 contactosBloqueadosTexto = contactosBloqueadosTexto,
-                onCambiarModo = onCambiarModoFiltro,
+                onCambiarModoFiltro = onCambiarModoFiltro,
                 onGuardarPermitidos = onGuardarContactosPermitidos,
                 onGuardarBloqueados = onGuardarContactosBloqueados
             )
 
-            Spacer(modifier = Modifier.height(24.dp))
+            Spacer(modifier = Modifier.height(14.dp))
 
-            Text(
-                text = stringResource(id = R.string.titulo_seccion_permisos),
-                style = MaterialTheme.typography.titleMedium,
-                fontWeight = FontWeight.Bold,
-                modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
+            // 4. Tarjeta Temática Colapsable: Permisos del Sistema
+            TarjetaPermisosSistema(
+                permisoNotificaciones = permisoNotificaciones,
+                permisoPostNotificaciones = permisoPostNotificaciones,
+                permisoMicrofono = permisoMicrofono,
+                permisoBluetooth = permisoBluetooth,
+                bateriaExcluida = bateriaExcluida,
+                onIrAjustesNotificaciones = onIrAjustesNotificaciones,
+                onSolicitarNotificacionesPost = onSolicitarNotificacionesPost,
+                onSolicitarMicrofono = onSolicitarMicrofono,
+                onSolicitarBluetooth = onSolicitarBluetooth,
+                onIrAjustesBateria = onIrAjustesBateria
             )
 
-            TarjetaPermiso(
-                emoji = "📖",
-                titulo = stringResource(id = R.string.permiso_notif_titulo),
-                estado = if (permisoNotificaciones) "Concedido ✓"
-                else stringResource(id = R.string.permiso_notif_desc),
-                concedido = permisoNotificaciones,
-                requiereAjustesManuales = true,
-                onClick = onIrAjustesNotificaciones
-            )
-
-            // Permiso en tiempo de ejecución para publicar notificaciones (API 33+).
-            // Sin él, el simulador no puede publicar el mensaje de prueba y la lectura no se dispara.
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU && !permisoPostNotificaciones) {
-                TarjetaPermiso(
-                    emoji = "🔔",
-                    titulo = "Notificaciones (permiso)",
-                    estado = "Obligatorio para que funcione el simulador de mensajes",
-                    concedido = false,
-                    requiereAjustesManuales = false,
-                    onClick = onSolicitarNotificacionesPost
-                )
-            }
-
-            TarjetaPermiso(
-                emoji = "🎤",
-                titulo = "Micrófono (dictado)",
-                estado = if (permisoMicrofono) "Concedido ✓" else "No concedido",
-                concedido = permisoMicrofono,
-                requiereAjustesManuales = false,
-                onClick = onSolicitarMicrofono
-            )
-
-            TarjetaPermiso(
-                emoji = "🔗",
-                titulo = "Bluetooth (coche)",
-                estado = if (permisoBluetooth) "Concedido ✓" else "No concedido",
-                concedido = permisoBluetooth,
-                requiereAjustesManuales = false,
-                onClick = onSolicitarBluetooth
-            )
-
-            TarjetaPermiso(
-                emoji = "🔋",
-                titulo = "Optimización de batería",
-                estado = if (bateriaExcluida) stringResource(id = R.string.permiso_bateria_estado_ok)
-                else stringResource(id = R.string.permiso_bateria_estado_pend),
-                concedido = bateriaExcluida,
-                requiereAjustesManuales = true,
-                textoBotonConceder = stringResource(id = R.string.bt_excluir_bateria),
-                onClick = onIrAjustesBateria
-            )
-
-            // ---- Sección solo visible en buildType DEBUG ----
+            // ---- Sección solo visible en buildType DEBUG (Plegable) ----
             if (BuildConfig.DEBUG) {
-                SeccionDepuracion(onSimularMensaje = onSimularMensaje)
+                Spacer(modifier = Modifier.height(14.dp))
+                TarjetaDepuracionPlegable(onSimularMensaje = onSimularMensaje)
             }
             Spacer(modifier = Modifier.height(16.dp))
         }
@@ -890,194 +842,43 @@ private fun CabeceraWalink(servicioActivado: Boolean) {
     }
 }
 
-/** Tarjeta para mostrar un permiso con su estado y una acción asociada. */
+/**
+ * ============================================================================
+ * REDISEÑO DE INTERFAZ: OPCIÓN A - TARJETAS TEMÁTICAS SECCIONADAS
+ * ============================================================================
+ */
+
+/** 1. Coche y Conectividad: selector de dispositivo Bluetooth y modo pruebas. */
 @Composable
-private fun TarjetaPermiso(
-    emoji: String,
-    titulo: String,
-    estado: String,
-    concedido: Boolean,
-    requiereAjustesManuales: Boolean,
-    textoBotonConceder: String = "Conceder",
-    onClick: () -> Unit
-) {
-    Card(
-        modifier = Modifier.fillMaxWidth().padding(vertical = 6.dp),
-        colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surfaceContainer
-        ),
-        elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
-    ) {
-        Row(
-            modifier = Modifier.fillMaxWidth().padding(16.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Text(text = emoji, fontSize = 24.sp)
-            Spacer(modifier = Modifier.width(14.dp))
-            Column(modifier = Modifier.weight(1f)) {
-                Text(
-                    text = titulo,
-                    style = MaterialTheme.typography.bodyMedium,
-                    fontWeight = FontWeight.SemiBold,
-                    color = MaterialTheme.colorScheme.onSurface
-                )
-                Text(
-                    text = estado,
-                    style = MaterialTheme.typography.bodySmall,
-                    color = if (concedido) VerdeOk else GrisEstado,
-                    modifier = Modifier.padding(top = 1.dp)
-                )
-            }
-            Spacer(modifier = Modifier.width(10.dp))
-            when {
-                !concedido -> Button(onClick = onClick) {
-                    Text(textoBotonConceder)
-                }
-                requiereAjustesManuales -> OutlinedButton(onClick = onClick) {
-                    Text(stringResource(id = R.string.bt_ajustes))
-                }
-                else -> Text("✓", color = VerdeOk, fontWeight = FontWeight.Bold)
-            }
-        }
-    }
-}
-
-/** Tarjeta para elegir la voz con la que se leen los mensajes (menú desplegable). */
-@Composable
-private fun TarjetaVoz(
-    vozActual: String?,
-    voces: List<VozTts>,
-    onSeleccionarVoz: (String) -> Unit,
-    onProbarVoz: () -> Unit
-) {
-    val etiquetaActual = if (vozActual.isNullOrBlank()) {
-        stringResource(id = R.string.voz_lectura_por_defecto)
-    } else {
-        voces.firstOrNull { it.nombre == vozActual }?.etiqueta
-            ?: stringResource(id = R.string.voz_lectura_por_defecto)
-    }
-
-    var menuAbierto by remember { mutableStateOf(false) }
-
-    Card(
-        modifier = Modifier.fillMaxWidth().padding(vertical = 6.dp),
-        colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surfaceContainer
-        ),
-        elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
-    ) {
-        Row(
-            modifier = Modifier.fillMaxWidth().padding(16.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Text(text = "🗣", fontSize = 24.sp)
-            Spacer(modifier = Modifier.width(14.dp))
-            Column(modifier = Modifier.weight(1f)) {
-                Text(
-                    text = stringResource(id = R.string.voz_lectura_titulo),
-                    style = MaterialTheme.typography.bodyMedium,
-                    fontWeight = FontWeight.SemiBold,
-                    color = MaterialTheme.colorScheme.onSurface
-                )
-                Text(
-                    text = etiquetaActual,
-                    style = MaterialTheme.typography.bodySmall,
-                    color = GrisEstado,
-                    modifier = Modifier.padding(top = 1.dp)
-                )
-            }
-            Spacer(modifier = Modifier.width(10.dp))
-            Box {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    IconButton(
-                        onClick = onProbarVoz,
-                        modifier = Modifier.size(36.dp)
-                    ) {
-                        Text(
-                            text = "🔊",
-                            fontSize = 16.sp
-                        )
-                    }
-                    OutlinedButton(onClick = { menuAbierto = true }) {
-                        Text(stringResource(id = R.string.voz_lectura_cambiar))
-                    }
-                }
-                DropdownMenu(
-                    expanded = menuAbierto,
-                    onDismissRequest = { menuAbierto = false },
-                    modifier = Modifier.wrapContentSize()
-                ) {
-                    if (voces.isEmpty()) {
-                        DropdownMenuItem(
-                            text = { Text(stringResource(id = R.string.voz_lectura_sin_voces)) },
-                            onClick = { menuAbierto = false }
-                        )
-                    } else {
-                        voces.forEach { voz ->
-                            DropdownMenuItem(
-                                text = { Text(voz.etiqueta) },
-                                onClick = {
-                                    onSeleccionarVoz(voz.nombre)
-                                    menuAbierto = false
-                                }
-                            )
-                        }
-                    }
-                }
-            }
-        }
-    }
-}
-
-/** Tarjeta para elegir el dispositivo Bluetooth del coche (menú desplegable). */
-@Composable
-private fun TarjetaDispositivoCoche(
+private fun TarjetaCocheConectividad(
     permisoBluetooth: Boolean,
     dispositivos: List<BluetoothCoche.Dispositivo>,
     seleccionado: String?,
     conectado: Boolean,
     onSeleccionarDispositivo: (String?) -> Unit,
     onRefrescar: () -> Unit,
-    leerSinCoche: Boolean = false,
-    onCambiarLeerSinCoche: (Boolean) -> Unit = {}
+    leerSinCoche: Boolean,
+    onCambiarLeerSinCoche: (Boolean) -> Unit
 ) {
     var menuAbierto by remember { mutableStateOf(false) }
-
-    // Dispositivo actualmente guardado (por su dirección entre los emparejados).
     val dispositivoActual = dispositivos.firstOrNull { it.direccion == seleccionado }
-    // Si la dirección guardada ya no está en la lista de emparejados, avisar.
     val sinEmparejar = !seleccionado.isNullOrBlank() && dispositivoActual == null
 
     Card(
-        modifier = Modifier.fillMaxWidth().padding(vertical = 6.dp),
-        colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surfaceContainer
-        ),
+        modifier = Modifier.fillMaxWidth(),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainer),
         elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
     ) {
         Column(modifier = Modifier.fillMaxWidth().padding(16.dp)) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Text(text = "🚗", fontSize = 24.sp)
-                Spacer(modifier = Modifier.width(14.dp))
-                Column {
-                    Text(
-                        text = stringResource(id = R.string.ajuste_dispositivo_bluetooth),
-                        style = MaterialTheme.typography.bodyMedium,
-                        fontWeight = FontWeight.SemiBold,
-                        color = MaterialTheme.colorScheme.onSurface
-                    )
-                    Text(
-                        text = stringResource(id = R.string.ajuste_dispositivo_bluetooth_desc),
-                        style = MaterialTheme.typography.bodySmall,
-                        color = GrisEstado
-                    )
-                }
-            }
+            CabeceraTarjetaTematica(
+                emoji = "🚗",
+                titulo = stringResource(id = R.string.seccion_coche_titulo),
+                subtitulo = stringResource(id = R.string.seccion_coche_desc)
+            )
 
-            Spacer(modifier = Modifier.height(10.dp))
+            Spacer(modifier = Modifier.height(14.dp))
 
             if (!permisoBluetooth) {
-                // Sin permiso no se puede listar ni elegir el coche.
                 Text(
                     text = stringResource(id = R.string.dispositivo_permiso_faltante),
                     style = MaterialTheme.typography.bodySmall,
@@ -1085,11 +886,10 @@ private fun TarjetaDispositivoCoche(
                 )
             } else {
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    // Desplegable con "Ninguno" + dispositivos emparejados.
                     Box(modifier = Modifier.weight(1f)) {
                         OutlinedButton(
                             onClick = {
-                                onRefrescar() // lista y estado al día cada vez que se abre
+                                onRefrescar()
                                 menuAbierto = true
                             },
                             modifier = Modifier.fillMaxWidth()
@@ -1133,20 +933,19 @@ private fun TarjetaDispositivoCoche(
                         }
                     }
                     Spacer(modifier = Modifier.width(8.dp))
-                    OutlinedButton(onClick = onRefrescar) {
-                        Text(stringResource(id = R.string.dispositivo_actualizar))
+                    IconButton(onClick = onRefrescar) {
+                        Text(text = "🔄", fontSize = 16.sp)
                     }
                 }
 
-                Spacer(modifier = Modifier.height(8.dp))
+                Spacer(modifier = Modifier.height(6.dp))
 
-                // Estado del dispositivo elegido.
+                // Estado de conexión
                 if (seleccionado.isNullOrBlank()) {
                     Text(
                         text = stringResource(id = R.string.dispositivo_ninguno),
                         style = MaterialTheme.typography.bodySmall,
-                        color = GrisEstado,
-                        modifier = Modifier.padding(top = 2.dp)
+                        color = GrisEstado
                     )
                 } else {
                     val textoEstado = when {
@@ -1162,16 +961,15 @@ private fun TarjetaDispositivoCoche(
                     Text(
                         text = stringResource(id = R.string.dispositivo_estado_desc, textoEstado),
                         style = MaterialTheme.typography.bodySmall,
-                        color = colorEstado,
-                        modifier = Modifier.padding(top = 2.dp)
+                        color = colorEstado
                     )
                 }
 
-                // Ajuste adicional: Leer también sin coche (pruebas)
+                // Modo pruebas (leer sin coche)
                 if (!seleccionado.isNullOrBlank()) {
-                    Spacer(modifier = Modifier.height(12.dp))
-                    HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
                     Spacer(modifier = Modifier.height(10.dp))
+                    HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f))
+                    Spacer(modifier = Modifier.height(8.dp))
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
@@ -1203,84 +1001,100 @@ private fun TarjetaDispositivoCoche(
     }
 }
 
-/** Tarjeta para configurar si se leen mensajes de grupos de WhatsApp. */
+/** 2. Voz y Audio: selección de locución, velocidad y atenuación de música. */
 @Composable
-private fun TarjetaGrupos(
-    leerGrupos: Boolean,
-    onCambiarLeerGrupos: (Boolean) -> Unit
-) {
-    Card(
-        modifier = Modifier.fillMaxWidth().padding(vertical = 6.dp),
-        colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surfaceContainer
-        ),
-        elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
-    ) {
-        Column(modifier = Modifier.fillMaxWidth().padding(16.dp)) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Text(text = "👥", fontSize = 24.sp)
-                Spacer(modifier = Modifier.width(14.dp))
-                Column(modifier = Modifier.weight(1f)) {
-                    Text(
-                        text = stringResource(id = R.string.ajuste_grupos_titulo),
-                        style = MaterialTheme.typography.bodyMedium,
-                        fontWeight = FontWeight.SemiBold,
-                        color = MaterialTheme.colorScheme.onSurface
-                    )
-                    Text(
-                        text = stringResource(id = R.string.ajuste_grupos_desc),
-                        style = MaterialTheme.typography.bodySmall,
-                        color = GrisEstado
-                    )
-                }
-                Switch(
-                    checked = leerGrupos,
-                    onCheckedChange = onCambiarLeerGrupos
-                )
-            }
-            Spacer(modifier = Modifier.height(6.dp))
-            Text(
-                text = if (leerGrupos) stringResource(id = R.string.ajuste_grupos_activado)
-                       else stringResource(id = R.string.ajuste_grupos_desactivado),
-                style = MaterialTheme.typography.bodySmall,
-                color = if (leerGrupos) VerdeOk else GrisEstado
-            )
-        }
-    }
-}
-
-/** Tarjeta con Slider interactivo para regular la velocidad de voz TTS. */
-@Composable
-private fun TarjetaVelocidadVoz(
+private fun TarjetaVozAudio(
+    vozActual: String?,
+    voces: List<VozTts>,
+    onSeleccionarVoz: (String) -> Unit,
+    onProbarVoz: () -> Unit,
     velocidad: Float,
-    onCambiarVelocidad: (Float) -> Unit
+    onCambiarVelocidad: (Float) -> Unit,
+    bajarVolumen: Boolean,
+    onCambiarAudioFondo: (Boolean) -> Unit
 ) {
+    val etiquetaActual = if (vozActual.isNullOrBlank()) {
+        stringResource(id = R.string.voz_lectura_por_defecto)
+    } else {
+        voces.firstOrNull { it.nombre == vozActual }?.etiqueta
+            ?: stringResource(id = R.string.voz_lectura_por_defecto)
+    }
+    var menuVozAbierto by remember { mutableStateOf(false) }
+
     Card(
-        modifier = Modifier.fillMaxWidth().padding(vertical = 6.dp),
-        colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surfaceContainer
-        ),
+        modifier = Modifier.fillMaxWidth(),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainer),
         elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
     ) {
         Column(modifier = Modifier.fillMaxWidth().padding(16.dp)) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Text(text = "⚡", fontSize = 24.sp)
-                Spacer(modifier = Modifier.width(14.dp))
+            CabeceraTarjetaTematica(
+                emoji = "🎧",
+                titulo = stringResource(id = R.string.seccion_voz_audio_titulo),
+                subtitulo = stringResource(id = R.string.seccion_voz_audio_desc)
+            )
+
+            Spacer(modifier = Modifier.height(14.dp))
+
+            // Sub-bloque 1: Voz
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
                 Column(modifier = Modifier.weight(1f)) {
                     Text(
-                        text = stringResource(id = R.string.ajuste_velocidad_titulo),
+                        text = stringResource(id = R.string.voz_lectura_titulo),
                         style = MaterialTheme.typography.bodyMedium,
-                        fontWeight = FontWeight.SemiBold,
-                        color = MaterialTheme.colorScheme.onSurface
+                        fontWeight = FontWeight.Medium
                     )
                     Text(
-                        text = stringResource(id = R.string.ajuste_velocidad_desc, velocidad),
+                        text = etiquetaActual,
                         style = MaterialTheme.typography.bodySmall,
                         color = GrisEstado
                     )
                 }
+                Box {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        IconButton(onClick = onProbarVoz) {
+                            Text("🔊", fontSize = 16.sp)
+                        }
+                        OutlinedButton(onClick = { menuVozAbierto = true }) {
+                            Text(stringResource(id = R.string.voz_lectura_cambiar))
+                        }
+                    }
+                    DropdownMenu(
+                        expanded = menuVozAbierto,
+                        onDismissRequest = { menuVozAbierto = false }
+                    ) {
+                        if (voces.isEmpty()) {
+                            DropdownMenuItem(
+                                text = { Text(stringResource(id = R.string.voz_lectura_sin_voces)) },
+                                onClick = { menuVozAbierto = false }
+                            )
+                        } else {
+                            voces.forEach { voz ->
+                                DropdownMenuItem(
+                                    text = { Text(voz.etiqueta) },
+                                    onClick = {
+                                        onSeleccionarVoz(voz.nombre)
+                                        menuVozAbierto = false
+                                    }
+                                )
+                            }
+                        }
+                    }
+                }
             }
-            Spacer(modifier = Modifier.height(8.dp))
+
+            Spacer(modifier = Modifier.height(12.dp))
+            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f))
+            Spacer(modifier = Modifier.height(10.dp))
+
+            // Sub-bloque 2: Velocidad
+            Text(
+                text = stringResource(id = R.string.ajuste_velocidad_desc, velocidad),
+                style = MaterialTheme.typography.bodyMedium,
+                fontWeight = FontWeight.Medium
+            )
             Slider(
                 value = velocidad,
                 onValueChange = { onCambiarVelocidad((Math.round(it * 10f) / 10f)) },
@@ -1295,17 +1109,50 @@ private fun TarjetaVelocidadVoz(
                 Text("1.0x (Normal)", style = MaterialTheme.typography.labelSmall, color = GrisEstado)
                 Text("2.0x (Rápida)", style = MaterialTheme.typography.labelSmall, color = GrisEstado)
             }
+
+            Spacer(modifier = Modifier.height(12.dp))
+            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f))
+            Spacer(modifier = Modifier.height(10.dp))
+
+            // Sub-bloque 3: Música de fondo (Chips selectores modernos)
+            Text(
+                text = stringResource(id = R.string.audio_fondo_titulo),
+                style = MaterialTheme.typography.bodyMedium,
+                fontWeight = FontWeight.Medium
+            )
+            Spacer(modifier = Modifier.height(6.dp))
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                FilterChip(
+                    selected = bajarVolumen,
+                    onClick = { onCambiarAudioFondo(true) },
+                    label = { Text("🔉 Bajar volumen") },
+                    modifier = Modifier.weight(1f)
+                )
+                FilterChip(
+                    selected = !bajarVolumen,
+                    onClick = { onCambiarAudioFondo(false) },
+                    label = { Text("⏸️ Pausar música") },
+                    modifier = Modifier.weight(1f)
+                )
+            }
         }
     }
 }
 
-/** Tarjeta para configurar lista blanca / negra de contactos. */
+/** 3. Lectura y Privacidad: modo de confirmación, grupos y filtros de contacto. */
 @Composable
-private fun TarjetaFiltroContactos(
-    modo: Int, // 0: Todos, 1: Permitidos, 2: Bloqueados
+private fun TarjetaLecturaPrivacidad(
+    leerTrasPreguntar: Boolean,
+    onCambiarModoLectura: (Boolean) -> Unit,
+    leerGrupos: Boolean,
+    onCambiarLeerGrupos: (Boolean) -> Unit,
+    modoFiltro: Int,
     contactosPermitidosTexto: String,
     contactosBloqueadosTexto: String,
-    onCambiarModo: (Int) -> Unit,
+    onCambiarModoFiltro: (Int) -> Unit,
     onGuardarPermitidos: (String) -> Unit,
     onGuardarBloqueados: (String) -> Unit
 ) {
@@ -1313,90 +1160,145 @@ private fun TarjetaFiltroContactos(
     var textoEditadoBloqueados by remember(contactosBloqueadosTexto) { mutableStateOf(contactosBloqueadosTexto) }
 
     Card(
-        modifier = Modifier.fillMaxWidth().padding(vertical = 6.dp),
-        colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surfaceContainer
-        ),
+        modifier = Modifier.fillMaxWidth(),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainer),
         elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
     ) {
         Column(modifier = Modifier.fillMaxWidth().padding(16.dp)) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Text(text = "🛡️", fontSize = 24.sp)
-                Spacer(modifier = Modifier.width(14.dp))
-                Column {
-                    Text(
-                        text = stringResource(id = R.string.ajuste_filtros_contacto_titulo),
-                        style = MaterialTheme.typography.bodyMedium,
-                        fontWeight = FontWeight.SemiBold,
-                        color = MaterialTheme.colorScheme.onSurface
-                    )
-                    Text(
-                        text = stringResource(id = R.string.ajuste_filtros_contacto_desc),
-                        style = MaterialTheme.typography.bodySmall,
-                        color = GrisEstado
-                    )
-                }
+            CabeceraTarjetaTematica(
+                emoji = "🛡️",
+                titulo = stringResource(id = R.string.seccion_lectura_filtros_titulo),
+                subtitulo = stringResource(id = R.string.seccion_lectura_filtros_desc)
+            )
+
+            Spacer(modifier = Modifier.height(14.dp))
+
+            // Sub-bloque 1: Modo de lectura (Chips)
+            Text(
+                text = stringResource(id = R.string.modo_lectura_titulo),
+                style = MaterialTheme.typography.bodyMedium,
+                fontWeight = FontWeight.Medium
+            )
+            Spacer(modifier = Modifier.height(6.dp))
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                FilterChip(
+                    selected = !leerTrasPreguntar,
+                    onClick = { onCambiarModoLectura(false) },
+                    label = { Text("⚡ Inmediato") },
+                    modifier = Modifier.weight(1f)
+                )
+                FilterChip(
+                    selected = leerTrasPreguntar,
+                    onClick = { onCambiarModoLectura(true) },
+                    label = { Text("❓ Preguntar") },
+                    modifier = Modifier.weight(1f)
+                )
             }
 
+            Spacer(modifier = Modifier.height(12.dp))
+            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f))
             Spacer(modifier = Modifier.height(10.dp))
 
-            FilaModoLectura(
-                emoji = "🌐",
-                titulo = stringResource(id = R.string.filtro_modo_todos),
-                descripcion = "Sin restricciones: se leen todos los chats",
-                seleccionado = modo == 0,
-                onClick = { onCambiarModo(0) }
-            )
-            FilaModoLectura(
-                emoji = "✅",
-                titulo = stringResource(id = R.string.filtro_modo_permitidos),
-                descripcion = "Solo se leen los contactos de la lista blanca",
-                seleccionado = modo == 1,
-                onClick = { onCambiarModo(1) }
-            )
-            if (modo == 1) {
-                Column(modifier = Modifier.padding(start = 16.dp, top = 6.dp, end = 8.dp)) {
-                    OutlinedTextField(
-                        value = textoEditadoPermitidos,
-                        onValueChange = { textoEditadoPermitidos = it },
-                        modifier = Modifier.fillMaxWidth(),
-                        placeholder = { Text(stringResource(id = R.string.filtro_contactos_hint)) },
-                        singleLine = false,
-                        maxLines = 3
+            // Sub-bloque 2: Grupos
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clip(RoundedCornerShape(8.dp))
+                    .clickable { onCambiarLeerGrupos(!leerGrupos) }
+                    .padding(vertical = 4.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = stringResource(id = R.string.ajuste_grupos_titulo),
+                        style = MaterialTheme.typography.bodyMedium,
+                        fontWeight = FontWeight.Medium
                     )
-                    Spacer(modifier = Modifier.height(6.dp))
-                    Button(
-                        onClick = { onGuardarPermitidos(textoEditadoPermitidos) },
-                        modifier = Modifier.align(Alignment.End)
-                    ) {
-                        Text(stringResource(id = R.string.filtro_contactos_guardar))
-                    }
+                    Text(
+                        text = if (leerGrupos) stringResource(id = R.string.ajuste_grupos_activado)
+                        else stringResource(id = R.string.ajuste_grupos_desactivado),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = if (leerGrupos) VerdeOk else GrisEstado
+                    )
                 }
+                Switch(checked = leerGrupos, onCheckedChange = onCambiarLeerGrupos)
             }
 
-            FilaModoLectura(
-                emoji = "🚫",
-                titulo = stringResource(id = R.string.filtro_modo_bloqueados),
-                descripcion = "Se ignoran los contactos añadidos a la lista negra",
-                seleccionado = modo == 2,
-                onClick = { onCambiarModo(2) }
+            Spacer(modifier = Modifier.height(12.dp))
+            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f))
+            Spacer(modifier = Modifier.height(10.dp))
+
+            // Sub-bloque 3: Filtro de contactos
+            Text(
+                text = stringResource(id = R.string.ajuste_filtros_contacto_titulo),
+                style = MaterialTheme.typography.bodyMedium,
+                fontWeight = FontWeight.Medium
             )
-            if (modo == 2) {
-                Column(modifier = Modifier.padding(start = 16.dp, top = 6.dp, end = 8.dp)) {
-                    OutlinedTextField(
-                        value = textoEditadoBloqueados,
-                        onValueChange = { textoEditadoBloqueados = it },
-                        modifier = Modifier.fillMaxWidth(),
-                        placeholder = { Text(stringResource(id = R.string.filtro_contactos_hint)) },
-                        singleLine = false,
-                        maxLines = 3
-                    )
-                    Spacer(modifier = Modifier.height(6.dp))
-                    Button(
-                        onClick = { onGuardarBloqueados(textoEditadoBloqueados) },
-                        modifier = Modifier.align(Alignment.End)
-                    ) {
-                        Text(stringResource(id = R.string.filtro_contactos_guardar))
+            Spacer(modifier = Modifier.height(6.dp))
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(6.dp)
+            ) {
+                FilterChip(
+                    selected = modoFiltro == 0,
+                    onClick = { onCambiarModoFiltro(0) },
+                    label = { Text("🌐 Todos") },
+                    modifier = Modifier.weight(1f)
+                )
+                FilterChip(
+                    selected = modoFiltro == 1,
+                    onClick = { onCambiarModoFiltro(1) },
+                    label = { Text("✅ Permitidos") },
+                    modifier = Modifier.weight(1f)
+                )
+                FilterChip(
+                    selected = modoFiltro == 2,
+                    onClick = { onCambiarModoFiltro(2) },
+                    label = { Text("🚫 Bloqueados") },
+                    modifier = Modifier.weight(1f)
+                )
+            }
+
+            // Edición de contactos cuando se elige Lista Blanca o Lista Negra
+            AnimatedVisibility(
+                visible = modoFiltro != 0,
+                enter = expandVertically() + fadeIn(),
+                exit = shrinkVertically() + fadeOut()
+            ) {
+                Column(modifier = Modifier.padding(top = 10.dp)) {
+                    if (modoFiltro == 1) {
+                        OutlinedTextField(
+                            value = textoEditadoPermitidos,
+                            onValueChange = { textoEditadoPermitidos = it },
+                            modifier = Modifier.fillMaxWidth(),
+                            placeholder = { Text(stringResource(id = R.string.filtro_contactos_hint)) },
+                            maxLines = 3
+                        )
+                        Spacer(modifier = Modifier.height(6.dp))
+                        Button(
+                            onClick = { onGuardarPermitidos(textoEditadoPermitidos) },
+                            modifier = Modifier.align(Alignment.End)
+                        ) {
+                            Text(stringResource(id = R.string.filtro_contactos_guardar))
+                        }
+                    } else if (modoFiltro == 2) {
+                        OutlinedTextField(
+                            value = textoEditadoBloqueados,
+                            onValueChange = { textoEditadoBloqueados = it },
+                            modifier = Modifier.fillMaxWidth(),
+                            placeholder = { Text(stringResource(id = R.string.filtro_contactos_hint)) },
+                            maxLines = 3
+                        )
+                        Spacer(modifier = Modifier.height(6.dp))
+                        Button(
+                            onClick = { onGuardarBloqueados(textoEditadoBloqueados) },
+                            modifier = Modifier.align(Alignment.End)
+                        ) {
+                            Text(stringResource(id = R.string.filtro_contactos_guardar))
+                        }
                     }
                 }
             }
@@ -1404,89 +1306,173 @@ private fun TarjetaFiltroContactos(
     }
 }
 
-
-/** Tarjeta para elegir cuándo se lee cada mensaje (inmediato o previa confirmación). */
+/** 4. Permisos del Sistema: resumen colapsable/expandible inteligente. */
 @Composable
-private fun TarjetaModoLectura(
-    leerTrasPreguntar: Boolean,
-    onCambiarModoLectura: (Boolean) -> Unit
+private fun TarjetaPermisosSistema(
+    permisoNotificaciones: Boolean,
+    permisoPostNotificaciones: Boolean,
+    permisoMicrofono: Boolean,
+    permisoBluetooth: Boolean,
+    bateriaExcluida: Boolean,
+    onIrAjustesNotificaciones: () -> Unit,
+    onSolicitarNotificacionesPost: () -> Unit,
+    onSolicitarMicrofono: () -> Unit,
+    onSolicitarBluetooth: () -> Unit,
+    onIrAjustesBateria: () -> Unit
 ) {
+    val totalPendientes = (if (permisoNotificaciones) 0 else 1) +
+        (if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU && !permisoPostNotificaciones) 1 else 0) +
+        (if (permisoMicrofono) 0 else 1) +
+        (if (permisoBluetooth) 0 else 1) +
+        (if (bateriaExcluida) 0 else 1)
+
+    val todosOk = totalPendientes == 0
+    var expandido by remember(todosOk) { mutableStateOf(!todosOk) }
+
     Card(
-        modifier = Modifier.fillMaxWidth().padding(vertical = 6.dp),
+        modifier = Modifier.fillMaxWidth(),
         colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surfaceContainer
+            containerColor = if (todosOk) MaterialTheme.colorScheme.surfaceContainer
+            else MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.25f)
         ),
         elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
     ) {
         Column(modifier = Modifier.fillMaxWidth().padding(16.dp)) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Text(text = "🔔", fontSize = 24.sp)
-                Spacer(modifier = Modifier.width(14.dp))
-                Column {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clickable { expandido = !expandido },
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(text = if (todosOk) "✅" else "⚠️", fontSize = 24.sp)
+                Spacer(modifier = Modifier.width(12.dp))
+                Column(modifier = Modifier.weight(1f)) {
                     Text(
-                        text = stringResource(id = R.string.modo_lectura_titulo),
-                        style = MaterialTheme.typography.bodyMedium,
-                        fontWeight = FontWeight.SemiBold,
-                        color = MaterialTheme.colorScheme.onSurface
+                        text = stringResource(id = R.string.titulo_seccion_permisos),
+                        style = MaterialTheme.typography.titleSmall,
+                        fontWeight = FontWeight.SemiBold
                     )
                     Text(
-                        text = stringResource(id = R.string.modo_lectura_desc),
+                        text = if (todosOk) stringResource(id = R.string.seccion_permisos_ok)
+                        else stringResource(id = R.string.seccion_permisos_atencion, totalPendientes),
                         style = MaterialTheme.typography.bodySmall,
-                        color = GrisEstado
+                        color = if (todosOk) VerdeOk else MaterialTheme.colorScheme.error
                     )
+                }
+                IconButton(onClick = { expandido = !expandido }) {
+                    Text(if (expandido) "▲" else "▼", fontSize = 14.sp, color = GrisEstado)
                 }
             }
 
-            Spacer(modifier = Modifier.height(8.dp))
+            AnimatedVisibility(
+                visible = expandido,
+                enter = expandVertically() + fadeIn(),
+                exit = shrinkVertically() + fadeOut()
+            ) {
+                Column(modifier = Modifier.padding(top = 10.dp)) {
+                    HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f))
+                    Spacer(modifier = Modifier.height(6.dp))
 
-            FilaModoLectura(
-                emoji = "⚡",
-                titulo = stringResource(id = R.string.modo_inmediato),
-                descripcion = stringResource(id = R.string.modo_inmediato_desc),
-                seleccionado = !leerTrasPreguntar,
-                onClick = { onCambiarModoLectura(false) }
-            )
-            FilaModoLectura(
-                emoji = "❓",
-                titulo = stringResource(id = R.string.modo_preguntar),
-                descripcion = stringResource(id = R.string.modo_preguntar_desc),
-                seleccionado = leerTrasPreguntar,
-                onClick = { onCambiarModoLectura(true) }
-            )
+                    FilaPermisoCompacta(
+                        emoji = "📖",
+                        titulo = "Acceso a notificaciones",
+                        concedido = permisoNotificaciones,
+                        requiereAjustes = true,
+                        onClick = onIrAjustesNotificaciones
+                    )
+                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU && !permisoPostNotificaciones) {
+                        FilaPermisoCompacta(
+                            emoji = "🔔",
+                            titulo = "Notificaciones",
+                            concedido = false,
+                            requiereAjustes = false,
+                            onClick = onSolicitarNotificacionesPost
+                        )
+                    }
+                    FilaPermisoCompacta(
+                        emoji = "🎤",
+                        titulo = "Micrófono (dictado)",
+                        concedido = permisoMicrofono,
+                        requiereAjustes = false,
+                        onClick = onSolicitarMicrofono
+                    )
+                    FilaPermisoCompacta(
+                        emoji = "🔗",
+                        titulo = "Bluetooth (coche)",
+                        concedido = permisoBluetooth,
+                        requiereAjustes = false,
+                        onClick = onSolicitarBluetooth
+                    )
+                    FilaPermisoCompacta(
+                        emoji = "🔋",
+                        titulo = "Optimización de batería",
+                        concedido = bateriaExcluida,
+                        requiereAjustes = true,
+                        textoBoton = stringResource(id = R.string.bt_excluir_bateria),
+                        onClick = onIrAjustesBateria
+                    )
+                }
+            }
         }
     }
 }
 
-/** Fila seleccionable con radio button para cada modo de lectura. */
+/** Fila compacta de permiso con botón o check verde. */
 @Composable
-private fun FilaModoLectura(
+private fun FilaPermisoCompacta(
     emoji: String,
     titulo: String,
-    descripcion: String,
-    seleccionado: Boolean,
+    concedido: Boolean,
+    requiereAjustes: Boolean,
+    textoBoton: String = "Conceder",
     onClick: () -> Unit
 ) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .clip(RoundedCornerShape(12.dp))
-            .clickable(onClick = onClick)
-            .padding(horizontal = 8.dp, vertical = 8.dp),
+            .padding(vertical = 5.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        RadioButton(selected = seleccionado, onClick = onClick)
-        Spacer(modifier = Modifier.width(6.dp))
-        Text(text = emoji, fontSize = 20.sp)
-        Spacer(modifier = Modifier.width(8.dp))
+        Text(text = emoji, fontSize = 18.sp)
+        Spacer(modifier = Modifier.width(10.dp))
+        Text(
+            text = titulo,
+            style = MaterialTheme.typography.bodyMedium,
+            modifier = Modifier.weight(1f)
+        )
+        if (concedido) {
+            Text("✓ Concedido", color = VerdeOk, fontWeight = FontWeight.SemiBold, fontSize = 13.sp)
+        } else {
+            Button(
+                onClick = onClick,
+                contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 12.dp, vertical = 4.dp),
+                modifier = Modifier.height(34.dp)
+            ) {
+                Text(if (requiereAjustes) stringResource(id = R.string.bt_ajustes) else textoBoton, fontSize = 12.sp)
+            }
+        }
+    }
+}
+
+/** Encabezado reutilizable con emoji, título y subtítulo para las tarjetas temáticas. */
+@Composable
+private fun CabeceraTarjetaTematica(
+    emoji: String,
+    titulo: String,
+    subtitulo: String
+) {
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        Text(text = emoji, fontSize = 24.sp)
+        Spacer(modifier = Modifier.width(12.dp))
         Column {
             Text(
                 text = titulo,
-                style = MaterialTheme.typography.bodyMedium,
-                fontWeight = FontWeight.Medium,
-                color = if (seleccionado) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface
+                style = MaterialTheme.typography.titleSmall,
+                fontWeight = FontWeight.Bold,
+                color = MaterialTheme.colorScheme.onSurface
             )
             Text(
-                text = descripcion,
+                text = subtitulo,
                 style = MaterialTheme.typography.bodySmall,
                 color = GrisEstado
             )
@@ -1494,57 +1480,54 @@ private fun FilaModoLectura(
     }
 }
 
-/** Tarjeta para elegir qué hacer con la música de fondo mientras Walink habla. */
+/** Tarjeta colapsable para la zona de depuración. */
 @Composable
-private fun TarjetaAudioFondo(
-    bajarVolumen: Boolean,
-    onCambiarAudioFondo: (Boolean) -> Unit
+private fun TarjetaDepuracionPlegable(
+    onSimularMensaje: (remitente: String, texto: String) -> Unit
 ) {
+    var expandido by remember { mutableStateOf(false) }
+
     Card(
-        modifier = Modifier.fillMaxWidth().padding(vertical = 6.dp),
+        modifier = Modifier.fillMaxWidth(),
         colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surfaceContainer
+            containerColor = MaterialTheme.colorScheme.surfaceContainerHighest.copy(alpha = 0.5f)
         ),
         elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
     ) {
-        Column(modifier = Modifier.fillMaxWidth().padding(16.dp)) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Text(text = "🎵", fontSize = 24.sp)
-                Spacer(modifier = Modifier.width(14.dp))
-                Column {
-                    Text(
-                        text = stringResource(id = R.string.audio_fondo_titulo),
-                        style = MaterialTheme.typography.bodyMedium,
-                        fontWeight = FontWeight.SemiBold,
-                        color = MaterialTheme.colorScheme.onSurface
-                    )
-                    Text(
-                        text = stringResource(id = R.string.audio_fondo_desc),
-                        style = MaterialTheme.typography.bodySmall,
-                        color = GrisEstado
-                    )
+        Column(modifier = Modifier.fillMaxWidth().padding(14.dp)) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clickable { expandido = !expandido },
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(text = "🧪", fontSize = 22.sp)
+                Spacer(modifier = Modifier.width(10.dp))
+                Text(
+                    text = stringResource(id = R.string.seccion_debug_titulo),
+                    style = MaterialTheme.typography.titleSmall,
+                    fontWeight = FontWeight.SemiBold,
+                    color = Color(0xFF6200EE),
+                    modifier = Modifier.weight(1f)
+                )
+                IconButton(onClick = { expandido = !expandido }) {
+                    Text(if (expandido) "▲" else "▼", fontSize = 14.sp, color = GrisEstado)
                 }
             }
 
-            Spacer(modifier = Modifier.height(8.dp))
-
-            FilaModoLectura(
-                emoji = "🔉",
-                titulo = stringResource(id = R.string.audio_bajar_volumen),
-                descripcion = stringResource(id = R.string.audio_bajar_volumen_desc),
-                seleccionado = bajarVolumen,
-                onClick = { onCambiarAudioFondo(true) }
-            )
-            FilaModoLectura(
-                emoji = "⏸️",
-                titulo = stringResource(id = R.string.audio_pausar),
-                descripcion = stringResource(id = R.string.audio_pausar_desc),
-                seleccionado = !bajarVolumen,
-                onClick = { onCambiarAudioFondo(false) }
-            )
+            AnimatedVisibility(
+                visible = expandido,
+                enter = expandVertically() + fadeIn(),
+                exit = shrinkVertically() + fadeOut()
+            ) {
+                Column(modifier = Modifier.padding(top = 10.dp)) {
+                    SeccionDepuracion(onSimularMensaje = onSimularMensaje)
+                }
+            }
         }
     }
 }
+
 
 /**
  * Pantalla de configuración inicial (onboarding) que se muestra la primera vez

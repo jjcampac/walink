@@ -156,4 +156,14 @@
     <string name="filtro_contactos_hint">Nombres separados por comas (ej: Mamá, Juan, Trabajo)</string>
     <string name="filtro_contactos_guardar">Guardar lista</string>
     <string name="nota_de_voz_detectada">Mensaje de voz de WhatsApp (%1$s)</string>
+
+    <!-- Rediseño UI (Opción A: Tarjetas Temáticas) -->
+    <string name="seccion_coche_titulo">Coche y Conectividad</string>
+    <string name="seccion_coche_desc">Comportamiento según el Bluetooth de tu vehículo</string>
+    <string name="seccion_voz_audio_titulo">Voz y Audio</string>
+    <string name="seccion_voz_audio_desc">Tono, velocidad de locución y música de fondo</string>
+    <string name="seccion_lectura_filtros_titulo">Lectura y Privacidad</string>
+    <string name="seccion_lectura_filtros_desc">Modo de aviso, chats de grupo y filtros de contactos</string>
+    <string name="seccion_permisos_ok">Todos los permisos necesarios concedidos ✓</string>
+    <string name="seccion_permisos_atencion">%1$d permiso(s) requieren tu atención</string>
 </resources>
