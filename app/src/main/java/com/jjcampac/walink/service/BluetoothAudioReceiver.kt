@@ -15,6 +15,9 @@ import android.util.Log
  * llegar un mensaje. Este receptor queda como observador de la conectividad de
  * audio para futuros ajustes (p. ej. selección del dispositivo del coche o
  * retraso de Bluetooth).
+ *
+ * @author jjcampac
+ * @author cline
  */
 class BluetoothAudioReceiver : BroadcastReceiver() {
 

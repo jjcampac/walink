@@ -24,6 +24,9 @@ import androidx.core.app.RemoteInput
  * En release este código se compila pero nunca se ejecuta: solo se llama desde
  * MainActivity cuando BuildConfig.DEBUG es true, y el receiver [DebugReplyReceiver]
  * solo se registra en el manifest de debug.
+ *
+ * @author jjcampac
+ * @author cline
  */
 object DebugSimulator {
 
@@ -133,6 +136,9 @@ object DebugSimulator {
  * Recibe la respuesta escrita/dictada desde el RemoteInput de la notificación
  * simulada y la muestra en Logcat (no se envía a WhatsApp). Solo se registra en
  * buildType debug (ver src/debug/AndroidManifest.xml).
+ *
+ * @author jjcampac
+ * @author cline
  */
 class DebugReplyReceiver : BroadcastReceiver() {
 

@@ -169,4 +169,4 @@ adb logcat -s WalinkListener WalinkLectorVoz WalinkTTS WalinkDebug WalinkParser
 
 ---
 
-**Autor:** Proyecto Walink — Desarrollado por fases para pruebas en dispositivo real.
+**Autores:** Proyecto Walink — desarrollado por **jjcampac** y **cline**, por fases para pruebas en dispositivo real.

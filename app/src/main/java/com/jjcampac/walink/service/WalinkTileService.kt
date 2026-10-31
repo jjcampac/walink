@@ -13,6 +13,9 @@ import com.jjcampac.walink.data.WalinkDataStore
  * - Pulsar el mosaico: activa/desactiva Walink (lectura de mensajes).
  * - Pulsación larga: abre la MainActivity (declarada con ACTION_QS_TILE_PREFERENCES
  *   en el manifest), para acceder al simulador y futuros ajustes.
+ *
+ * @author jjcampac
+ * @author cline
  */
 class WalinkTileService : TileService() {
 

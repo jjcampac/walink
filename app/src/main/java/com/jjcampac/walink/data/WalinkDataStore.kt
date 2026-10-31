@@ -21,11 +21,15 @@ private object WalinkKeys {
     const val BORRADOR_REMITENTE = "borrador_remitente"
     const val BORRADOR_TEXTO = "borrador_texto"
     const val BORRADOR_TIMESTAMP = "borrador_timestamp"
+    const val IDIOMA_APP = "idioma_app"
 }
 
 /**
  * Acceso a preferencias persistentes con SharedPreferences.
  * Toda la información se guarda localmente en el dispositivo.
+ *
+ * @author jjcampac
+ * @author cline
  */
 class WalinkDataStore private constructor(private val context: Context) {
 
@@ -155,6 +159,16 @@ class WalinkDataStore private constructor(private val context: Context) {
 
     suspend fun setLeerSinCoche(leer: Boolean) {
         prefs.edit().putBoolean(WalinkKeys.LEER_SIN_COCHE, leer).apply()
+    }
+
+    // ---- IDIOMA DE LA APP ----
+    // Código ISO 639-1 del idioma elegido ("es", "en", "de"...). Vacío ("")
+    // significa "seguir el idioma del sistema" (comportamiento por defecto).
+    val idiomaApp: String
+        get() = prefs.getString(WalinkKeys.IDIOMA_APP, "") ?: ""
+
+    fun setIdiomaApp(idioma: String) {
+        prefs.edit().putString(WalinkKeys.IDIOMA_APP, idioma).apply()
     }
 
     // ---- BORRADOR DE RESPUESTA POR VOZ (dictado tras leer un mensaje) ----

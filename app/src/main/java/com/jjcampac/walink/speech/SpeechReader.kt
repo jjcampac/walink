@@ -14,6 +14,7 @@ import android.speech.tts.UtteranceProgressListener
 import android.speech.tts.Voice
 import android.util.Log
 import com.jjcampac.walink.data.WalinkDataStore
+import com.jjcampac.walink.idioma.IdiomaHelper
 import java.util.Locale
 
 /**
@@ -35,6 +36,9 @@ import java.util.Locale
  *    salida de audio es Bluetooth, para que no se corte el principio de la frase.
  *
  * El foco se solicita antes de hablar y se abandona únicamente al terminar.
+ *
+ * @author jjcampac
+ * @author cline
  */
 class SpeechReader private constructor(private val contexto: Context) : TextToSpeech.OnInitListener {
 
@@ -111,7 +115,8 @@ class SpeechReader private constructor(private val contexto: Context) : TextToSp
     private fun aplicarVozGuardada() {
         val tts = tts ?: return
         val voces = tts.voices ?: emptyList()
-        val vozLocal = preferirVozLocalEspanol(tts)
+        val localeApp = IdiomaHelper.localeResuelto(contexto)
+        val vozLocal = preferirVozLocal(tts, localeApp)
 
         val nombreVoz = dataStore.vozTts
         if (!nombreVoz.isNullOrBlank()) {
@@ -134,34 +139,34 @@ class SpeechReader private constructor(private val contexto: Context) : TextToSp
                     return
                 }
             } else {
-                Log.w(TAG, "Voz guardada no disponible, usando español local por defecto")
+                Log.w(TAG, "Voz guardada no disponible, usando voz local del idioma elegido")
             }
         }
 
-        // Sin voz guardada usable: preferir una voz LOCAL en español. Las voces
-        // locales suenan normalmente más fuertes, claras y sin cortes que las de red.
+        // Sin voz guardada usable: preferir una voz LOCAL del idioma de la app.
+        // Las voces locales suenan normalmente más fuertes, claras y sin cortes que las de red.
         if (vozLocal != null) {
             if (tts.setVoice(vozLocal) == TextToSpeech.SUCCESS) {
                 Log.d(TAG, "Voz local seleccionada: ${vozLocal.name}")
                 return
             }
         }
-        val resultado = tts.setLanguage(Locale("es", "ES"))
+        val resultado = tts.setLanguage(localeApp)
         if (resultado == TextToSpeech.LANG_MISSING_DATA || resultado == TextToSpeech.LANG_NOT_SUPPORTED) {
-            Log.w(TAG, "Español no soportado, usando inglés")
+            Log.w(TAG, "Idioma de la app no soportado por el TTS, usando inglés")
             tts.setLanguage(Locale.ENGLISH)
         }
     }
 
     /**
-     * Devuelve la mejor voz en español disponible en el motor, prefiriendo las
-     * locales (offline) sobre las de red. null si no hay ninguna usable.
+     * Devuelve la mejor voz del idioma de la app disponible en el motor, prefiriendo
+     * las locales (offline) sobre las de red. null si no hay ninguna usable.
      */
-    private fun preferirVozLocalEspanol(tts: TextToSpeech): Voice? {
+    private fun preferirVozLocal(tts: TextToSpeech, localeApp: Locale): Voice? {
         val voces = tts.voices ?: return null
-        val enEspanol = voces.filter { it.locale?.language.equals("es", ignoreCase = true) }
-        if (enEspanol.isEmpty()) return null
-        return enEspanol.firstOrNull { !it.isNetworkConnectionRequired } ?: enEspanol.firstOrNull()
+        val delIdioma = voces.filter { it.locale?.language.equals(localeApp.language, ignoreCase = true) }
+        if (delIdioma.isEmpty()) return null
+        return delIdioma.firstOrNull { !it.isNetworkConnectionRequired } ?: delIdioma.firstOrNull()
     }
 
     /**

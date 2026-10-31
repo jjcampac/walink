@@ -89,6 +89,7 @@ import androidx.compose.ui.unit.sp
 import androidx.lifecycle.lifecycleScope
 import com.jjcampac.walink.BuildConfig
 import com.jjcampac.walink.data.WalinkDataStore
+import com.jjcampac.walink.idioma.IdiomaHelper
 import com.jjcampac.walink.debug.DebugSimulator
 import com.jjcampac.walink.service.BluetoothCoche
 import com.jjcampac.walink.service.WhatsAppNotificationListener
@@ -97,6 +98,12 @@ import com.jjcampac.walink.ui.theme.*
 import java.util.Locale
 import kotlinx.coroutines.launch
 
+/**
+ * Clase de Walink.
+ *
+ * @author jjcampac
+ * @author cline
+ */
 class MainActivity : ComponentActivity() {
 
     private val dataStore by lazy { WalinkDataStore.getInstance(applicationContext) }
@@ -142,6 +149,7 @@ class MainActivity : ComponentActivity() {
     private var bateriaExcluida by mutableStateOf(false)
     private var servicioActivado by mutableStateOf(false)
     private var mostrarOnboarding by mutableStateOf(false)
+    private var idiomaActual by mutableStateOf("")
 
     // ---- Selección de voz TTS ----
     // TTS "explorador" usado únicamente para listar las voces disponibles del motor.
@@ -300,9 +308,7 @@ class MainActivity : ComponentActivity() {
             tts.setVoice(voz)
         } else {
             @Suppress("DEPRECATION")
-            tts.setLanguage(Locale("es", "ES"))
-            @Suppress("DEPRECATION")
-            tts.setLanguage(Locale("es", ""))
+            tts.setLanguage(IdiomaHelper.localeResuelto(this))
         }
         tts.setSpeechRate(velocidadVoz)
         tts.speak(
@@ -333,6 +339,24 @@ class MainActivity : ComponentActivity() {
             !direccion.isNullOrBlank() && BluetoothCoche.estaConectado(applicationContext, direccion)
     }
 
+    override fun attachBaseContext(newBase: Context) {
+        super.attachBaseContext(IdiomaHelper.contextoLocalizado(newBase))
+    }
+
+    /**
+     * Cambia el idioma de la app y recrea la Activity para aplicar el nuevo locale.
+     * La preferencia vacía ("") significa "seguir el idioma del sistema".
+     */
+    private fun cambiarIdioma(codigo: String) {
+        if (idiomaActual == codigo) return
+        dataStore.setIdiomaApp(codigo)
+        idiomaActual = codigo
+        // Al cambiar de idioma se descarta la voz elegida (suele ser del idioma
+        // anterior y no estar disponible): se usará la voz por defecto del nuevo.
+        lifecycleScope.launch { dataStore.setVozTts(null) }
+        recreate()
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
@@ -357,6 +381,7 @@ class MainActivity : ComponentActivity() {
 
         servicioActivado = dataStore.estaActivado
         mostrarOnboarding = !dataStore.onboardingCompletado
+        idiomaActual = dataStore.idiomaApp
         vozActual = dataStore.vozTts
         leerTrasPreguntar = dataStore.leerTrasPreguntar
         audioBajaVolumen = dataStore.bajarVolumenEnLugarDePausar
@@ -375,13 +400,15 @@ class MainActivity : ComponentActivity() {
 
         // Crea un TTS "explorador" para listar las voces disponibles del motor.
         // Solo se usa para poblar el selector de voz; no interfiere con el TTS
-        // de reproducción (que vive en SpeechReader).
+        // de reproducción (que vive en SpeechReader). La lista se adapta al
+        // idioma activo de la app (el elegido o, si es "seguir sistema", el del teléfono).
+        val idiomaVoz = IdiomaHelper.localeResuelto(this).language
         vozTtsSelector = TextToSpeech(this) { status ->
             if (status == TextToSpeech.SUCCESS) {
-                // Solo mostramos voces en español; con la etiqueta que incluye género
-                // y calidad cuando es posible determinarlo.
+                // Mostramos únicamente las voces del idioma activo, con la etiqueta
+                // que incluye género y calidad cuando es posible determinarlo.
                 vocesDisponibles = vozTtsSelector?.voices
-                    ?.filter { it.locale?.language?.equals("es", ignoreCase = true) == true }
+                    ?.filter { it.locale?.language.equals(idiomaVoz, ignoreCase = true) == true }
                     ?.map { VozTts(nombre = it.name, etiqueta = etiquetaVoz(it)) }
                     ?.sortedBy { it.etiqueta }
                     ?: emptyList()
@@ -418,6 +445,8 @@ class MainActivity : ComponentActivity() {
                         permisoBluetooth = permisoBluetooth,
                         bateriaExcluida = bateriaExcluida,
                         servicioActivado = servicioActivado,
+                        idiomaActual = idiomaActual,
+                        onCambiarIdioma = ::cambiarIdioma,
                         vozActual = vozActual,
                         voces = vocesDisponibles,
                         onSeleccionarVoz = { nombre ->
@@ -601,7 +630,11 @@ class MainActivity : ComponentActivity() {
     }
 }
 
-/** Voz de TTS disponible para elegir: identificador interno + etiqueta legible. */
+/** Voz de TTS disponible para elegir: identificador interno + etiqueta legible.
+ *
+ * @author jjcampac
+ * @author cline
+ */
 private data class VozTts(val nombre: String, val etiqueta: String)
 
 /** Construye una etiqueta legible para una voz del motor TTS. */
@@ -641,6 +674,8 @@ private fun PantallaPrincipal(
     permisoBluetooth: Boolean,
     bateriaExcluida: Boolean,
     servicioActivado: Boolean,
+    idiomaActual: String,
+    onCambiarIdioma: (String) -> Unit,
     vozActual: String?,
     voces: List<VozTts>,
     onSeleccionarVoz: (String) -> Unit,
@@ -719,6 +754,13 @@ private fun PantallaPrincipal(
             when (tabSeleccionada) {
                 0 -> {
                     // PESTAÑA 1: CONDUCCIÓN
+                    // Idioma de la app (multilengua)
+                    TarjetaIdioma(
+                        idiomaActual = idiomaActual,
+                        onCambiarIdioma = onCambiarIdioma
+                    )
+
+                    Spacer(modifier = Modifier.height(14.dp))
                     // Coche y Conectividad
                     TarjetaCocheConectividad(
                         permisoBluetooth = permisoBluetooth,
@@ -753,13 +795,13 @@ private fun PantallaPrincipal(
                                 FilterChip(
                                     selected = !leerTrasPreguntar,
                                     onClick = { onCambiarModoLectura(false) },
-                                    label = { Text("⚡ Inmediato") },
+                                    label = { Text(stringResource(id = R.string.chip_inmediato)) },
                                     modifier = Modifier.weight(1f)
                                 )
                                 FilterChip(
                                     selected = leerTrasPreguntar,
                                     onClick = { onCambiarModoLectura(true) },
-                                    label = { Text("❓ Preguntar") },
+                                    label = { Text(stringResource(id = R.string.chip_preguntar)) },
                                     modifier = Modifier.weight(1f)
                                 )
                             }
@@ -788,13 +830,13 @@ private fun PantallaPrincipal(
                                 FilterChip(
                                     selected = bajarVolumen,
                                     onClick = { onCambiarAudioFondo(true) },
-                                    label = { Text("🔉 Bajar volumen") },
+                                    label = { Text(stringResource(id = R.string.chip_bajar_volumen)) },
                                     modifier = Modifier.weight(1f)
                                 )
                                 FilterChip(
                                     selected = !bajarVolumen,
                                     onClick = { onCambiarAudioFondo(false) },
-                                    label = { Text("⏸️ Pausar música") },
+                                    label = { Text(stringResource(id = R.string.chip_pausar_musica)) },
                                     modifier = Modifier.weight(1f)
                                 )
                             }
@@ -853,6 +895,65 @@ private fun PantallaPrincipal(
                 }
             }
             Spacer(modifier = Modifier.height(16.dp))
+        }
+    }
+}
+
+/**
+ * Tarjeta de selección de idioma de la app. Ofrece "seguir el sistema" y los
+ * 6 idiomas soportados (español, inglés, alemán, italiano, francés y japonés).
+ */
+@Composable
+private fun TarjetaIdioma(idiomaActual: String, onCambiarIdioma: (String) -> Unit) {
+    var menuIdiomaAbierto by remember { mutableStateOf(false) }
+
+    // Etiqueta actual: el nombre del idioma elegido o "seguir el dispositivo".
+    val etiquetaActual = if (idiomaActual.isBlank() || idiomaActual == IdiomaHelper.SISTEMA) {
+        stringResource(id = R.string.idioma_seguir_sistema)
+    } else {
+        IdiomaHelper.soportados[idiomaActual] ?: stringResource(id = R.string.idioma_seguir_sistema)
+    }
+
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainer)
+    ) {
+        Column(modifier = Modifier.fillMaxWidth().padding(16.dp)) {
+            Text(
+                text = stringResource(id = R.string.idioma_titulo),
+                style = MaterialTheme.typography.titleMedium
+            )
+            Spacer(modifier = Modifier.height(10.dp))
+            OutlinedButton(onClick = { menuIdiomaAbierto = true }) {
+                Text("🌐 $etiquetaActual")
+            }
+            DropdownMenu(
+                expanded = menuIdiomaAbierto,
+                onDismissRequest = { menuIdiomaAbierto = false }
+            ) {
+                DropdownMenuItem(
+                    text = { Text(stringResource(id = R.string.idioma_seguir_sistema)) },
+                    onClick = {
+                        menuIdiomaAbierto = false
+                        onCambiarIdioma("")
+                    }
+                )
+                IdiomaHelper.soportados.forEach { (codigo, nombre) ->
+                    DropdownMenuItem(
+                        text = { Text(nombre) },
+                        onClick = {
+                            menuIdiomaAbierto = false
+                            onCambiarIdioma(codigo)
+                        }
+                    )
+                }
+            }
+            Spacer(modifier = Modifier.height(8.dp))
+            Text(
+                text = stringResource(id = R.string.idioma_desc),
+                style = MaterialTheme.typography.bodySmall,
+                color = GrisEstado
+            )
         }
     }
 }
@@ -1211,9 +1312,9 @@ private fun TarjetaVozAudio(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween
             ) {
-                Text("0.5x (Lenta)", style = MaterialTheme.typography.labelSmall, color = GrisEstado)
-                Text("1.0x (Normal)", style = MaterialTheme.typography.labelSmall, color = GrisEstado)
-                Text("2.0x (Rápida)", style = MaterialTheme.typography.labelSmall, color = GrisEstado)
+                Text(stringResource(id = R.string.vel_lenta), style = MaterialTheme.typography.labelSmall, color = GrisEstado)
+                Text(stringResource(id = R.string.vel_normal), style = MaterialTheme.typography.labelSmall, color = GrisEstado)
+                Text(stringResource(id = R.string.vel_rapida), style = MaterialTheme.typography.labelSmall, color = GrisEstado)
             }
 
             Spacer(modifier = Modifier.height(12.dp))
@@ -1234,13 +1335,13 @@ private fun TarjetaVozAudio(
                 FilterChip(
                     selected = bajarVolumen,
                     onClick = { onCambiarAudioFondo(true) },
-                    label = { Text("🔉 Bajar volumen") },
+                    label = { Text(stringResource(id = R.string.chip_bajar_volumen)) },
                     modifier = Modifier.weight(1f)
                 )
                 FilterChip(
                     selected = !bajarVolumen,
                     onClick = { onCambiarAudioFondo(false) },
-                    label = { Text("⏸️ Pausar música") },
+                    label = { Text(stringResource(id = R.string.chip_pausar_musica)) },
                     modifier = Modifier.weight(1f)
                 )
             }
@@ -1293,13 +1394,13 @@ private fun TarjetaLecturaPrivacidad(
                 FilterChip(
                     selected = !leerTrasPreguntar,
                     onClick = { onCambiarModoLectura(false) },
-                    label = { Text("⚡ Inmediato") },
+                    label = { Text(stringResource(id = R.string.chip_inmediato)) },
                     modifier = Modifier.weight(1f)
                 )
                 FilterChip(
                     selected = leerTrasPreguntar,
                     onClick = { onCambiarModoLectura(true) },
-                    label = { Text("❓ Preguntar") },
+                    label = { Text(stringResource(id = R.string.chip_preguntar)) },
                     modifier = Modifier.weight(1f)
                 )
             }
@@ -1351,19 +1452,19 @@ private fun TarjetaLecturaPrivacidad(
                 FilterChip(
                     selected = modoFiltro == 0,
                     onClick = { onCambiarModoFiltro(0) },
-                    label = { Text("🌐 Todos") },
+                    label = { Text(stringResource(id = R.string.chip_filtro_todos)) },
                     modifier = Modifier.weight(1f)
                 )
                 FilterChip(
                     selected = modoFiltro == 1,
                     onClick = { onCambiarModoFiltro(1) },
-                    label = { Text("✅ Permitidos") },
+                    label = { Text(stringResource(id = R.string.chip_filtro_permitidos)) },
                     modifier = Modifier.weight(1f)
                 )
                 FilterChip(
                     selected = modoFiltro == 2,
                     onClick = { onCambiarModoFiltro(2) },
-                    label = { Text("🚫 Bloqueados") },
+                    label = { Text(stringResource(id = R.string.chip_filtro_bloqueados)) },
                     modifier = Modifier.weight(1f)
                 )
             }
@@ -1547,7 +1648,7 @@ private fun FilaPermisoCompacta(
             modifier = Modifier.weight(1f)
         )
         if (concedido) {
-            Text("✓ Concedido", color = VerdeOk, fontWeight = FontWeight.SemiBold, fontSize = 13.sp)
+            Text(stringResource(id = R.string.estado_concedido), color = VerdeOk, fontWeight = FontWeight.SemiBold, fontSize = 13.sp)
         } else {
             Button(
                 onClick = onClick,
@@ -1675,7 +1776,7 @@ private fun PantallaOnboarding(
 
         // ---- Paso 1: permisos runtime en cascada ----
         Text(
-            text = "1. Permisos básicos",
+            text = stringResource(id = R.string.onboarding_paso1),
             style = MaterialTheme.typography.titleMedium,
             modifier = Modifier
                 .align(Alignment.Start)
@@ -1721,7 +1822,7 @@ private fun PantallaOnboarding(
 
         // ---- Paso 2: permisos especiales ----
         Text(
-            text = "2. Configuración en segundo plano",
+            text = stringResource(id = R.string.onboarding_paso2),
             style = MaterialTheme.typography.titleMedium,
             modifier = Modifier
                 .align(Alignment.Start)
@@ -1748,7 +1849,7 @@ private fun PantallaOnboarding(
                 Text("✓", color = Color(0xFF1B873B))
             } else {
                 OutlinedButton(onClick = onConfigurarAccesoListener) {
-                    Text("Configurar")
+                    Text(stringResource(id = R.string.bt_configurar))
                 }
             }
         }
@@ -1771,7 +1872,7 @@ private fun PantallaOnboarding(
             }
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
                 OutlinedButton(onClick = onAnadirTile) {
-                    Text("Añadir")
+                    Text(stringResource(id = R.string.bt_anadir))
                 }
             }
         }
@@ -1793,7 +1894,7 @@ private fun PantallaOnboarding(
                 )
             }
             OutlinedButton(onClick = onIrBateria) {
-                Text("Configurar")
+                Text(stringResource(id = R.string.bt_configurar))
             }
         }
 
@@ -1857,7 +1958,7 @@ private fun SeccionDepuracion(
         OutlinedTextField(
             value = remitente,
             onValueChange = { remitente = it },
-            label = { Text("Remitente") },
+            label = { Text(stringResource(id = R.string.debug_remitente)) },
             singleLine = true,
             modifier = Modifier.fillMaxWidth()
         )
@@ -1865,7 +1966,7 @@ private fun SeccionDepuracion(
         OutlinedTextField(
             value = textoMensaje,
             onValueChange = { textoMensaje = it },
-            label = { Text("Mensaje de prueba") },
+            label = { Text(stringResource(id = R.string.debug_mensaje_prueba)) },
             modifier = Modifier.fillMaxWidth()
         )
 
@@ -1873,11 +1974,11 @@ private fun SeccionDepuracion(
             onClick = { onSimularMensaje(remitente, textoMensaje) },
             modifier = Modifier.fillMaxWidth()
         ) {
-            Text("Simular mensaje")
+            Text(stringResource(id = R.string.debug_simular))
         }
 
         Text(
-            text = "La respuesta del RemoteInput se muestra en Logcat (etiqueta WalinkDebug).",
+            text = stringResource(id = R.string.debug_nota_respuesta),
             style = MaterialTheme.typography.bodySmall,
             color = Color(0xFF666666)
         )
