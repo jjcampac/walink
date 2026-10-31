@@ -104,8 +104,9 @@
     <string name="borrador_guardado">%1$sへの返信を作成しました：%2$s</string>
     <string name="no_responder">わかりました。返信しません。</string>
     <string name="aviso_no_respondido">返答が聞き取れなかったため、返信しません。</string>
-    <string name="pregunta_enviar_o_corregir">返信を送りますか、それとも修正しますか？</string>
-    <string name="pregunta_enviar_o_corregir_reintento">送るなら「送信」、メッセージを作り直すなら「修正」とおっしゃってください。</string>
+    <string name="pregunta_enviar_o_corregir">返信を送りますか、修正しますか、それともキャンセルしますか？</string>
+    <string name="pregunta_enviar_o_corregir_reintento">送るなら「送信」、メッセージを作り直すなら「修正」、やめるなら「キャンセル」とおっしゃってください。</string>
+    <string name="respuesta_cancelada">返信をキャンセルしました。</string>
     <string name="enviando_respuesta">返信を送信中…</string>
     <string name="respuesta_enviada">%1$sに返信を送信しました</string>
     <string name="corrigiendo_respuesta">わかりました。修正をどうぞ</string>

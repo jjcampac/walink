@@ -47,8 +47,9 @@ Todo ello con una **privacidad estricta**: el procesamiento es 100 % local, sin 
 - ✅ Tras leer un mensaje (en cualquiera de los dos modos) se ofrece por voz responder al remitente.
 - ✅ Pregunta sí/no para responder.
 - ✅ **Dictado** de la respuesta con `SpeechRecognizer` (es-ES).
-- ✅ Se anuncia el texto redactado y se pregunta **"¿Enviar o corregir?"**.
+- ✅ Se anuncia el texto redactado y se pregunta **"¿Enviar, corregir o cancelar?"**.
 - ✅ Si se elige **corregir**, vuelve a escuchar el dictado (se descarta el borrador anterior).
+- ✅ Si se elige **cancelar**, se descarta el borrador y no se envía nada.
 - ✅ Si se elige **enviar**, la respuesta se envía mediante la acción `RemoteInput` de la propia notificación de WhatsApp (sin accesibilidad ni APIs no oficiales).
 - ✅ El `PendingIntent` de respuesta y las claves del `RemoteInput` se extraen de la notificación original y se pasan al servicio.
 - ✅ **Borrador de respuesta** persistente en `WalinkDataStore` (`borrador_remitente`, `borrador_texto`, `borrador_timestamp`).

@@ -108,8 +108,9 @@
     <string name="borrador_guardado">I have drafted your reply to %1$s: %2$s</string>
     <string name="no_responder">Okay, I will not reply.</string>
     <string name="aviso_no_respondido">I could not hear your reply, so I will not answer.</string>
-    <string name="pregunta_enviar_o_corregir">Send the reply or correct it?</string>
-    <string name="pregunta_enviar_o_corregir_reintento">Say send to send it, or correct to repeat the message.</string>
+    <string name="pregunta_enviar_o_corregir">Send the reply, correct it, or cancel?</string>
+    <string name="pregunta_enviar_o_corregir_reintento">Say send to send it, correct to repeat the message, or cancel to drop it.</string>
+    <string name="respuesta_cancelada">Reply cancelled.</string>
     <string name="enviando_respuesta">Sending reply…</string>
     <string name="respuesta_enviada">Reply sent to %1$s</string>
     <string name="corrigiendo_respuesta">Okay, tell me the correction</string>

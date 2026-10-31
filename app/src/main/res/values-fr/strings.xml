@@ -104,8 +104,9 @@
     <string name="borrador_guardado">J\'ai rédigé votre réponse à %1$s : %2$s</string>
     <string name="no_responder">D\'accord, je ne répondrai pas.</string>
     <string name="aviso_no_respondido">Je n\'ai pas pu entendre votre réponse, je ne répondrai donc pas.</string>
-    <string name="pregunta_enviar_o_corregir">Envoyer la réponse ou la corriger ?</string>
-    <string name="pregunta_enviar_o_corregir_reintento">Dites envoyer pour l\'envoyer ou corriger pour répéter le message.</string>
+    <string name="pregunta_enviar_o_corregir">Envoyer la réponse, la corriger ou annuler ?</string>
+    <string name="pregunta_enviar_o_corregir_reintento">Dites envoyer pour envoyer, corriger pour répéter le message, ou annuler pour rejeter.</string>
+    <string name="respuesta_cancelada">Réponse annulée.</string>
     <string name="enviando_respuesta">Envoi de la réponse…</string>
     <string name="respuesta_enviada">Réponse envoyée à %1$s</string>
     <string name="corrigiendo_respuesta">D\'accord, dites-moi la correction</string>

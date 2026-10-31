@@ -130,8 +130,9 @@
     <string name="aviso_no_respondido">No he podido oír tu respuesta, así que no responderé.</string>
 
     <!-- Enviar o corregir borrador tras dictar -->
-    <string name="pregunta_enviar_o_corregir">¿Enviar respuesta o corregirla?</string>
-    <string name="pregunta_enviar_o_corregir_reintento">Di enviar para mandarla, o corregir para repetir el mensaje.</string>
+    <string name="pregunta_enviar_o_corregir">¿Enviar la respuesta, corregirla o cancelarla?</string>
+    <string name="pregunta_enviar_o_corregir_reintento">Di enviar para mandarla, corregir para repetir el mensaje, o cancelar para anularla.</string>
+    <string name="respuesta_cancelada">Respuesta cancelada.</string>
     <string name="enviando_respuesta">Enviando respuesta…</string>
     <string name="respuesta_enviada">Respuesta enviada a %1$s</string>
     <string name="corrigiendo_respuesta">Vale, dime la corrección</string>

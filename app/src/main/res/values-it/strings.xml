@@ -104,8 +104,9 @@
     <string name="borrador_guardado">Ho scritto la tua risposta a %1$s: %2$s</string>
     <string name="no_responder">Va bene, non risponderò.</string>
     <string name="aviso_no_respondido">Non ho potuto sentire la tua risposta, quindi non risponderò.</string>
-    <string name="pregunta_enviar_o_corregir">Inviare la risposta o correggerla?</string>
-    <string name="pregunta_enviar_o_corregir_reintento">Di invia per inviarla oppure correggi per ripetere il messaggio.</string>
+    <string name="pregunta_enviar_o_corregir">Inviare la risposta, correggerla o annullarla?</string>
+    <string name="pregunta_enviar_o_corregir_reintento">Di invia per inviarla, correggi per ripetere il messaggio o annulla per scartarla.</string>
+    <string name="respuesta_cancelada">Risposta annullata.</string>
     <string name="enviando_respuesta">Invio della risposta…</string>
     <string name="respuesta_enviada">Risposta inviata a %1$s</string>
     <string name="corrigiendo_respuesta">Va bene, dimmi la correzione</string>

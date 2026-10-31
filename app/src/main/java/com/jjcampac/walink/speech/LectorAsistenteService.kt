@@ -12,6 +12,7 @@ import android.os.Build
 import android.os.Bundle
 import android.app.PendingIntent
 import android.os.IBinder
+import android.os.PowerManager
 import android.speech.RecognitionListener
 import androidx.core.content.ContextCompat
 import android.speech.RecognizerIntent
@@ -43,6 +44,7 @@ class LectorAsistenteService : Service(), RecognitionListener {
     private lateinit var dataStore: WalinkDataStore
     private var recognizer: SpeechRecognizer? = null
     private var tiempoEscucha: Runnable? = null
+    private var wakeLock: PowerManager.WakeLock? = null
 
     private var remitente = ""
     private var textoParaLeer = ""
@@ -110,6 +112,7 @@ class LectorAsistenteService : Service(), RecognitionListener {
         }
 
         entrarEnForeground()
+        adquirirWakeLock()
         hacerPregunta()
     }
 
@@ -132,6 +135,29 @@ class LectorAsistenteService : Service(), RecognitionListener {
         } else {
             startForeground(NOTIF_ID, notificacionActiva())
         }
+    }
+
+    /** Mantiene la CPU despierta mientras la pantalla está apagada para que el
+     *  reconocimiento de voz (SpeechRecognizer) pueda oír. Sin este wake lock, con
+     *  la pantalla apagada el micrófono se activa (suena el tono) pero no capta audio:
+     *  el servicio de reconocimiento exige que la app mantenga la CPU despierta. */
+    private fun adquirirWakeLock() {
+        if (wakeLock?.isHeld == true) return
+        val pm = getSystemService(PowerManager::class.java)
+        val lock = pm.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "$packageName:WalinkVoz")
+        lock.setReferenceCounted(false)
+        // Tiempo máximo de seguridad para no dejar la CPU activa si algo se atasca.
+        lock.acquire(WAKE_LOCK_TIMEOUT_MS)
+        wakeLock = lock
+        Log.d(TAG, "WakeLock parcial adquirido (reconocimiento con pantalla apagada)")
+    }
+
+    private fun liberarWakeLock() {
+        if (wakeLock?.isHeld == true) {
+            wakeLock?.release()
+        }
+        wakeLock = null
+        Log.d(TAG, "WakeLock liberado")
     }
 
     /** Reproduce la pregunta por voz y, al terminar, activa el micrófono. */
@@ -297,13 +323,17 @@ class LectorAsistenteService : Service(), RecognitionListener {
             ETAPA_CONFIRMAR_ENVIO -> {
                 val decidir = decidirEnviarOCorregir(respuesta)
                 when (decidir) {
-                    true -> {
+                    DecisionConfirmEnvio.ENVIAR -> {
                         Log.d(TAG, "onResults: usuario quiere ENVIAR")
                         enviarRespuesta()
                     }
-                    false -> {
+                    DecisionConfirmEnvio.CORREGIR -> {
                         Log.d(TAG, "onResults: usuario quiere CORREGIR")
                         corregirRespuesta()
+                    }
+                    DecisionConfirmEnvio.CANCELAR -> {
+                        Log.d(TAG, "onResults: usuario quiere CANCELAR")
+                        cancelarRespuesta()
                     }
                     null -> {
                         Log.d(TAG, "onResults: respuesta ambigua -> reintento")
@@ -387,6 +417,7 @@ class LectorAsistenteService : Service(), RecognitionListener {
         etapaRespuesta = ETAPA_IDLE
         recognizer?.destroy()
         recognizer = null
+        liberarWakeLock()
         stopForeground(STOP_FOREGROUND_REMOVE)
         stopSelf()
     }
@@ -420,6 +451,7 @@ class LectorAsistenteService : Service(), RecognitionListener {
         }
 
         entrarEnForeground()
+        adquirirWakeLock()
         preguntarSiResponder()
     }
 
@@ -517,17 +549,25 @@ class LectorAsistenteService : Service(), RecognitionListener {
         armarWatchdogPregunta()
     }
 
-    /** true = enviar, false = corregir, null = no entendido. */
-    private fun decidirEnviarOCorregir(respuesta: String): Boolean? {
+    /** Decisión del usuario en la confirmación de envío de la respuesta. */
+    private enum class DecisionConfirmEnvio { ENVIAR, CORREGIR, CANCELAR }
+
+    /** Enviar, corregir o cancelar la respuesta dictada; null = no entendido. */
+    private fun decidirEnviarOCorregir(respuesta: String): DecisionConfirmEnvio? {
+        val texto = respuesta.lowercase()
         val quiereEnviar = REGEX_SI.containsMatchIn(respuesta) ||
-            "enviar" in respuesta || "mandar" in respuesta ||
-            "manda" in respuesta || "adelante" in respuesta
+            "enviar" in texto || "mandar" in texto ||
+            "manda" in texto || "adelante" in texto
         val quiereCorregir = REGEX_NO.containsMatchIn(respuesta) ||
-            "corregir" in respuesta || "repetir" in respuesta ||
-            "cambiar" in respuesta || "otra vez" in respuesta
+            "corregir" in texto || "repetir" in texto ||
+            "cambiar" in texto || "otra vez" in texto
+        val quiereCancelar = PALABRAS_CANCELAR.any { it in texto }
         return when {
-            quiereEnviar && !quiereCorregir -> true
-            quiereCorregir && !quiereEnviar -> false
+            // La cancelación tiene prioridad: evita que un "no" de la frase se
+            // interprete como corregir, y corta el flujo sin enviar nada.
+            quiereCancelar -> DecisionConfirmEnvio.CANCELAR
+            quiereEnviar && !quiereCorregir -> DecisionConfirmEnvio.ENVIAR
+            quiereCorregir && !quiereEnviar -> DecisionConfirmEnvio.CORREGIR
             else -> null
         }
     }
@@ -585,7 +625,17 @@ class LectorAsistenteService : Service(), RecognitionListener {
         armarWatchdogPregunta()
     }
 
-    /** Reintento cuando no se entiende "enviar" o "corregir". */
+    /** Cancela la respuesta en curso: descarta el borrador y finaliza sin enviar. */
+    private fun cancelarRespuesta() {
+        Log.d(TAG, "onResults: usuario quiere CANCELAR; descartando borrador")
+        dataStore.borrarBorradorRespuesta()
+        etapaRespuesta = ETAPA_IDLE
+        lector.hablar(getString(R.string.respuesta_cancelada)) {
+            finalizar()
+        }
+    }
+
+    /** Reintento cuando no se entiende "enviar", "corregir" o "cancelar". */
     private fun reintentarONoEntendidoEnviarOCorregir() {
         cancelarTiempoEscucha()
         recognizer?.destroy()
@@ -609,6 +659,7 @@ class LectorAsistenteService : Service(), RecognitionListener {
         preguntaHablando = false
         recognizer ?.destroy()
         recognizer = null
+        liberarWakeLock()
         Log.d(TAG, "LectorAsistenteService destruido")
         super.onDestroy()
     }
@@ -635,6 +686,8 @@ class LectorAsistenteService : Service(), RecognitionListener {
         private const val MAX_INTENTOS = 2
         // Si en este tiempo no se oye ninguna respuesta, se trata como "no entendido".
         private const val TIEMPO_ESCUCHA_MS = 12000L
+        // Máximo de retención del wake lock para no dejar la CPU activa si algo se atasca.
+        private const val WAKE_LOCK_TIMEOUT_MS = 90_000L
         // Tiempo máximo para que la pregunta hablada termine; si no, se activa el
         // micrófono igualmente (evita ciclos congelados por un onDone TTS perdido).
         private const val WATCHDOG_PREGUNTA_MS = 6000L
@@ -646,6 +699,16 @@ class LectorAsistenteService : Service(), RecognitionListener {
         private val REGEX_NO = Regex(
             "\\bno\\b|\\bnegative\\b",
             RegexOption.IGNORE_CASE
+        )
+        // Palabras que indican "cancelar" en la confirmación de envío. Se comprueban
+        // antes que "enviar"/"corregir" para dar prioridad a la cancelación.
+        private val PALABRAS_CANCELAR = listOf(
+            "cancelar", "cancela", "cancel", "abortar", "abort",
+            "olvídalo", "olvidalo", "descartar", "no enviar", "no envíes",
+            "abbrechen", "stornieren", "verwerfen",
+            "annulla", "annullare", "cancella",
+            "annule", "annuler", "abandonne",
+            "キャンセル", "やめる", "中止"
         )
     }
 }
