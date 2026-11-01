@@ -412,8 +412,12 @@ class MainActivity : ComponentActivity() {
                 // que incluye género y calidad cuando es posible determinarlo.
                 vocesDisponibles = vozTtsSelector?.voices
                     ?.filter { it.locale?.language.equals(idiomaVoz, ignoreCase = true) == true }
-                    ?.map { VozTts(nombre = it.name, etiqueta = etiquetaVoz(it)) }
-                    ?.sortedBy { it.etiqueta }
+                    ?.map { voz ->
+                        val etiqueta = etiquetaVoz(voz)
+                        VozTts(nombre = voz.name, etiqueta = etiqueta, idioma = voz.locale?.language ?: "")
+                    }
+                    ?.sortedBy { it.idioma }
+                    ?.sortedBy { generoOrden(it.etiqueta) }
                     ?: emptyList()
             }
         }
@@ -668,20 +672,63 @@ class MainActivity : ComponentActivity() {
  * @author jjcampac
  * @author cline
  */
-private data class VozTts(val nombre: String, val etiqueta: String)
+private data class VozTts(val nombre: String, val etiqueta: String, val idioma: String)
 
 /** Construye una etiqueta legible para una voz del motor TTS. */
 private fun etiquetaVoz(voz: android.speech.tts.Voice): String {
     val nombre = voz.locale.getDisplayName(voz.locale)
-    val genero = generoVoz(voz.name)?.let { " · $it" } ?: ""
-    return nombre + genero
+    val genero = generoVozEmoji(voz.name)
+    val nombreCorto = nombreInternoCorto(voz.name)
+    return "$genero $nombre${if (nombreCorto.isNotBlank()) " ($nombreCorto)" else "" }"
+}
+
+/** Emoji de género deducido del nombre interno de la voz. */
+private fun generoVozEmoji(nombreVoz: String): String {
+    val n = nombreVoz.lowercase()
+    return when {
+        "female" in n || "femenin" in n || "woman" in n || "-f-" in n || "_f_" in n ||
+            n.endsWith("-f") || n.endsWith("-female") -> "👩"
+        "male" in n || "masculin" in n || "man" in n || "-m-" in n || "_m_" in n ||
+            n.endsWith("-m") || n.endsWith("-male") -> "👨"
+        else -> "⚪"
+    }
+}
+
+/**
+ * Orden numérico para agrupar por género en el listado:
+ * 0 = Femenina, 1 = Masculina, 2 = Indeterminada.
+ */
+private fun generoOrden(etiqueta: String): Int =
+    when {
+        etiqueta.startsWith("👩") -> 0
+        etiqueta.startsWith("👨") -> 1
+        else -> 2
+    }
+
+/**
+ * Extrae un fragmento corto del nombre interno de la voz para diferenciar
+ * voces que comparten el mismo nombre mostrado (p. ej. varias "español (España)").
+ * Devuelve vacío si el nombre interno ya es suficientemente descriptivo.
+ */
+private fun nombreInternoCorto(nombreVoz: String): String {
+    val n = nombreVoz.lowercase()
+    // Quita prefijos comunes de motor para dejar solo el identificador distintivo
+    return when {
+        n.contains("google") -> n.substringAfterLast("google").trim().takeIf { it.isNotBlank() } ?: ""
+        n.contains("espeak") -> n.substringAfterLast("espeak").trim().takeIf { it.isNotBlank() } ?: ""
+        n.contains("pico") -> n.substringAfterLast("pico").trim().takeIf { it.isNotBlank() } ?: ""
+        n.contains("svox") -> n.substringAfterLast("svox").trim().takeIf { it.isNotBlank() } ?: ""
+        else -> ""
+    }
 }
 
 /**
  * Intenta deducir si una voz es femenina o masculina a partir de su nombre
  * interno. Muchos motores (p. ej. Google) no exponen el género de forma fiable,
  * por lo que devolvemos null cuando no se puede determinar.
+ * @deprecated Usar [generoVozEmoji] para la UI.
  */
+@Deprecated("Usar generoVozEmoji para la UI")
 private fun generoVoz(nombreVoz: String): String? {
     val n = nombreVoz.lowercase()
     return when {
@@ -1288,14 +1335,22 @@ private fun TarjetaVozAudio(
                                 onClick = { menuVozAbierto = false }
                             )
                         } else {
-                            voces.forEach { voz ->
+                            voces.groupBy { it.idioma }.forEach { (idioma, vocesDelIdioma) ->
+                                // Cabecera de idioma (no clickeable)
                                 DropdownMenuItem(
-                                    text = { Text(voz.etiqueta) },
-                                    onClick = {
-                                        onSeleccionarVoz(voz.nombre)
-                                        menuVozAbierto = false
-                                    }
+                                    text = { Text(idioma.uppercase(), style = MaterialTheme.typography.bodySmall.copy(color = MaterialTheme.colorScheme.onSurfaceVariant)) },
+                                    enabled = false,
+                                    onClick = { }
                                 )
+                                vocesDelIdioma.forEach { voz ->
+                                    DropdownMenuItem(
+                                        text = { Text(voz.etiqueta) },
+                                        onClick = {
+                                            onSeleccionarVoz(voz.nombre)
+                                            menuVozAbierto = false
+                                        }
+                                    )
+                                }
                             }
                         }
                     }
