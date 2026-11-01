@@ -15,6 +15,7 @@ import android.os.Looper
 import android.os.PowerManager
 import android.provider.Settings
 import android.speech.tts.TextToSpeech
+import android.speech.tts.Voice
 import androidx.activity.ComponentActivity
 import androidx.activity.SystemBarStyle
 import androidx.activity.compose.setContent
@@ -675,22 +676,36 @@ class MainActivity : ComponentActivity() {
 private data class VozTts(val nombre: String, val etiqueta: String, val idioma: String)
 
 /** Construye una etiqueta legible para una voz del motor TTS. */
-private fun etiquetaVoz(voz: android.speech.tts.Voice): String {
+private fun etiquetaVoz(voz: Voice): String {
     val nombre = voz.locale.getDisplayName(voz.locale)
-    val genero = generoVozEmoji(voz.name)
+    val genero = generoVozEmoji(voz)
     val nombreCorto = nombreInternoCorto(voz.name)
     return "$genero $nombre${if (nombreCorto.isNotBlank()) " ($nombreCorto)" else "" }"
 }
 
-/** Emoji de género deducido del nombre interno de la voz. */
-private fun generoVozEmoji(nombreVoz: String): String {
-    val n = nombreVoz.lowercase()
-    return when {
-        "female" in n || "femenin" in n || "woman" in n || "-f-" in n || "_f_" in n ||
-            n.endsWith("-f") || n.endsWith("-female") -> "👩"
-        "male" in n || "masculin" in n || "man" in n || "-m-" in n || "_m_" in n ||
-            n.endsWith("-m") || n.endsWith("-male") -> "👨"
-        else -> "⚪"
+/** Emoji de género deducido del objeto [Voice] del motor TTS. */
+private fun generoVozEmoji(voz: Voice): String {
+    // Intenta usar getGender() por reflexión (disponible en API 21+).
+    val gender = try {
+        val method = voz.javaClass.getMethod("getGender")
+        method.invoke(voz) as? Int ?: -1
+    } catch (e: Exception) {
+        -1
+    }
+    return when (gender) {
+        2 -> "👩"   // GENDER_FEMALE
+        1 -> "👨"   // GENDER_MALE
+        else -> {
+            // Respaldo: deducir del nombre interno
+            val n = voz.name.lowercase()
+            when {
+                "female" in n || "femenin" in n || "woman" in n || "-f-" in n || "_f_" in n ||
+                    n.endsWith("-f") || n.endsWith("-female") -> "👩"
+                "male" in n || "masculin" in n || "man" in n || "-m-" in n || "_m_" in n ||
+                    n.endsWith("-m") || n.endsWith("-male") -> "👨"
+                else -> "⚪"
+            }
+        }
     }
 }
 
