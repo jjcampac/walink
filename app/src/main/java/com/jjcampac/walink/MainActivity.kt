@@ -418,7 +418,6 @@ class MainActivity : ComponentActivity() {
                         VozTts(nombre = voz.name, etiqueta = etiqueta, idioma = voz.locale?.language ?: "")
                     }
                     ?.sortedBy { it.idioma }
-                    ?.sortedBy { generoOrden(it.etiqueta) }
                     ?: emptyList()
             }
         }
@@ -678,10 +677,37 @@ private data class VozTts(val nombre: String, val etiqueta: String, val idioma: 
 /** Construye una etiqueta legible para una voz del motor TTS. */
 private fun etiquetaVoz(voz: Voice): String {
     val base = voz.locale.getDisplayName(voz.locale)
-    // El nombre interno de la voz (ej. "es-es-x-esf-network") es el único
-    // identificador fiable que diferencia voces del mismo idioma. Lo mostramos
-    // completo para que el usuario pueda identificarla de forma unívoca.
-    return "$base — ${voz.name}"
+    val genero = generoDeNombreInterno(voz.name)
+    val tipo = if (voz.isNetworkConnectionRequired) " · Red" else " · Local"
+    val sufijo = if (genero.isNotBlank()) " · $genero" else ""
+    return "$base$sufijo$tipo"
+}
+
+/**
+ * Intenta deducir el género de una voz a partir de su nombre interno,
+ * usando sufijos conocidos de Google TTS y otros motores comunes.
+ * Devuelve "" si no se puede determinar.
+ */
+private fun generoDeNombreInterno(nombreVoz: String): String {
+    val n = nombreVoz.lowercase()
+    // Sufijos conocidos de Google TTS (formato: xx-xx-x-XXX-...)
+    // esf = español femenino, esm = español masculino, ese = español neutro
+    // en-US: sfg = female, sfi = female, sfm = male, etc.
+    val sufijosFemeninos = listOf("esf", "sfg", "sfi", "female", "fem", "woman", "w")
+    val sufijosMasculinos = listOf("esm", "sfm", "male", "masc", "man", "m")
+    val sufijosNeutros = listOf("ese", "sfn", "neutral", "neutral", "n")
+    // Buscar el último segmento del nombre (después del último "-" o "_")
+    val ultimoSegmento = n.substringAfterLast("-").substringAfterLast("_")
+    return when {
+        sufijosFemeninos.any { ultimoSegmento.contains(it) } -> "Femenina"
+        sufijosMasculinos.any { ultimoSegmento.contains(it) } -> "Masculina"
+        sufijosNeutros.any { ultimoSegmento.contains(it) } -> "Neutra"
+        // Buscar en todo el nombre como respaldo
+        sufijosFemeninos.any { it in n } -> "Femenina"
+        sufijosMasculinos.any { it in n } -> "Masculina"
+        sufijosNeutros.any { it in n } -> "Neutra"
+        else -> ""
+    }
 }
 
 /** Emoji de género deducido del objeto [Voice] del motor TTS. */
