@@ -61,7 +61,17 @@ class WalinkDataStore private constructor(private val context: Context) {
     private val DISPOSITIVOS_BLUETOOTH = "dispositivos_bluetooth"
 
     val dispositivosBluetooth: Set<String>
-        get() = prefs.getStringSet(DISPOSITIVOS_BLUETOOTH, emptySet()) ?: emptySet()
+        get() {
+            val guardados = prefs.getStringSet(DISPOSITIVOS_BLUETOOTH, emptySet()) ?: emptySet()
+            if (guardados.isNotEmpty()) return guardados
+            // Migración perezosa desde la clave antigua (una sola vez)
+            val antiguo = prefs.getString(WalinkKeys.DISPOSITIVO_BLUETOOTH, null)
+            if (antiguo?.isNotBlank() == true) {
+                prefs.edit().putStringSet(DISPOSITIVOS_BLUETOOTH, setOf(antiguo!!)).apply()
+                return setOf(antiguo!!)
+            }
+            return emptySet()
+        }
 
     /** Guarda el conjunto completo de direcciones MAC de los coches seleccionados. */
     suspend fun setDispositivosBluetooth(direcciones: Set<String>) {
