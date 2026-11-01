@@ -677,29 +677,11 @@ private data class VozTts(val nombre: String, val etiqueta: String, val idioma: 
 
 /** Construye una etiqueta legible para una voz del motor TTS. */
 private fun etiquetaVoz(voz: Voice): String {
-    val genero = generoVozEmoji(voz)
-    // El nombre interno de la voz suele contener un identificador distintivo
-    // (p. ej. "es-es-x-esf-network" o "es-es-x-esm-local") que la diferencia
-    // de otras voces del mismo idioma.
-    val nombreInterno = voz.name
-    // Extraer la parte final del nombre interno que suele ser el identificador
-    val idCorto = nombreInterno.substringAfterLast("-", nombreInterno)
-        .substringAfterLast("_", nombreInterno)
-        .takeIf { it.isNotBlank() && it != nombreInterno } ?: ""
-    // Determinar si es voz de red o local
-    val tipo = if (voz.isNetworkConnectionRequired) "🌐" else "📱"
-    val generoTexto = when (genero) {
-        "👩" -> "Fem."
-        "👨" -> "Masc."
-        else -> ""
-    }
     val base = voz.locale.getDisplayName(voz.locale)
-    val sufijo = listOfNotNull(
-        generoTexto.takeIf { it.isNotBlank() },
-        idCorto.takeIf { it.isNotBlank() },
-        tipo
-    ).joinToString(" · ")
-    return "$genero $base${if (sufijo.isNotBlank()) " ($sufijo)" else ""}"
+    // El nombre interno de la voz (ej. "es-es-x-esf-network") es el único
+    // identificador fiable que diferencia voces del mismo idioma. Lo mostramos
+    // completo para que el usuario pueda identificarla de forma unívoca.
+    return "$base — ${voz.name}"
 }
 
 /** Emoji de género deducido del objeto [Voice] del motor TTS. */
