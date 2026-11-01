@@ -413,8 +413,9 @@ class MainActivity : ComponentActivity() {
                 // que incluye género y calidad cuando es posible determinarlo.
                 vocesDisponibles = vozTtsSelector?.voices
                     ?.filter { it.locale?.language.equals(idiomaVoz, ignoreCase = true) == true }
-                    ?.map { voz ->
-                        val etiqueta = etiquetaVoz(voz)
+                    ?.mapIndexed { index, voz ->
+                        val base = voz.locale.getDisplayName(voz.locale)
+                        val etiqueta = "$base — Voz ${index + 1}"
                         VozTts(nombre = voz.name, etiqueta = etiqueta, idioma = voz.locale?.language ?: "")
                     }
                     ?.sortedBy { it.idioma }
@@ -676,37 +677,7 @@ private data class VozTts(val nombre: String, val etiqueta: String, val idioma: 
 
 /** Construye una etiqueta legible para una voz del motor TTS. */
 private fun etiquetaVoz(voz: Voice): String {
-    val base = voz.locale.getDisplayName(voz.locale)
-    val genero = generoDeNombreInterno(voz.name)
-    val sufijo = if (genero.isNotBlank()) " · $genero" else ""
-    return "$base$sufijo"
-}
-
-/**
- * Intenta deducir el género de una voz a partir de su nombre interno,
- * usando sufijos conocidos de Google TTS y otros motores comunes.
- * Devuelve "" si no se puede determinar.
- */
-private fun generoDeNombreInterno(nombreVoz: String): String {
-    val n = nombreVoz.lowercase()
-    // Sufijos conocidos de Google TTS (formato: xx-xx-x-XXX-...)
-    // esf = español femenino, esm = español masculino, ese = español neutro
-    // en-US: sfg = female, sfi = female, sfm = male, etc.
-    val sufijosFemeninos = listOf("esf", "sfg", "sfi", "female", "fem", "woman", "w")
-    val sufijosMasculinos = listOf("esm", "sfm", "male", "masc", "man", "m")
-    val sufijosNeutros = listOf("ese", "sfn", "neutral", "neutral", "n")
-    // Buscar el último segmento del nombre (después del último "-" o "_")
-    val ultimoSegmento = n.substringAfterLast("-").substringAfterLast("_")
-    return when {
-        sufijosFemeninos.any { ultimoSegmento.contains(it) } -> "Femenina"
-        sufijosMasculinos.any { ultimoSegmento.contains(it) } -> "Masculina"
-        sufijosNeutros.any { ultimoSegmento.contains(it) } -> "Neutra"
-        // Buscar en todo el nombre como respaldo
-        sufijosFemeninos.any { it in n } -> "Femenina"
-        sufijosMasculinos.any { it in n } -> "Masculina"
-        sufijosNeutros.any { it in n } -> "Neutra"
-        else -> ""
-    }
+    return voz.locale.getDisplayName(voz.locale)
 }
 
 /** Emoji de género deducido del objeto [Voice] del motor TTS. */
