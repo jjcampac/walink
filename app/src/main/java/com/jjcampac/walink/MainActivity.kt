@@ -678,9 +678,8 @@ private data class VozTts(val nombre: String, val etiqueta: String, val idioma: 
 private fun etiquetaVoz(voz: Voice): String {
     val base = voz.locale.getDisplayName(voz.locale)
     val genero = generoDeNombreInterno(voz.name)
-    val tipo = if (voz.isNetworkConnectionRequired) " · Red" else " · Local"
     val sufijo = if (genero.isNotBlank()) " · $genero" else ""
-    return "$base$sufijo$tipo"
+    return "$base$sufijo"
 }
 
 /**
