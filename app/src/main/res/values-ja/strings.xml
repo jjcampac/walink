@@ -25,7 +25,7 @@
     <string name="ajuste_leer_texto">全文を読む（オフなら送信者名のみ）</string>
     <string name="ajuste_velocidad_voz">読み上げ速度</string>
     <string name="ajuste_dispositivo_bluetooth">車のBluetoothデバイス</string>
-    <string name="ajuste_dispositivo_bluetooth_desc">選択すると、そのデバイスが接続されている時だけメッセージを読みます</string>
+    <string name="ajuste_dispositivo_bluetooth_desc">1つまたは複数を選択してください。いずれかが接続されている場合のみメッセージを読み上げます</string>
     <string name="dispositivo_ninguno">なし・常にスマホから読む</string>
     <string name="dispositivo_sin_emparejados">ペアリング済みデバイスがありません</string>
     <string name="dispositivo_no_emparejado">このデバイスはペアリング解除されています</string>
@@ -35,6 +35,8 @@
     <string name="dispositivo_elegir">車を選択</string>
     <string name="dispositivo_actualizar">リストを更新</string>
     <string name="dispositivo_estado_desc">状態：%1$s</string>
+    <string name="dispositivo_seleccionar_coches">車を選択：</string>
+    <string name="dispositivos_estado_resumen">%1$d 選択、%2$d 接続済み</string>
     <string name="tile_label">Walink</string>
     <string name="tile_descripcion_activo">メッセージを読んでいます</string>
     <string name="tile_descripcion_inactivo">タップして有効化</string>

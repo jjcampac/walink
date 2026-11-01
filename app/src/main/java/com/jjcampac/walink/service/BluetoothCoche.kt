@@ -135,6 +135,16 @@ object BluetoothCoche {
     }
 
     /**
+     * true si ALGUNO de los dispositivos con las direcciones MAC dadas está
+     * conectado AHORA mismo. Se usa cuando el usuario ha seleccionado varios
+     * coches: basta con que uno de ellos esté presente para que Walink actúe.
+     */
+    fun estaConectadoCualquiera(context: Context, direccionesMac: Set<String>): Boolean {
+        if (direccionesMac.isEmpty()) return false
+        return direccionesMac.any { estaConectado(context, it) }
+    }
+
+    /**
      * Registra (una sola vez por proceso) un observador de la conexión/desconexión
      * Bluetooth por enlace ACL del dispositivo del coche. Se llama desde la
      * Application al arrancar; los eventos ACL se reciben aunque la app esté en
@@ -171,12 +181,15 @@ object BluetoothCoche {
     fun refrescarConectado(context: Context) {
         if (!tienePermiso(context)) return
         val dataStore = WalinkDataStore.getInstance(context)
-        val coche = dataStore.dispositivoBluetooth ?: return
-        if (coche.isBlank()) return
+        val coches = dataStore.dispositivosBluetooth
+        if (coches.isEmpty()) return
         val adaptador = obtenerAdapter() ?: return
-        Log.d(TAG, "Refrescando estado de conexión del coche por perfil")
-        validarEstadoPerfil(context, adaptador, coche, dataStore, BluetoothProfile.A2DP)
-        validarEstadoPerfil(context, adaptador, coche, dataStore, BluetoothProfile.HEADSET)
+        Log.d(TAG, "Refrescando estado de conexión de ${coches.size} coche(s) por perfil")
+        coches.forEach { coche ->
+            if (coche.isBlank()) return@forEach
+            validarEstadoPerfil(context, adaptador, coche, dataStore, BluetoothProfile.A2DP)
+            validarEstadoPerfil(context, adaptador, coche, dataStore, BluetoothProfile.HEADSET)
+        }
     }
 
     private fun validarEstadoPerfil(

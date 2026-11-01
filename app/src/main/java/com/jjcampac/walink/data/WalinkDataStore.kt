@@ -54,13 +54,44 @@ class WalinkDataStore private constructor(private val context: Context) {
         prefs.edit().putBoolean(WalinkKeys.ACTIVADO, activado).apply()
     }
 
-    // ---- DISPOSITIVO BLUETOOTH ----
-    val dispositivoBluetooth: String?
-        get() = prefs.getString(WalinkKeys.DISPOSITIVO_BLUETOOTH, null)
+    // ---- DISPOSITIVOS BLUETOOTH (uno o varios coches) ---
+    // Conjunto de direcciones MAC de los dispositivos Bluetooth que el usuario
+    // ha elegido como "coche". Walink solo lee mensajes cuando ALGUNO de ellos
+    // está conectado. Si el conjunto está vacío, lee siempre por el teléfono.
+    private val DISPOSITIVOS_BLUETOOTH = "dispositivos_bluetooth"
 
-    suspend fun setDispositivoBluetooth(direccionMac: String?) {
-        prefs.edit().putString(WalinkKeys.DISPOSITIVO_BLUETOOTH, direccionMac).apply()
+    val dispositivosBluetooth: Set<String>
+        get() = prefs.getStringSet(DISPOSITIVOS_BLUETOOTH, emptySet()) ?: emptySet()
+
+    /** Guarda el conjunto completo de direcciones MAC de los coches seleccionados. */
+    suspend fun setDispositivosBluetooth(direcciones: Set<String>) {
+        prefs.edit().putStringSet(DISPOSITIVOS_BLUETOOTH, direcciones).apply()
     }
+
+    /** Agrega una dirección MAC al conjunto de coches seleccionados. */
+    suspend fun agregarDispositivoBluetooth(direccionMac: String) {
+        val actual = dispositivosBluetooth.toMutableSet()
+        actual.add(direccionMac)
+        prefs.edit().putStringSet(DISPOSITIVOS_BLUETOOTH, actual).apply()
+    }
+
+    /** Quita una dirección MAC del conjunto de coches seleccionados. */
+    suspend fun removerDispositivoBluetooth(direccionMac: String) {
+        val actual = dispositivosBluetooth.toMutableSet()
+        actual.remove(direccionMac)
+        prefs.edit().putStringSet(DISPOSITIVOS_BLUETOOTH, actual).apply()
+    }
+
+    /** Limpia todos los dispositivos Bluetooth seleccionados. */
+    suspend fun limpiarDispositivosBluetooth() {
+        prefs.edit().remove(DISPOSITIVOS_BLUETOOTH).apply()
+    }
+
+    // Mantén esta propiedad para retrocompatibilidad con código que aún lea
+    // un único dispositivo: devuelve el primero del conjunto o null.
+    @Deprecated("Usar dispositivosBluetooth. Se mantiene solo para migración.")
+    val dispositivoBluetooth: String?
+        get() = dispositivosBluetooth.firstOrNull()
 
     // ---- CONEXIÓN BLUETOOTH POR ENLACE ACL (por dispositivo) ----
     // Conjunto de MACs de dispositivos Bluetooth actualmente conectados por enlace

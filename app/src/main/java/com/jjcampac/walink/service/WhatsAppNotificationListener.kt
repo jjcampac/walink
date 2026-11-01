@@ -62,23 +62,26 @@ class WhatsAppNotificationListener : NotificationListenerService() {
                 aceptarPaquetePropio = BuildConfig.DEBUG
             ) ?: return
 
-            // ---- Regla del dispositivo Bluetooth del coche ----
-            // Si el usuario ha elegido un dispositivo en los ajustes, Walink solo
-            // actúa cuando ese dispositivo está conectado. Salvo que esté activo el
-            // ajuste "leerSinCoche" (modo pruebas), o que no haya ninguno seleccionado
-            // (null/vacío), en cuyo caso se lee por el altavoz del teléfono.
-            val direccionCoche = dataStore.dispositivoBluetooth
-            if (!direccionCoche.isNullOrBlank() && !dataStore.leerSinCoche) {
-                if (!BluetoothCoche.estaConectado(applicationContext, direccionCoche)) {
-                    val nombreCoche = BluetoothCoche.nombreDe(applicationContext, direccionCoche)
+            // ---- Regla del dispositivo Bluetooth del coche (uno o varios) ----
+            // Si el usuario ha elegido uno o más dispositivos en los ajustes, Walink
+            // solo actúa cuando ALGUNO de ellos está conectado. Salvo que esté
+            // activo el ajuste "leerSinCoche" (modo pruebas), o que no haya
+            // ninguno seleccionado (conjunto vacío), en cuyo caso se lee por el
+            // altavoz del teléfono.
+            val direccionesCoche = dataStore.dispositivosBluetooth
+            if (direccionesCoche.isNotEmpty() && !dataStore.leerSinCoche) {
+                if (!BluetoothCoche.estaConectadoCualquiera(applicationContext, direccionesCoche)) {
+                    val nombres = direccionesCoche
+                        .map { BluetoothCoche.nombreDe(applicationContext, it) ?: it }
+                        .joinToString(", ")
                     Log.d(
                         TAG,
-                        "Coche '$nombreCoche' ($direccionCoche) NO conectado -> mensaje de " +
+                        "Ninguno de los coches ($nombres) conectado -> mensaje de " +
                             "'${mensaje.remitente}' ignorado"
                     )
                     return
                 }
-                Log.d(TAG, "Coche seleccionado conectado -> procesando mensaje")
+                Log.d(TAG, "Alguno de los coches seleccionados conectado -> procesando mensaje")
             }
 
             // ---- Filtro de grupos (Fase 4) ----

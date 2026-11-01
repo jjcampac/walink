@@ -30,7 +30,7 @@
     <string name="ajuste_leer_texto">Read the full text (if off, only the sender)</string>
     <string name="ajuste_velocidad_voz">Speech rate</string>
     <string name="ajuste_dispositivo_bluetooth">Car Bluetooth device</string>
-    <string name="ajuste_dispositivo_bluetooth_desc">If you pick one, Walink only reads messages when that device is connected</string>
+    <string name="ajuste_dispositivo_bluetooth_desc">Choose one or more. Walink only reads messages when ANY of them is connected</string>
     <string name="dispositivo_ninguno">None · always read on the phone</string>
     <string name="dispositivo_sin_emparejados">No paired devices on the phone</string>
     <string name="dispositivo_no_emparejado">This device is no longer paired</string>
@@ -40,6 +40,8 @@
     <string name="dispositivo_elegir">Choose car</string>
     <string name="dispositivo_actualizar">Refresh list</string>
     <string name="dispositivo_estado_desc">Status: %1$s</string>
+    <string name="dispositivo_seleccionar_coches">Select car(s):</string>
+    <string name="dispositivos_estado_resumen">%1$d selected, %2$d connected</string>
 
     <!-- Quick Settings Tile -->
     <string name="tile_label">Walink</string>

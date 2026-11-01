@@ -166,11 +166,12 @@ class MainActivity : ComponentActivity() {
     // true = bajar el volumen de la música (MAY_DUCK); false = pausarla (GAIN_TRANSIENT).
     private var audioBajaVolumen by mutableStateOf(true)
 
-    // ---- Dispositivo Bluetooth del coche (Fase 2) ----
-    // Si hay un dispositivo seleccionado, Walink solo actúa cuando esté conectado.
-    private var dispositivoSeleccionado by mutableStateOf<String?>(null)      // dirección MAC
+    // ---- Dispositivos Bluetooth del coche (Fase 2) ----
+    // Uno o varios dispositivos. Walink solo actúa cuando ALGUNO de ellos
+    // está conectado. Si el conjunto está vacío, lee siempre por el teléfono.
+    private var dispositivosSeleccionados by mutableStateOf<Set<String>>(emptySet())   // direcciones MAC
     private var dispositivosEmparejados by mutableStateOf<List<BluetoothCoche.Dispositivo>>(emptyList())
-    private var dispositivoConectado by mutableStateOf(false)
+    private var dispositivosConectados by mutableStateOf<Set<String>>(emptySet())      // MACs conectadas entre las seleccionadas
 
     // ---- Fase 4: Ajustes adicionales ----
     private var leerSinCoche by mutableStateOf(false)
@@ -334,11 +335,11 @@ class MainActivity : ComponentActivity() {
         refrescarEstadoConexion()
     }
 
-    /** Recalcula si el dispositivo Bluetooth seleccionado está conectado ahora. */
+    /** Recalcula cuáles de los dispositivos Bluetooth seleccionados están conectados ahora. */
     private fun refrescarEstadoConexion() {
-        val direccion = dispositivoSeleccionado
-        dispositivoConectado =
-            !direccion.isNullOrBlank() && BluetoothCoche.estaConectado(applicationContext, direccion)
+        dispositivosConectados = dispositivosSeleccionados.filter { mac ->
+            BluetoothCoche.estaConectado(applicationContext, mac)
+        }.toSet()
     }
 
     override fun attachBaseContext(newBase: Context) {
@@ -387,7 +388,7 @@ class MainActivity : ComponentActivity() {
         vozActual = dataStore.vozTts
         leerTrasPreguntar = dataStore.leerTrasPreguntar
         audioBajaVolumen = dataStore.bajarVolumenEnLugarDePausar
-        dispositivoSeleccionado = dataStore.dispositivoBluetooth
+        dispositivosSeleccionados = dataStore.dispositivosBluetooth
         leerSinCoche = dataStore.leerSinCoche
         leerGrupos = dataStore.leerGrupos
         velocidadVoz = dataStore.velocidadVoz
@@ -442,20 +443,15 @@ class MainActivity : ComponentActivity() {
                 } else {
                     // Estado en vivo del coche: reacciona a las conexiones/desconexiones
                     // Bluetooth (enlace ACL) sin necesidad de pulsar "actualizar".
-                    LaunchedEffect(dispositivoSeleccionado, permisoBluetooth) {
+                    LaunchedEffect(dispositivosSeleccionados, permisoBluetooth) {
                         if (permisoBluetooth) {
-                            val dir = dispositivoSeleccionado
-                            if (!dir.isNullOrBlank()) {
-                                dispositivoConectado = BluetoothCoche.estaConectado(applicationContext, dir)
-                            } else {
-                                dispositivoConectado = false
-                            }
+                            refrescarEstadoConexion()
                             // El estado es POR dispositivo (conjunto de MACs conectadas):
-                            // solo marca conectado si el dispositivo elegido está en él.
+                            // actualizamos cuando el observador ACL notifique cambios.
                             BluetoothCoche.estadoConectado.collect { macsConectados ->
-                                dispositivoConectado = dispositivoSeleccionado?.let { sel ->
+                                dispositivosConectados = dispositivosSeleccionados.filter { sel ->
                                     macsConectados.any { it.equals(sel, ignoreCase = true) }
-                                } ?: false
+                                }.toSet()
                             }
                         }
                     }
@@ -490,20 +486,33 @@ class MainActivity : ComponentActivity() {
                                 audioBajaVolumen = bajar
                             }
                         },
-                        dispositivoSeleccionado = dispositivoSeleccionado,
+                        dispositivosSeleccionados = dispositivosSeleccionados,
                         dispositivosEmparejados = dispositivosEmparejados,
-                        dispositivoConectado = dispositivoConectado,
+                        dispositivosConectados = dispositivosConectados,
                         onSeleccionarDispositivo = { direccionMac ->
-                            if (direccionMac != dispositivoSeleccionado) {
+                            if (direccionMac == null) {
+                                // Limpiar toda la selección (lea siempre por el teléfono)
                                 lifecycleScope.launch {
-                                    dataStore.setDispositivoBluetooth(direccionMac)
+                                    dataStore.limpiarDispositivosBluetooth()
                                 }
-                                dispositivoSeleccionado = direccionMac
-                                refrescarEstadoConexion()
-                                // Consulta el estado real del dispositivo recién elegido
-                                // (por perfil), para marcarlo conectado/desconectado ya.
-                                BluetoothCoche.refrescarConectado(applicationContext)
+                                dispositivosSeleccionados = emptySet()
+                            } else {
+                                val nuevoConjunto = dispositivosSeleccionados.toMutableSet()
+                                if (nuevoConjunto.remove(direccionMac)) {
+                                    // Ya estaba seleccionado: lo quitamos
+                                } else {
+                                    // No estaba: lo agregamos
+                                    nuevoConjunto.add(direccionMac)
+                                }
+                                lifecycleScope.launch {
+                                    dataStore.setDispositivosBluetooth(nuevoConjunto)
+                                }
+                                dispositivosSeleccionados = nuevoConjunto
                             }
+                            refrescarEstadoConexion()
+                            // Consulta el estado real del/los dispositivos (por perfil),
+                            // para marcarlo(s) conectado(s)/desconectado(s) ya.
+                            BluetoothCoche.refrescarConectado(applicationContext)
                         },
                         onRefrescarDispositivos = { refrescarDispositivosBluetooth() },
                         leerSinCoche = leerSinCoche,
@@ -644,7 +653,7 @@ class MainActivity : ComponentActivity() {
         servicioActivado = dataStore.estaActivado
         leerTrasPreguntar = dataStore.leerTrasPreguntar
         audioBajaVolumen = dataStore.bajarVolumenEnLugarDePausar
-        dispositivoSeleccionado = dataStore.dispositivoBluetooth
+        dispositivosSeleccionados = dataStore.dispositivosBluetooth
         refrescarDispositivosBluetooth()
     }
 
@@ -708,9 +717,9 @@ private fun PantallaPrincipal(
     onCambiarModoLectura: (Boolean) -> Unit,
     bajarVolumen: Boolean,
     onCambiarAudioFondo: (Boolean) -> Unit,
-    dispositivoSeleccionado: String?,
+    dispositivosSeleccionados: Set<String>,
     dispositivosEmparejados: List<BluetoothCoche.Dispositivo>,
-    dispositivoConectado: Boolean,
+    dispositivosConectados: Set<String>,
     onSeleccionarDispositivo: (String?) -> Unit,
     onRefrescarDispositivos: () -> Unit,
     leerSinCoche: Boolean,
@@ -789,8 +798,8 @@ private fun PantallaPrincipal(
                     TarjetaCocheConectividad(
                         permisoBluetooth = permisoBluetooth,
                         dispositivos = dispositivosEmparejados,
-                        seleccionado = dispositivoSeleccionado,
-                        conectado = dispositivoConectado,
+                        seleccionados = dispositivosSeleccionados,
+                        conectados = dispositivosConectados,
                         onSeleccionarDispositivo = onSeleccionarDispositivo,
                         onRefrescar = onRefrescarDispositivos
                     )
@@ -1081,20 +1090,16 @@ private fun CabeceraWalink(servicioActivado: Boolean) {
  * ============================================================================
  */
 
-/** 1. Coche y Conectividad: selector de dispositivo Bluetooth y modo pruebas. */
+/** 1. Coche y Conectividad: selector de uno o varios dispositivos Bluetooth. */
 @Composable
 private fun TarjetaCocheConectividad(
     permisoBluetooth: Boolean,
     dispositivos: List<BluetoothCoche.Dispositivo>,
-    seleccionado: String?,
-    conectado: Boolean,
+    seleccionados: Set<String>,
+    conectados: Set<String>,
     onSeleccionarDispositivo: (String?) -> Unit,
     onRefrescar: () -> Unit
 ) {
-    var menuAbierto by remember { mutableStateOf(false) }
-    val dispositivoActual = dispositivos.firstOrNull { it.direccion == seleccionado }
-    val sinEmparejar = !seleccionado.isNullOrBlank() && dispositivoActual == null
-
     Card(
         modifier = Modifier.fillMaxWidth(),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainer),
@@ -1116,84 +1121,95 @@ private fun TarjetaCocheConectividad(
                     color = MaterialTheme.colorScheme.error
                 )
             } else {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Box(modifier = Modifier.weight(1f)) {
-                        OutlinedButton(
-                            onClick = {
-                                onRefrescar()
-                                menuAbierto = true
-                            },
-                            modifier = Modifier.fillMaxWidth()
-                        ) {
-                            Text(
-                                text = dispositivoActual?.nombre
-                                    ?: stringResource(id = R.string.dispositivo_ninguno),
-                                maxLines = 1,
-                                overflow = TextOverflow.Ellipsis,
-                                style = MaterialTheme.typography.bodySmall
-                            )
-                        }
-                        DropdownMenu(
-                            expanded = menuAbierto,
-                            onDismissRequest = { menuAbierto = false },
-                            modifier = Modifier.wrapContentSize()
-                        ) {
-                            DropdownMenuItem(
-                                text = { Text(stringResource(id = R.string.dispositivo_ninguno)) },
-                                onClick = {
-                                    onSeleccionarDispositivo(null)
-                                    menuAbierto = false
-                                }
-                            )
-                            if (dispositivos.isEmpty()) {
-                                DropdownMenuItem(
-                                    text = { Text(stringResource(id = R.string.dispositivo_sin_emparejados)) },
-                                    onClick = { menuAbierto = false }
-                                )
-                            } else {
-                                dispositivos.forEach { dispositivo ->
-                                    DropdownMenuItem(
-                                        text = { Text(dispositivo.nombre) },
-                                        onClick = {
-                                            onSeleccionarDispositivo(dispositivo.direccion)
-                                            menuAbierto = false
+                Text(
+                    text = stringResource(id = R.string.dispositivo_seleccionar_coches),
+                    style = MaterialTheme.typography.bodySmall,
+                    modifier = Modifier.padding(bottom = 6.dp)
+                )
+
+                FilterChip(
+                    selected = seleccionados.isEmpty(),
+                    onClick = { onSeleccionarDispositivo(null) },
+                    label = { Text(stringResource(id = R.string.dispositivo_ninguno)) },
+                    modifier = Modifier.fillMaxWidth()
+                )
+
+                if (dispositivos.isEmpty()) {
+                    Text(
+                        text = stringResource(id = R.string.dispositivo_sin_emparejados),
+                        style = MaterialTheme.typography.bodySmall,
+                        modifier = Modifier.padding(top = 8.dp)
+                    )
+                } else {
+                    Column(modifier = Modifier.padding(top = 8.dp)) {
+                        dispositivos.forEach { dispositivo ->
+                            val estaSeleccionado = dispositivo.direccion in seleccionados
+                            val estaConectado = dispositivo.direccion in conectados
+                            FilterChip(
+                                selected = estaSeleccionado,
+                                onClick = { onSeleccionarDispositivo(dispositivo.direccion) },
+                                label = {
+                                    Row(
+                                        modifier = Modifier.fillMaxWidth(),
+                                        horizontalArrangement = Arrangement.SpaceBetween,
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
+                                        val emojiEstado = when {
+                                            estaSeleccionado && estaConectado -> "✅ "
+                                            estaSeleccionado -> "⚪ "
+                                            else -> ""
                                         }
-                                    )
+                                        Text(
+                                            text = emojiEstado + dispositivo.nombre,
+                                            style = MaterialTheme.typography.bodySmall,
+                                            modifier = Modifier.weight(1f)
+                                        )
+                                    }
                                 }
-                            }
+                            )
                         }
-                    }
-                    Spacer(modifier = Modifier.width(8.dp))
-                    IconButton(onClick = onRefrescar) {
-                        Text(text = "🔄", fontSize = 16.sp)
                     }
                 }
 
                 Spacer(modifier = Modifier.height(6.dp))
 
-                // Estado de conexión
-                if (seleccionado.isNullOrBlank()) {
-                    Text(
-                        text = stringResource(id = R.string.dispositivo_ninguno),
-                        style = MaterialTheme.typography.bodySmall,
-                        color = GrisEstado
-                    )
-                } else {
-                    val textoEstado = when {
-                        sinEmparejar -> stringResource(id = R.string.dispositivo_no_emparejado)
-                        conectado -> stringResource(id = R.string.dispositivo_conectado)
-                        else -> stringResource(id = R.string.dispositivo_no_conectado)
+                val seleccionadosConNombre = dispositivos.filter { it.direccion in seleccionados }
+                val conectadosConNombre = dispositivos.filter { it.direccion in conectados }
+                when {
+                    seleccionados.isEmpty() -> {
+                        Text(
+                            text = stringResource(id = R.string.dispositivo_ninguno),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = GrisEstado
+                        )
                     }
-                    val colorEstado = when {
-                        sinEmparejar -> MaterialTheme.colorScheme.error
-                        conectado -> VerdeOk
-                        else -> GrisEstado
+                    seleccionadosConNombre.size == 1 && conectadosConNombre.isEmpty() -> {
+                        Text(
+                            text = stringResource(id = R.string.dispositivo_no_conectado),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = GrisEstado
+                        )
                     }
-                    Text(
-                        text = stringResource(id = R.string.dispositivo_estado_desc, textoEstado),
-                        style = MaterialTheme.typography.bodySmall,
-                        color = colorEstado
-                    )
+                    else -> {
+                        val texto = stringResource(
+                            id = R.string.dispositivos_estado_resumen,
+                            seleccionadosConNombre.size,
+                            conectadosConNombre.size
+                        )
+                        Text(
+                            text = texto,
+                            style = MaterialTheme.typography.bodySmall,
+                            color = if (conectadosConNombre.isNotEmpty()) VerdeOk else GrisEstado
+                        )
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(6.dp))
+
+                Row(horizontalArrangement = Arrangement.End) {
+                    IconButton(onClick = onRefrescar) {
+                        Text(text = "🔄", fontSize = 16.sp)
+                    }
                 }
 
                 // (el ajuste "leer sin coche" vive ahora en Modo depuración, pestaña Permisos)
