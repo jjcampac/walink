@@ -86,6 +86,7 @@
     <string name="voz_lectura_sin_voces">No voices found</string>
     <string name="voz_prueba_frase">Hello, this is Walink\'s voice.</string>
     <string name="voz_prueba_bt">Hear a preview with this voice</string>
+    <string name="voz_numero">Voice %1$d</string>
 
     <!-- Modo de lectura -->
     <string name="modo_lectura_titulo">When to read?</string>

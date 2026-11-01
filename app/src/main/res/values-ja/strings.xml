@@ -73,6 +73,7 @@
     <string name="voz_lectura_sin_voces">声が見つかりません</string>
     <string name="voz_prueba_frase">こんにちは。これはWalinkの声です。</string>
     <string name="voz_prueba_bt">この声でプレビューを聞く</string>
+    <string name="voz_numero">声 %1$d</string>
     <string name="modo_lectura_titulo">いつ読む？</string>
     <string name="modo_lectura_desc">メッセージの読み方を選択</string>
     <string name="modo_inmediato">すぐに</string>

@@ -73,6 +73,7 @@
     <string name="voz_lectura_sin_voces">Keine Stimmen gefunden</string>
     <string name="voz_prueba_frase">Hallo, das ist Walinks Stimme.</string>
     <string name="voz_prueba_bt">Vorschau mit dieser Stimme anhören</string>
+    <string name="voz_numero">Stimme %1$d</string>
     <string name="modo_lectura_titulo">Wann lesen?</string>
     <string name="modo_lectura_desc">Lege fest, wie jede Nachricht gelesen wird</string>
     <string name="modo_inmediato">Sofort</string>

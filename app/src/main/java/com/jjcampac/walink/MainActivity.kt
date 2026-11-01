@@ -416,7 +416,7 @@ class MainActivity : ComponentActivity() {
                     ?.sortedWith(compareBy({ it.locale?.displayCountry ?: "" }, { it.name }))
                     ?.mapIndexed { index, voz ->
                         val base = voz.locale.getDisplayName(voz.locale)
-                        val etiqueta = "$base — Voz ${index + 1}"
+                        val etiqueta = "$base — ${this@MainActivity.getString(R.string.voz_numero, index + 1)}"
                         VozTts(nombre = voz.name, etiqueta = etiqueta, idioma = voz.locale?.language ?: "")
                     }
                     ?: emptyList()
