@@ -25,7 +25,7 @@
     <string name="ajuste_leer_texto">Leggi il testo completo (se disattivo, solo il mittente)</string>
     <string name="ajuste_velocidad_voz">Velocità della voce</string>
     <string name="ajuste_dispositivo_bluetooth">Dispositivo Bluetooth dell\'auto</string>
-    <string name="ajuste_dispositivo_bluetooth_desc">Scegline uno o più. Walink legge i messaggi solo quando UNO di essi è connesso</string>
+    <string name="ajuste_dispositivo_bluetooth_desc">Scegli una o piu auto. Walink legge quando almeno una e connessa</string>
     <string name="dispositivo_seleccionar_coches">Seleziona auto/e:</string>
     <string name="dispositivos_estado_resumen">%1$d selezionato/i, %2$d connesso/i</string>
     <string name="dispositivo_ninguno">Nessuno · leggi sempre dal telefono</string>
