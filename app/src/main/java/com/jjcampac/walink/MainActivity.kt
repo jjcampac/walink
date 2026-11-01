@@ -413,12 +413,12 @@ class MainActivity : ComponentActivity() {
                 // que incluye género y calidad cuando es posible determinarlo.
                 vocesDisponibles = vozTtsSelector?.voices
                     ?.filter { it.locale?.language.equals(idiomaVoz, ignoreCase = true) == true }
+                    ?.sortedWith(compareBy({ it.locale?.displayCountry ?: "" }, { it.name }))
                     ?.mapIndexed { index, voz ->
                         val base = voz.locale.getDisplayName(voz.locale)
                         val etiqueta = "$base — Voz ${index + 1}"
                         VozTts(nombre = voz.name, etiqueta = etiqueta, idioma = voz.locale?.language ?: "")
                     }
-                    ?.sortedBy { it.idioma }
                     ?: emptyList()
             }
         }
