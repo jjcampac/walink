@@ -19,3 +19,5 @@ keystore.properties
 *.jks
 *.keystore
 /release
+# Artefactos de release copiados a mano (apk, mapping.txt, etc.)
+/app/release/
