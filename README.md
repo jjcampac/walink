@@ -26,7 +26,7 @@ Todo ello con una **privacidad estricta**: el procesamiento es 100 % local, sin 
 - ✅ Interruptor en el mosaico de accesos rápidos (Quick Settings Tile) con pulsación larga que abre la `MainActivity`.
 - ✅ **Onboarding** la primera vez: permisos runtime (notificaciones, micrófono, Bluetooth) + permisos especiales (acceso a notificaciones, batería, tile).
 - ✅ Preferencias locales con `SharedPreferences` (todo local, sin red, sin analítica).
-- ✅ **Modo depuración (solo debug):** botón "Simular mensaje" que publica una notificación propia idéntica a WhatsApp (categoría MESSAGE, `MessagingStyle` y acción "Responder" con `RemoteInput`).
+- ✅ **Modo depuración:** botón "Simular mensaje" que publica una notificación propia idéntica a WhatsApp (categoría MESSAGE, `MessagingStyle` y acción "Responder" con `RemoteInput`). Siempre visible en debug; en release se desbloquea con la puerta oculta de 7 pulsaciones sobre la versión.
 
 ## ✅ Fase 2 — Bluetooth, modos de lectura y asistente de voz *(completada)*
 
@@ -112,14 +112,20 @@ Walink se activa/desactiva desde el **mosaico de accesos rápidos** de Android:
 
 > También puedes activarlo desde la app la primera vez (el onboarding guía para añadir el tile).
 
-## Modo de depuración (solo buildType debug)
+## Modo de depuración (simulación de mensajes)
 
-En el buildType debug aparece una sección "🧪 Modo depuración" en la pantalla principal:
+En el buildType **debug** la sección "🧪 Modo depuración" aparece siempre en la pantalla principal.
+En buildType **release** está oculta por defecto y se habilita con una **puerta oculta**:
+pulsa **7 veces sobre la versión** (texto "vX.Y" bajo la cabecera de Walink). Otras **7
+pulsaciones** la vuelven a ocultar. Un *Toast* confirma el cambio y el estado se guarda de
+forma persistente (SharedPreferences). El `NotificationParser` acepta el paquete propio y
+`DebugReplyReceiver` se registra en el manifiesto principal para que la simulación (y la
+respuesta por RemoteInput) funcione también en release.
 
 1. Escribe el **remitente** (p. ej. "Ana (Prueba)").
 2. Escribe el **mensaje de prueba** (p. ej. "Hola, ¿cómo estás?").
 3. Pulsa **"Simular mensaje"** — Walink publica una notificación propia que imita a WhatsApp.
-4. El `NotificationParser` (en debug también acepta el paquete de la propia app, solo del canal del simulador) detecta la notificación y comienza el flujo (leer → ofrecer responder → dictado → enviar/corregir).
+4. El `NotificationParser` (en debug siempre; en release solo con la puerta oculta activada; solo del canal del simulador) detecta la notificación y comienza el flujo (leer → ofrecer responder → dictado → enviar/corregir).
 5. La respuesta enviada por RemoteInput se muestra en **Logcat** con la etiqueta `WalinkDebug` (no se envía a WhatsApp).
 
 ## Estructura del proyecto

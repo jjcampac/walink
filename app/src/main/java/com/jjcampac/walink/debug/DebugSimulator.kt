@@ -21,9 +21,11 @@ import androidx.core.app.RemoteInput
  * igual que con un mensaje real, de modo que en debug el flujo es idéntico al de
  * producción (un único camino de lectura, sin lecturas duplicadas).
  *
- * En release este código se compila pero nunca se ejecuta: solo se llama desde
- * MainActivity cuando BuildConfig.DEBUG es true, y el receiver [DebugReplyReceiver]
- * solo se registra en el manifest de debug.
+ * En release este código se compila y solo se ejecuta si la puerta oculta de
+ * depuración está activada (7 pulsaciones sobre la versión en la cabecera de la
+ * MainActivity). En debug se ejecuta siempre (BuildConfig.DEBUG). El receiver
+ * [DebugReplyReceiver] está registrado en el manifiesto principal para que funcione
+ * en ambos buildTypes.
  *
  * @author jjcampac
  * @author cline

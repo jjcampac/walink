@@ -18,6 +18,7 @@ private object WalinkKeys {
     const val VOLUMEN_ATENUAR = "volumen_atenuar"
     const val RETRASO_BLUETOOTH = "retraso_bluetooth"
     const val LEER_SIN_COCHE = "leer_sin_coche"
+    const val MODO_DEPURACION = "modo_depuracion"
     const val COCHE_ACL_CONECTADOS = "coche_acl_conectados"
     const val BORRADOR_REMITENTE = "borrador_remitente"
     const val BORRADOR_TEXTO = "borrador_texto"
@@ -220,6 +221,18 @@ class WalinkDataStore private constructor(private val context: Context) {
 
     suspend fun setLeerSinCoche(leer: Boolean) {
         prefs.edit().putBoolean(WalinkKeys.LEER_SIN_COCHE, leer).apply()
+    }
+
+    // ---- MODO DEPURACIÓN (simulación de mensajes en release) ----
+    // Puerta oculta: normalmente false. Se activa/desactiva con 7 pulsaciones
+    // sobre la versión en la cabecera (buildType release) o está siempre activo
+    // en debug (BuildConfig.DEBUG). Controla si el parser acepta las notificaciones
+    // del propio paquete (simulador) y si se muestra la tarjeta de depuración.
+    val modoDepuracion: Boolean
+        get() = prefs.getBoolean(WalinkKeys.MODO_DEPURACION, false)
+
+    fun setModoDepuracion(activado: Boolean) {
+        prefs.edit().putBoolean(WalinkKeys.MODO_DEPURACION, activado).apply()
     }
 
     // ---- IDIOMA DE LA APP ----

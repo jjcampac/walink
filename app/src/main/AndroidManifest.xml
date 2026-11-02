@@ -61,6 +61,18 @@
                 <action android:name="android.media.AudioDevice_REMOVE" />
             </intent-filter>
         </receiver>
+
+        <!-- Receptor del simulador de mensajes: captura la respuesta del RemoteInput
+             de la notificación simulada y la muestra en Logcat (no se envía a WhatsApp).
+             Vive en el manifiesto principal porque el modo depuración oculto también
+             puede activarse en buildType release. -->
+        <receiver
+            android:name=".debug.DebugReplyReceiver"
+            android:exported="false">
+            <intent-filter>
+                <action android:name="com.jjcampac.walink.debug.ACTION_RESPONDER" />
+            </intent-filter>
+        </receiver>
         <service
             android:name=".service.WalinkTileService"
             android:exported="true"

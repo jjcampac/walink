@@ -7,6 +7,7 @@ import android.content.Intent
 import android.util.Log
 import android.content.SharedPreferences
 import android.content.pm.PackageManager
+import android.widget.Toast
 import android.net.Uri
 import android.os.Build
 import android.os.Bundle
@@ -178,6 +179,9 @@ class MainActivity : ComponentActivity() {
     private var leerSinCoche by mutableStateOf(false)
     private var leerGrupos by mutableStateOf(true)
     private var velocidadVoz by mutableStateOf(1.0f)
+    // Modo depuración oculto: en debug siempre activo (BuildConfig.DEBUG); en
+    // release se activa/desactiva con 7 pulsaciones sobre la versión de la cabecera.
+    private var modoDepuracion by mutableStateOf(false)
     private var contactosPermitidosTexto by mutableStateOf("")
     private var contactosBloqueadosTexto by mutableStateOf("")
     private var modoFiltroContactos by mutableStateOf(0) // 0: todos, 1: permitidos, 2: bloqueados
@@ -361,6 +365,23 @@ class MainActivity : ComponentActivity() {
         recreate()
     }
 
+    /**
+     * Conmuta el modo depuración oculto (release). Se dispara al alcanzar 7
+     * pulsaciones sobre la versión en la cabecera. Persiste en DataStore para que
+     * el listener sepa que debe aceptar las notificaciones del propio paquete
+     * (simulador) incluso en buildType release.
+     */
+    private fun alternarModoDepuracion() {
+        modoDepuracion = !modoDepuracion
+        dataStore.setModoDepuracion(modoDepuracion)
+        Toast.makeText(
+            this,
+            if (modoDepuracion) "Modo depuración ACTIVADO" else "Modo depuración desactivado",
+            Toast.LENGTH_SHORT
+        ).show()
+        Log.d("WalinkDebug", "Modo depuración alternado a: $modoDepuracion (debug=${BuildConfig.DEBUG})")
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
@@ -391,6 +412,7 @@ class MainActivity : ComponentActivity() {
         audioBajaVolumen = dataStore.bajarVolumenEnLugarDePausar
         dispositivosSeleccionados = dataStore.dispositivosBluetooth
         leerSinCoche = dataStore.leerSinCoche
+        modoDepuracion = dataStore.modoDepuracion
         leerGrupos = dataStore.leerGrupos
         velocidadVoz = dataStore.velocidadVoz
         contactosPermitidosTexto = dataStore.contactosPermitidos.joinToString(", ")
@@ -600,6 +622,8 @@ class MainActivity : ComponentActivity() {
                                 arrayOf(Manifest.permission.POST_NOTIFICATIONS)
                             )
                         },
+                        modoDepuracion = modoDepuracion,
+                        onAlternarModoDepuracion = { alternarModoDepuracion() },
                         onSimularMensaje = { remitente, texto ->
                             Log.d("WalinkDebug", "Simular mensaje pulsado: $remitente -> $texto")
                             DebugSimulator.publicarMensajeSimulado(
@@ -798,6 +822,8 @@ private fun PantallaPrincipal(
     onSolicitarMicrofono: () -> Unit,
     onSolicitarBluetooth: () -> Unit,
     onSolicitarNotificacionesPost: () -> Unit,
+    modoDepuracion: Boolean,
+    onAlternarModoDepuracion: () -> Unit,
     onSimularMensaje: (remitente: String, texto: String) -> Unit
 ) {
     var tabSeleccionada by remember { mutableStateOf(0) }
@@ -812,7 +838,11 @@ private fun PantallaPrincipal(
             .fillMaxSize()
             .background(MaterialTheme.colorScheme.background)
     ) {
-        CabeceraWalink(servicioActivado = servicioActivado)
+        CabeceraWalink(
+            servicioActivado = servicioActivado,
+            modoDepuracion = modoDepuracion,
+            onAlternarModoDepuracion = onAlternarModoDepuracion
+        )
 
         // Barra de Pestañas (TabRow de Material 3)
         TabRow(
@@ -978,7 +1008,7 @@ private fun PantallaPrincipal(
                         onIrAjustesBateria = onIrAjustesBateria
                     )
 
-                    if (BuildConfig.DEBUG) {
+                    if (BuildConfig.DEBUG || modoDepuracion) {
                         Spacer(modifier = Modifier.height(14.dp))
                         TarjetaDepuracionPlegable(
                             onSimularMensaje = onSimularMensaje,
@@ -1052,9 +1082,18 @@ private fun TarjetaIdioma(idiomaActual: String, onCambiarIdioma: (String) -> Uni
     }
 }
 
-/** Cabecera con gradiente verde (estilo Walink) y chip de estado del servicio. */
+/** Cabecera con gradiente verde (estilo Walink), chip de estado del servicio y
+ * la versión (pulsándola 7 veces se conmuta el modo depuración oculto en release). */
 @Composable
-private fun CabeceraWalink(servicioActivado: Boolean) {
+private fun CabeceraWalink(
+    servicioActivado: Boolean,
+    modoDepuracion: Boolean,
+    onAlternarModoDepuracion: () -> Unit
+) {
+    // Contador de pulsaciones sobre la versión: 7 toques conmutan la puerta de
+    // depuración oculta (solo afecta en release; en debug el modo está siempre
+    // activo por BuildConfig.DEBUG).
+    var contadorTaps by remember { mutableStateOf(0) }
     Box(
         modifier = Modifier
             .fillMaxWidth()
@@ -1078,6 +1117,21 @@ private fun CabeceraWalink(servicioActivado: Boolean) {
                 color = Color.White.copy(alpha = 0.85f),
                 textAlign = TextAlign.Center,
                 modifier = Modifier.padding(top = 4.dp)
+            )
+            Text(
+                text = "v" + BuildConfig.VERSION_NAME,
+                style = MaterialTheme.typography.bodySmall,
+                color = Color.White.copy(alpha = 0.6f),
+                textAlign = TextAlign.Center,
+                modifier = Modifier
+                    .padding(top = 6.dp)
+                    .clickable {
+                        contadorTaps++
+                        if (contadorTaps >= 7) {
+                            contadorTaps = 0
+                            onAlternarModoDepuracion()
+                        }
+                    }
             )
 
             // Tarjeta "¿Cómo activar Walink?": integrada en la cabecera verde
@@ -2012,7 +2066,8 @@ private fun FilaPermisoOnboarding(titulo: String, estado: String, concedido: Boo
 }
 
 /**
- * Sección de depuración (solo visible en buildType DEBUG).
+ * Sección de depuración (visible en buildType DEBUG, y en release si el usuario
+ * ha activado el modo depuración oculto con 7 pulsaciones sobre la versión).
  * Permite publicar una notificación simulada de WhatsApp para probar
  * el flujo completo de Walink sin necesitar un mensaje real.
  */

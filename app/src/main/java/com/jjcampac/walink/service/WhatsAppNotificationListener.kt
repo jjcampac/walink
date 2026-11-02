@@ -59,7 +59,10 @@ class WhatsAppNotificationListener : NotificationListenerService() {
             val mensaje = NotificationParser.parsear(
                 sbn,
                 this,
-                aceptarPaquetePropio = BuildConfig.DEBUG
+                // En debug se acepta siempre el paquete propio (simulador); en
+                // release solo si la puerta oculta de depuración está activada
+                // (7 pulsaciones sobre la versión en la cabecera).
+                aceptarPaquetePropio = BuildConfig.DEBUG || dataStore.modoDepuracion
             ) ?: return
 
             // ---- Regla del dispositivo Bluetooth del coche (uno o varios) ----
