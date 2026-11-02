@@ -8,6 +8,9 @@ import android.content.Intent
 import android.app.Service
 import android.content.pm.PackageManager
 import android.content.pm.ServiceInfo
+import android.media.AudioAttributes
+import android.media.AudioFocusRequest
+import android.media.AudioManager
 import android.os.Build
 import android.os.Bundle
 import android.app.PendingIntent
@@ -60,6 +63,18 @@ class LectorAsistenteService : Service(), RecognitionListener {
     private var etapaRespuesta = 0
     private var pendingIntentResponder: PendingIntent? = null
     private var clavesRemoteInput: List<String> = emptyList()
+    // true cuando el FGS ya está en marcha como tipo "microphone" (con el permiso
+    // while-in-use del micrófono activo). Evita volver a "specialUse" al reaccionar
+    // (lo que repetiría el fallo de captar solo el primer buffer con pantalla apagada).
+    private var fgMicActivo = false
+    // Foco de audio retenido para mantener la música pausada durante TODA la sesión
+    // de voz. Sin esto, al terminar el TTS su foco (GAIN_TRANSIENT) la música vuelve
+    // justo al activar el micrófono y el micro captura ese sonido como primer buffer
+    // (rompiendo el reconocimiento). Solo se usa en el modo "detener música".
+    private var audioFocusRetenido: AudioFocusRequest? = null
+    private val audioManagerPausa: AudioManager by lazy {
+        getSystemService(Context.AUDIO_SERVICE) as AudioManager
+    }
 
     override fun onBind(intent: Intent?): IBinder? = null
 
@@ -77,11 +92,29 @@ class LectorAsistenteService : Service(), RecognitionListener {
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         super.onStartCommand(intent, flags, startId)
         when (intent?.action) {
+            ACTION_PREPARAR_VOZ -> manejarPrepararVoz()
             ACTION_PREGUNTAR -> manejarPreguntar(intent)
             ACTION_RESPONDER -> manejarResponder(intent)
             else -> Log.w(TAG, "Acción desconocida: ${intent?.action}")
         }
         return START_NOT_STICKY
+    }
+
+    /**
+     * Calienta el micrófono cuando llega una notificación (modo "leer inmediato"):
+     * entra en primer plano y conmuta el FGS a tipo "microphone" en la ventana en que
+     * la app aún es elegible para acceder al permiso foreground-only RECORD_AUDIO.
+     * El servicio se mantiene en marcha (tipo micrófono) para que la escucha posterior
+     * ("¿quieres responder?") reutilice este estado y no intente el arranque en frío
+     * desde segundo plano, que Android rechaza con SecurityException (el micro solo
+     * captaría el primer buffer con la pantalla apagada).
+     */
+    private fun manejarPrepararVoz() {
+        Log.d(TAG, "ACTION_PREPARAR_VOZ recibido (calentando micrófono en la ventana de notificación)")
+        entrarEnForeground()
+        activarFgMicrofono()
+        // Este servicio permanece en primer plano (tipo micrófono) a la espera de la
+        // acción RESPONDER que llega al terminar la lectura del mensaje.
     }
 
     /** Modo "preguntar antes de leer": pregunta por voz y escucha sí/no. */
@@ -122,6 +155,16 @@ class LectorAsistenteService : Service(), RecognitionListener {
         checkSelfPermission(Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED
 
     private fun entrarEnForeground() {
+        // Pausar la música durante toda esta sesión de voz (solo modo "detener música"),
+        // para que no vuelva a sonar justo al activar el micrófono y capte ese sonido.
+        retenerPausaMusica()
+        // Ya estamos en primer plano como "microphone": lo reafirmamos y NO volvemos
+        // a "specialUse" (revertir rompería el permiso while-in-use del micrófono y
+        // repetiría el fallo de captar solo el primer buffer con pantalla apagada).
+        if (fgMicActivo) {
+            activarFgMicrofono()
+            return
+        }
         // Desde Android 14 (API 34), arrancar un FGS de tipo "microphone" desde
         // segundo plano (p. ej. al llegar una notificación de WhatsApp con la app
         // cerrada) se rechaza con SecurityException porque exige que la app esté
@@ -134,6 +177,8 @@ class LectorAsistenteService : Service(), RecognitionListener {
             startForeground(NOTIF_ID, notificacionActiva(), ServiceInfo.FOREGROUND_SERVICE_TYPE_SPECIAL_USE)
         } else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
             startForeground(NOTIF_ID, notificacionActiva(), ServiceInfo.FOREGROUND_SERVICE_TYPE_MICROPHONE)
+            // En APIs 30-33 este es ya el tipo correcto (sin "specialUse").
+            fgMicActivo = true
         } else {
             startForeground(NOTIF_ID, notificacionActiva())
         }
@@ -162,6 +207,39 @@ class LectorAsistenteService : Service(), RecognitionListener {
         Log.d(TAG, "WakeLock liberado")
     }
 
+    /** Mantiene la música pausada (foco GAIN_TRANSIENT retenido) durante toda la
+     *  interacción de voz. Sin este foco retenido, al terminar el TTS su foco la
+     *  radio/música se reanuda justo al activar el micrófono y el micro captura ese
+     *  sonido como primer buffer, rompiendo el reconocimiento de la respuesta. */
+    private fun retenerPausaMusica() {
+        // Solo pausar en el modo "detener música". El modo "bajar volumen" deja que la
+        // música suene atenuada (el propio TTS la atenúa mientras habla).
+        if (dataStore.bajarVolumenEnLugarDePausar) return
+        if (audioFocusRetenido != null) return
+        val atributos = AudioAttributes.Builder()
+            .setUsage(AudioAttributes.USAGE_ASSISTANCE_NAVIGATION_GUIDANCE)
+            .setContentType(AudioAttributes.CONTENT_TYPE_SPEECH)
+            .build()
+        val request = AudioFocusRequest.Builder(AudioManager.AUDIOFOCUS_GAIN_TRANSIENT)
+            .setAudioAttributes(atributos)
+            .setOnAudioFocusChangeListener { /* no hacemos nada al perder foco */ }
+            .build()
+        val res = audioManagerPausa.requestAudioFocus(request)
+        if (res == AudioManager.AUDIOFOCUS_REQUEST_GRANTED) {
+            audioFocusRetenido = request
+            Log.d(TAG, "Música pausada (foco retenido) durante la sesión de voz")
+        } else {
+            Log.d(TAG, "No se pudo retener el foco para pausar la música (res=$res)")
+        }
+    }
+
+    private fun liberarPausaMusica() {
+        val request = audioFocusRetenido ?: return
+        audioManagerPausa.abandonAudioFocusRequest(request)
+        audioFocusRetenido = null
+        Log.d(TAG, "Foco liberado: la música puede reanudarse")
+    }
+
     /**
      * Marca el FGS como tipo "microphone" mientras usamos el reconocedor. Al arrancar
      * desde segundo plano en API 34+ usamos "specialUse" (el tipo "microphone" no puede
@@ -174,6 +252,7 @@ class LectorAsistenteService : Service(), RecognitionListener {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
             try {
                 startForeground(NOTIF_ID, notificacionActiva(), ServiceInfo.FOREGROUND_SERVICE_TYPE_MICROPHONE)
+                fgMicActivo = true
                 Log.d(TAG, "FGS marcado como tipo micrófono (API 34+)")
             } catch (e: Exception) {
                 Log.w(TAG, "No se pudo marcar el FGS como micrófono", e)
@@ -263,7 +342,7 @@ class LectorAsistenteService : Service(), RecognitionListener {
             reintentarONoEntendido()
             return
         }
-        val respuesta = frases.joinToString(" ").lowercase()
+        val respuesta = frases.first().lowercase()
         Log.d(TAG, "Respuesta reconocida: \"$respuesta\" (etapa=$etapaRespuesta)")
 
         when (etapaRespuesta) {
@@ -323,8 +402,8 @@ class LectorAsistenteService : Service(), RecognitionListener {
                 }
             }
             ETAPA_DICTADO -> {
-                val textoDictado = frases.joinToString(" ")
-                Log.d(TAG, "onResults: dictado recibido: '$textoDictado'")
+                val textoDictado = puntuar(limpiarEco(frases.first()))
+                Log.d(TAG, "onResults: dictado recibido: '${frases.first()}' -> limpio: '$textoDictado'")
                 if (textoDictado.isBlank()) {
                     reintentarONoEntendido()
                     return
@@ -409,10 +488,26 @@ class LectorAsistenteService : Service(), RecognitionListener {
         cancelarTiempoEscucha()
         recognizer?.destroy()
         recognizer = null
+        // El reintento no es igual en todas las etapas: no es lo mismo no entender una
+        // respuesta "sí/no" que no captar el dictado libre de la respuesta, o la
+        // confirmación de envío. Si es la confirmación de envío, delegamos en su
+        // reintento específico (que conserva el borrador y avisa de forma distinta).
+        if (etapaRespuesta == ETAPA_CONFIRMAR_ENVIO) {
+            reintentarONoEntendidoEnviarOCorregir()
+            return
+        }
         if (intentos < MAX_INTENTOS) {
             intentos++
-            lector.hablar(getString(R.string.pregunta_voz_no_entendido)) {
-                lector.mainHandler.postDelayed({ escucharRespuesta() }, 350)
+            if (etapaRespuesta == ETAPA_DICTADO) {
+                // Estábamos captando la respuesta dictada: se pide repetirla.
+                lector.hablar(getString(R.string.dictado_no_entendido)) {
+                    lector.mainHandler.postDelayed({ escucharTextoLibre() }, 350)
+                }
+            } else {
+                // Etapas "sí/no" (leer o responder): se pide sí o no y se vuelve a escuchar.
+                lector.hablar(getString(R.string.pregunta_voz_no_entendido)) {
+                    lector.mainHandler.postDelayed({ escucharRespuesta() }, 350)
+                }
             }
         } else {
             lector.hablar(getString(R.string.aviso_no_leido)) {
@@ -421,7 +516,77 @@ class LectorAsistenteService : Service(), RecognitionListener {
         }
     }
 
-    /** true = leer, false = no leer, null = no entendido. */
+    /**
+ * Quita una "eco/doble" típica del reconocedor de voz, que a veces devuelve la
+ * frase del usuario dos veces (p. ej. "bien muchas gracias bien y muchas gracias"):
+ * el final vuelve a contener todos los tokens del principio. Solo actúa cuando el
+ * final es claramente una repetición (contiene todos los tokens del inicio y no es
+ * mucho más largo); si no está claro, se devuelve el texto sin cambios para no
+ * perder dictados reales.
+ */
+private fun limpiarEco(texto: String): String {
+    val t = texto.trim()
+    val tokens = t.split(" ").filter { it.isNotBlank() }
+    if (tokens.size < 3) return t
+    // Normalizamos cada token (sin acentos y en minúsculas) para comparar iguales
+    // palabras que difieran solo en tilde ("cómo" vs "como"). El texto devuelto
+    // conserva la forma original de la primera aparición.
+    val tokensNorm = tokens.map { normalizarToken(it) }
+    // Buscamos la repetición en el PREFIJO más largo posible (desde el final para no
+    // captar fragmentos parciales). Si la segunda parte contiene todos los tokens de la
+    // primera, es un eco: nos quedamos con la primera aparición.
+    for (split in (tokens.size - 1) downTo 1) {
+        val primeraNorm = tokensNorm.take(split)
+        val segundaNorm = tokensNorm.drop(split)
+        if (segundaNorm.isEmpty()) continue
+        val contieneTodo = primeraNorm.all { tok -> tok in segundaNorm }
+        if (contieneTodo && segundaNorm.size <= primeraNorm.size + 2) {
+            val limpio = tokens.take(split).joinToString(" ")
+            Log.d(TAG, "limpiarEco: repetición detectada -> '$limpio' (original='$t')")
+            return limpio
+        }
+    }
+    return t
+}
+
+/** Elimina acentos y pasa a minúsculas para comparación de tokens tolerante a tildes. */
+private fun normalizarToken(s: String): String {
+    val descompuesto = java.text.Normalizer.normalize(s, java.text.Normalizer.Form.NFD)
+    return descompuesto.replace(Regex("\\p{M}"), "").lowercase()
+}
+
+/**
+ * Puntuación heurística ligera para el dictado (sin red ni modelos pesados):
+ *  - Mayúscula inicial y punto final por defecto.
+ *  - Interrogación ("?") cuando la frase arranca con un interrogativo típico.
+ *  - Algunas comas seguras (p. ej. ", por favor", ", la verdad") en media frase.
+ * No es "puntuación por entonación" real, pero mejora la legibilidad del dictado
+ * sin arriesgar el contenido.
+ */
+private fun puntuar(texto: String): String {
+    var t = texto.trim()
+    if (t.isEmpty()) return t
+    // Mayúscula inicial (primera letra si es una letra).
+    t = t[0].uppercaseChar().toString() + t.substring(1)
+    // Quitamos signos de puntuación final que vinieran del reconocedor (evita dobles).
+    t = t.trimEnd('.', '?', '!', ',', ';', ':')
+    t = insertarComasSeguras(t).trim()
+    val esPregunta = INTERROGATIVOS.any { t.startsWith(it, ignoreCase = true) }
+    return if (esPregunta) t + "?" else t + "."
+}
+
+/** Comas solo en casos muy seguros, para no empeorar el dictado. */
+private fun insertarComasSeguras(t: String): String {
+    var s = t
+    if (!s.contains(',')) {
+        // " por favor ", " la verdad " en media frase -> ", por favor", ", la verdad".
+        s = s.replace(Regex("(?i)\\bpor favor\\b"), ", por favor")
+        s = s.replace(Regex("(?i)\\bla verdad\\b"), ", la verdad")
+    }
+    return s
+}
+
+/** true = leer, false = no leer, null = no entendido. */
     private fun decidir(respuesta: String): Boolean? {
         val quiereSi = REGEX_SI.containsMatchIn(respuesta) ||
             "lee" in respuesta || "adelante" in respuesta
@@ -465,6 +630,7 @@ class LectorAsistenteService : Service(), RecognitionListener {
         recognizer?.destroy()
         recognizer = null
         liberarWakeLock()
+        liberarPausaMusica()
         stopForeground(STOP_FOREGROUND_REMOVE)
         stopSelf()
     }
@@ -719,7 +885,9 @@ class LectorAsistenteService : Service(), RecognitionListener {
         preguntaHablando = false
         recognizer ?.destroy()
         recognizer = null
+        fgMicActivo = false
         liberarWakeLock()
+        liberarPausaMusica()
         Log.d(TAG, "LectorAsistenteService destruido")
         super.onDestroy()
     }
@@ -727,6 +895,7 @@ class LectorAsistenteService : Service(), RecognitionListener {
     companion object {
         private const val TAG = "WalinkLectorVoz"
 
+        const val ACTION_PREPARAR_VOZ = "com.jjcampac.walink.action.PREPARAR_VOZ"
         const val ACTION_PREGUNTAR = "com.jjcampac.walink.action.PREGUNTAR_LECTURA"
         const val ACTION_RESPONDER = "com.jjcampac.walink.action.RESPONDER"
         const val EXTRA_REMITENTE = "remitente"
@@ -759,6 +928,12 @@ class LectorAsistenteService : Service(), RecognitionListener {
         private val REGEX_NO = Regex(
             "\\bno\\b|\\bnegative\\b",
             RegexOption.IGNORE_CASE
+        )
+        // Interrogativos con los que una frase dictada suele ser una pregunta. Se usa
+        // el espacio tras el token para descartar casos como "quédate" que no preguntan.
+        private val INTERROGATIVOS = listOf(
+            "qué ", "quién ", "quiénes ", "cuándo ", "dónde ", "adónde ",
+            "cómo ", "cuánto ", "cuánta ", "cuántos ", "cuántas ", "por qué "
         )
         // Palabras que indican "cancelar" en la confirmación de envío. Se comprueban
         // antes que "enviar"/"corregir" para dar prioridad a la cancelación.

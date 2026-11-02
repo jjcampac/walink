@@ -71,7 +71,7 @@
     <string name="chip_estado_activo">Activo en segundo plano</string>
     <string name="chip_estado_inactivo">Inactivo — pulsa el mosaico</string>
     <string name="tile_como_activar_titulo">¿Cómo activar Walink?</string>
-    <string name="tile_como_activar_desc">Desliza hacia abajo desde el borde superior y pulsa el mosaico Walink. Mantenlo pulsado para abrir la app.</string>
+    <string name="tile_como_activar_desc">Desliza hacia abajo desde el borde superior y pulsa el mosaico Walink para activar o desactivar la aplicación. Mantenlo pulsado para abrir la app.</string>
     <string name="titulo_seccion_permisos">Permisos y configuración</string>
     <string name="bt_conceder">Conceder</string>
     <string name="bt_ajustes">Ajustes</string>
@@ -128,6 +128,7 @@
     <string name="pregunta_responder">¿Quieres responder a %1$s?</string>
     <string name="pregunta_responder_reintento">No te he oído bien. Di sí para responder, o no para cancelar.</string>
     <string name="pedir_dictado">Dime tu respuesta</string>
+    <string name="dictado_no_entendido">No te he entendido. Por favor, repite tu respuesta.</string>
     <string name="borrador_guardado">He redactado tu respuesta para %1$s: %2$s</string>
     <string name="no_responder">Vale, no responderé.</string>
     <string name="aviso_no_respondido">No he podido oír tu respuesta, así que no responderé.</string>

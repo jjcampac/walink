@@ -59,7 +59,7 @@
     <string name="chip_estado_activo">バックグラウンドで有効</string>
     <string name="chip_estado_inactivo">非アクティブ — タイルをタップ</string>
     <string name="tile_como_activar_titulo">Walinkを有効にするには？</string>
-    <string name="tile_como_activar_desc">上端から下にスワイプし、Walinkタイルをタップします。長押しでアプリを開きます。</string>
+    <string name="tile_como_activar_desc">上端から下にスワイプし、Walinkタイルをタップしてアプリをオン/オフに切り替えます。長押しでアプリを開きます。</string>
     <string name="titulo_seccion_permisos">権限と設定</string>
     <string name="bt_conceder">許可</string>
     <string name="bt_ajustes">設定</string>
@@ -104,6 +104,7 @@
     <string name="pregunta_responder">%1$sに返信しますか？</string>
     <string name="pregunta_responder_reintento">よく聞こえませんでした。返信するなら「はい」、キャンセルするなら「いいえ」とおっしゃってください。</string>
     <string name="pedir_dictado">返信をどうぞ</string>
+    <string name="dictado_no_entendido">聞き取れませんでした。もう一度返信をお願いします。</string>
     <string name="borrador_guardado">%1$sへの返信を作成しました：%2$s</string>
     <string name="no_responder">わかりました。返信しません。</string>
     <string name="aviso_no_respondido">返答が聞き取れなかったため、返信しません。</string>

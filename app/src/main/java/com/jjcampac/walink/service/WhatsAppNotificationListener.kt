@@ -140,12 +140,20 @@ class WhatsAppNotificationListener : NotificationListenerService() {
             Log.d(TAG, "Datos de respuesta: pendingIntent=${pendingResponder != null}, claves=$clavesRemoteInput")
 
             if (esInmediato) {
-                // Modo "leer inmediatamente": leemos sin servicio en primer plano.
-                // Si quedara un LectorAsistenteService de un ciclo "preguntar" anterior
-                // (por un onDone TTS perdido), lo detenemos para que no contamine esta
-                // lectura con una pregunta fantasma.
-                stopService(Intent(this, LectorAsistenteService::class.java))
-                Log.d(TAG, "Mensaje de '${mensaje.remitente}' (grupo=${mensaje.esGrupo}) -> leyendo ahora")
+                // Modo "leer inmediatamente": leemos el mensaje aquí (en el listener),
+                // pero CALENTAMOS ya el LectorAsistenteService conmutándolo a tipo
+                // "microphone" en esta ventana de notificación, que es donde la app aún
+                // es elegible para acceder al permiso foreground-only RECORD_AUDIO.
+                // Sin este calentamiento, al terminar la lectura el arranque en frío
+                // desde segundo plano no podía conmutar el FGS a "microphone"
+                // (SecurityException) y la escucha de "¿quieres responder?" se quedaba
+                // sin audio con la pantalla apagada (solo el primer buffer).
+                ContextCompat.startForegroundService(
+                    this,
+                    Intent(this, LectorAsistenteService::class.java)
+                        .setAction(LectorAsistenteService.ACTION_PREPARAR_VOZ)
+                )
+                Log.d(TAG, "Mensaje de '${mensaje.remitente}' (grupo=${mensaje.esGrupo}) -> leyendo ahora (mic precalentado)")
                 speechReader.hablar(textoParaLeer) {
                     // Tras terminar la lectura, ofrecer responder por voz.
                     // El servicio ya verificará el permiso de micrófono internamente.

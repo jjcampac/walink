@@ -59,7 +59,7 @@
     <string name="chip_estado_activo">Im Hintergrund aktiv</string>
     <string name="chip_estado_inactivo">Inaktiv — Kachel antippen</string>
     <string name="tile_como_activar_titulo">Wie aktiviere ich Walink?</string>
-    <string name="tile_como_activar_desc">Wische vom oberen Rand nach unten und tippe auf die Walink-Kachel. Halte sie gedrückt, um die App zu öffnen.</string>
+    <string name="tile_como_activar_desc">Wische vom oberen Rand nach unten und tippe auf die Walink-Kachel, um die App zu aktivieren oder zu deaktivieren. Halte sie gedrückt, um die App zu öffnen.</string>
     <string name="titulo_seccion_permisos">Berechtigungen und Einstellungen</string>
     <string name="bt_conceder">Erlauben</string>
     <string name="bt_ajustes">Einstellungen</string>
@@ -104,6 +104,7 @@
     <string name="pregunta_responder">Möchtest du %1$s antworten?</string>
     <string name="pregunta_responder_reintento">Ich habe dich nicht gut gehört. Sag ja zum Antworten oder nein zum Abbrechen.</string>
     <string name="pedir_dictado">Sag mir deine Antwort</string>
+    <string name="dictado_no_entendido">Ich habe dich nicht verstanden. Bitte wiederhole deine Antwort.</string>
     <string name="borrador_guardado">Ich habe deine Antwort an %1$s verfasst: %2$s</string>
     <string name="no_responder">Okay, ich antworte nicht.</string>
     <string name="aviso_no_respondido">Ich konnte deine Antwort nicht hören, daher antworte ich nicht.</string>

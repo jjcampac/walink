@@ -70,7 +70,7 @@
     <string name="chip_estado_activo">Active in the background</string>
     <string name="chip_estado_inactivo">Inactive — tap the tile</string>
     <string name="tile_como_activar_titulo">How do I enable Walink?</string>
-    <string name="tile_como_activar_desc">Swipe down from the top edge and tap the Walink tile. Press and hold to open the app.</string>
+    <string name="tile_como_activar_desc">Swipe down from the top edge and tap the Walink tile to turn the app on or off. Press and hold to open the app.</string>
     <string name="titulo_seccion_permisos">Permissions and settings</string>
     <string name="bt_conceder">Grant</string>
     <string name="bt_ajustes">Settings</string>
@@ -108,6 +108,7 @@
     <string name="pregunta_responder">Do you want to reply to %1$s?</string>
     <string name="pregunta_responder_reintento">I did not hear you well. Say yes to reply, or no to cancel.</string>
     <string name="pedir_dictado">Tell me your reply</string>
+    <string name="dictado_no_entendido">I didn\'t understand. Please repeat your reply.</string>
     <string name="borrador_guardado">I have drafted your reply to %1$s: %2$s</string>
     <string name="no_responder">Okay, I will not reply.</string>
     <string name="aviso_no_respondido">I could not hear your reply, so I will not answer.</string>

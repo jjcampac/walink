@@ -59,7 +59,7 @@
     <string name="chip_estado_activo">Attivo in background</string>
     <string name="chip_estado_inactivo">Inattivo — tocca il riquadro</string>
     <string name="tile_como_activar_titulo">Come attivo Walink?</string>
-    <string name="tile_como_activar_desc">Scorri verso il basso dal bordo superiore e tocca il riquadro Walink. Tienilo premuto per aprire l\'app.</string>
+    <string name="tile_como_activar_desc">Scorri verso il basso dal bordo superiore e tocca il riquadro Walink per attivare o disattivare l\'app. Tienilo premuto per aprire l\'app.</string>
     <string name="titulo_seccion_permisos">Permessi e configurazione</string>
     <string name="bt_conceder">Consenti</string>
     <string name="bt_ajustes">Impostazioni</string>
@@ -104,6 +104,7 @@
     <string name="pregunta_responder">Vuoi rispondere a %1$s?</string>
     <string name="pregunta_responder_reintento">Non ti ho sentito bene. Di sì per rispondere o no per annullare.</string>
     <string name="pedir_dictado">Dimmi la tua risposta</string>
+    <string name="dictado_no_entendido">Non ti ho capito. Per favore, ripeti la tua risposta.</string>
     <string name="borrador_guardado">Ho scritto la tua risposta a %1$s: %2$s</string>
     <string name="no_responder">Va bene, non risponderò.</string>
     <string name="aviso_no_respondido">Non ho potuto sentire la tua risposta, quindi non risponderò.</string>
