@@ -978,9 +978,7 @@ private fun PantallaPrincipal(
                         onSeleccionarVoz = onSeleccionarVoz,
                         onProbarVoz = onProbarVoz,
                         velocidad = velocidadVoz,
-                        onCambiarVelocidad = onCambiarVelocidadVoz,
-                        bajarVolumen = bajarVolumen,
-                        onCambiarAudioFondo = onCambiarAudioFondo
+                        onCambiarVelocidad = onCambiarVelocidadVoz
                     )
 
                     Spacer(modifier = Modifier.height(14.dp))
@@ -1335,7 +1333,7 @@ private fun TarjetaCocheConectividad(
     }
 }
 
-/** 2. Voz y Audio: selección de locución, velocidad y atenuación de música. */
+/** 2. Voz y Audio: selección de locución y velocidad de la voz. */
 @Composable
 private fun TarjetaVozAudio(
     vozActual: String?,
@@ -1343,9 +1341,7 @@ private fun TarjetaVozAudio(
     onSeleccionarVoz: (String) -> Unit,
     onProbarVoz: () -> Unit,
     velocidad: Float,
-    onCambiarVelocidad: (Float) -> Unit,
-    bajarVolumen: Boolean,
-    onCambiarAudioFondo: (Boolean) -> Unit
+    onCambiarVelocidad: (Float) -> Unit
 ) {
     val etiquetaActual = if (vozActual.isNullOrBlank()) {
         stringResource(id = R.string.voz_lectura_por_defecto)
@@ -1452,35 +1448,7 @@ private fun TarjetaVozAudio(
                 Text(stringResource(id = R.string.vel_rapida), style = MaterialTheme.typography.labelSmall, color = GrisEstado)
             }
 
-            Spacer(modifier = Modifier.height(12.dp))
-            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f))
-            Spacer(modifier = Modifier.height(10.dp))
-
-            // Sub-bloque 3: Música de fondo (Chips selectores modernos)
-            Text(
-                text = stringResource(id = R.string.audio_fondo_titulo),
-                style = MaterialTheme.typography.bodyMedium,
-                fontWeight = FontWeight.Medium
-            )
-            Spacer(modifier = Modifier.height(6.dp))
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
-                FilterChip(
-                    selected = bajarVolumen,
-                    onClick = { onCambiarAudioFondo(true) },
-                    label = { Text(stringResource(id = R.string.chip_bajar_volumen)) },
-                    modifier = Modifier.weight(1f)
-                )
-                FilterChip(
-                    selected = !bajarVolumen,
-                    onClick = { onCambiarAudioFondo(false) },
-                    label = { Text(stringResource(id = R.string.chip_pausar_musica)) },
-                    modifier = Modifier.weight(1f)
-                )
             }
-        }
     }
 }
 
