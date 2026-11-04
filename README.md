@@ -159,6 +159,7 @@ app/src/debug/
 - ✅ Los mensajes se leen en voz alta y se descartan inmediatamente.
 - ✅ La respuesta dictada solo se conserva como borrador local hasta que se envía.
 - ✅ Las preferencias se guardan localmente con `SharedPreferences`.
+- ✅ El registro de diagnóstico (`walink_diag.log`) es local y no contiene el contenido de los mensajes.
 
 ## Notas técnicas
 
@@ -173,6 +174,22 @@ app/src/debug/
 ```bash
 adb logcat -s WalinkListener WalinkLectorVoz WalinkTTS WalinkDebug WalinkParser
 ```
+
+### Log persistente para diagnosticar fallos difíciles de reproducir
+
+El flujo de voz (audio focus, FGS de micrófono, reconocedor) y el estado del
+teléfono en el momento de recibir un mensaje (pantalla, no-molestar, batería y
+Bluetooth) se guardan también en un fichero local `filesDir/walink_diag.log`
+(privado, sin red, con rotación de ~512 KB). Así, un fallo que solo ocurre en el
+coche queda registrado aunque no haya un ordenador conectado en ese instante.
+Para extraerlo con el móvil enchufado por USB:
+
+```bash
+adb exec-out run-as com.jjcampac.walink cat files/walink_diag.log > walink_diag.txt
+```
+
+> En debug, el botón **"Simular mensaje"** también rellena este fichero, de modo
+> que se puede verificar que el registro funciona sin esperar a un mensaje real.
 
 ---
 

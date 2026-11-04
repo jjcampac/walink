@@ -24,6 +24,7 @@ import android.speech.SpeechRecognizer
 import android.util.Log
 import com.jjcampac.walink.R
 import com.jjcampac.walink.data.WalinkDataStore
+import com.jjcampac.walink.diag.LogDiag
 import com.jjcampac.walink.idioma.IdiomaHelper
 import androidx.core.app.NotificationCompat
 
@@ -87,11 +88,13 @@ class LectorAsistenteService : Service(), RecognitionListener {
         lector = SpeechReader.obtener(this)
         dataStore = WalinkDataStore.getInstance(applicationContext)
         crearCanal()
+        LogDiag.iniciar(this)
         Log.d(TAG, "LectorAsistenteService creado")
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         super.onStartCommand(intent, flags, startId)
+        LogDiag.d("onStartCommand: acción=${intent?.action}")
         when (intent?.action) {
             ACTION_PREPARAR_VOZ -> manejarPrepararVoz()
             ACTION_PREGUNTAR -> manejarPreguntar(intent)
@@ -121,6 +124,7 @@ class LectorAsistenteService : Service(), RecognitionListener {
     /** Modo "preguntar antes de leer": pregunta por voz y escucha sí/no. */
     private fun manejarPreguntar(intent: Intent) {
         ciclo++
+        LogDiag.d("ACTION_PREGUNTAR (ciclo=$ciclo) recibido: remitente='$remitente'")
         Log.d(TAG, "ACTION_PREGUNTAR (ciclo=$ciclo) recibido")
 
         // Si quedó pendiente algo de un ciclo anterior (locución sin terminar, un
@@ -254,8 +258,10 @@ class LectorAsistenteService : Service(), RecognitionListener {
             try {
                 startForeground(NOTIF_ID, notificacionActiva(), ServiceInfo.FOREGROUND_SERVICE_TYPE_MICROPHONE)
                 fgMicActivo = true
+                LogDiag.d("FGS conmutado a tipo micrófono (API 34+); permiso while-in-use del micro activo")
                 Log.d(TAG, "FGS marcado como tipo micrófono (API 34+)")
             } catch (e: Exception) {
+                LogDiag.e("Fallo al marcar el FGS como tipo micrófono", e)
                 Log.w(TAG, "No se pudo marcar el FGS como micrófono", e)
             }
         }
@@ -284,6 +290,7 @@ class LectorAsistenteService : Service(), RecognitionListener {
                 }
             if (comunicacionTelefono != null) {
                 val ok = audioManagerPausa.setCommunicationDevice(comunicacionTelefono)
+                LogDiag.d("Mic de voz forzado al teléfono (builtin '${comunicacionTelefono.productName}' type=${comunicacionTelefono.type}): res=$ok")
                 Log.d(
                     TAG,
                     "Comunicación forzada al teléfono (micro builtin, res=$ok): '${comunicacionTelefono.productName}' (type=${comunicacionTelefono.type})"
@@ -318,6 +325,8 @@ class LectorAsistenteService : Service(), RecognitionListener {
         val salidas = audioManagerPausa
             .getDevices(AudioManager.GET_DEVICES_OUTPUTS)
             .joinToString(" | ") { "${it.type}:${it.productName}" }
+        LogDiag.d("[$contexto] Entradas de audio: $entradas")
+        LogDiag.d("[$contexto] Salidas de audio: $salidas")
         Log.d(TAG, "[$contexto] Entradas de audio: $entradas")
         Log.d(TAG, "[$contexto] Salidas de audio: $salidas")
     }
@@ -378,6 +387,7 @@ class LectorAsistenteService : Service(), RecognitionListener {
         val intentReconocimiento = construyeIntentReconocimiento(R.string.pregunta_voz_prompt)
         activarFgMicrofono()
         recognizer?.startListening(intentReconocimiento)
+        LogDiag.d("escucharRespuesta: SpeechRecognizer.startListening invocado")
         Log.d(TAG, "SpeechRecognizer escuchando...")
 
         // Si no se oye respuesta en un tiempo, no quedarse colgado "escuchando".
@@ -410,6 +420,7 @@ class LectorAsistenteService : Service(), RecognitionListener {
             return
         }
         val respuesta = frases.first().lowercase()
+        LogDiag.d("onResults: respuesta captada: \"$respuesta\" (etapa=$etapaRespuesta)")
         Log.d(TAG, "Respuesta reconocida: \"$respuesta\" (etapa=$etapaRespuesta)")
 
         when (etapaRespuesta) {
@@ -511,6 +522,7 @@ class LectorAsistenteService : Service(), RecognitionListener {
         // Al terminar (con error) también restauramos la ruta de comunicación.
         limpiarMicrofonoTelefono()
         logRutasAudio("onError")
+        LogDiag.e("Error de reconocimiento: ${nombreError(error)} ($error) picoRMS=${nivelPicoRms}")
         Log.w(TAG, "Error de reconocimiento: ${nombreError(error)} ($error), pico RMS=${"%.0f".format(nivelPicoRms)}")
         reintentarONoEntendido()
     }
@@ -518,9 +530,11 @@ class LectorAsistenteService : Service(), RecognitionListener {
     override fun onReadyForSpeech(params: Bundle?) {
         nivelPicoRms = 0f
         logRutasAudio("onReadyForSpeech")
+        LogDiag.d("onReadyForSpeech: reconocedor LISTO, escuchando...")
         Log.d(TAG, "onReadyForSpeech: reconocedor listo, escuchando...")
     }
     override fun onBeginningOfSpeech() {
+        LogDiag.d("onBeginningOfSpeech: el sistema ha captado VOZ (el micro oye)")
         Log.d(TAG, "onBeginningOfSpeech: el sistema ha detectado voz")
     }
     override fun onRmsChanged(rmsdB: Float) {
@@ -529,12 +543,14 @@ class LectorAsistenteService : Service(), RecognitionListener {
         if (rmsdB > nivelPicoRms) {
             nivelPicoRms = rmsdB
             if (rmsdB >= 1f) {
+                LogDiag.d("onRmsChanged: pico micro ${rmsdB} dB (el micro capta)")
                 Log.d(TAG, "onRmsChanged: nivel micro sube a ${"%.1f".format(rmsdB)}")
             }
         }
     }
     override fun onBufferReceived(buffer: ByteArray?) { /* audio crudo, no se usa */ }
     override fun onEndOfSpeech() {
+        LogDiag.d("onEndOfSpeech: fin de voz detectado")
         Log.d(TAG, "onEndOfSpeech: fin de voz detectado")
     }
     override fun onPartialResults(partialResults: Bundle?) {

@@ -10,6 +10,7 @@ import androidx.core.content.ContextCompat
 import com.jjcampac.walink.BuildConfig
 import com.jjcampac.walink.R
 import com.jjcampac.walink.data.WalinkDataStore
+import com.jjcampac.walink.diag.LogDiag
 import com.jjcampac.walink.idioma.IdiomaHelper
 import com.jjcampac.walink.parser.NotificationParser
 import com.jjcampac.walink.speech.LectorAsistenteService
@@ -43,6 +44,7 @@ class WhatsAppNotificationListener : NotificationListenerService() {
         super.onCreate()
         speechReader = SpeechReader.obtener(this)
         dataStore = WalinkDataStore.getInstance(applicationContext)
+        LogDiag.iniciar(this)
         Log.d(TAG, "Servicio de notificaciones creado")
     }
 
@@ -64,6 +66,12 @@ class WhatsAppNotificationListener : NotificationListenerService() {
                 // (7 pulsaciones sobre la versión en la cabecera).
                 aceptarPaquetePropio = BuildConfig.DEBUG || dataStore.modoDepuracion
             ) ?: return
+
+            // Foto del estado del teléfono en el momento exacto de recibir un mensaje
+            // real (pantalla, no-molestar, batería y Bluetooth). Se guarda en logcat y
+            // en filesDir/walink_diag.log para poder diagnosticar un fallo aunque
+            // ocurra lejos del ordenador.
+            LogDiag.registrarEstado(this, "mensaje recibido de '${mensaje.remitente}' (grupo=${mensaje.esGrupo})")
 
             // ---- Regla del dispositivo Bluetooth del coche (uno o varios) ----
             // Si el usuario ha elegido uno o más dispositivos en los ajustes, Walink
