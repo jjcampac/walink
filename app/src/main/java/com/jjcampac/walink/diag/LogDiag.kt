@@ -55,6 +55,16 @@ object LogDiag {
         escribir("E", if (error == null) mensaje else "$mensaje -> $error")
     }
 
+    /** Devuelve el contenido actual del fichero de diagnóstico (para verlo en la app). */
+    fun contenido(contexto: Context): String {
+        val fichero = File(contexto.applicationContext.filesDir, NOMBRE_FICHERO)
+        return try {
+            if (fichero.exists()) fichero.readText() else ""
+        } catch (t: Throwable) {
+            "Error al leer el diagnóstico: $t"
+        }
+    }
+
     /**
      * Foto del estado del teléfono en el momento exacto de llegar una notificación
      * (pantalla, no-molestar, batería y Bluetooth). Es justo lo que no conocemos del

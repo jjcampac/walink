@@ -177,6 +177,14 @@
     <string name="debug_remitente">Sender</string>
     <string name="debug_mensaje_prueba">Test message</string>
     <string name="debug_simular">Simulate message</string>
+    <string name="debug_ver_diagnostico">View diagnostics</string>
+    <string name="debug_diagnostico_titulo">Diagnostics</string>
+    <string name="debug_diagnostico_vacio">(no diagnostics yet: the file does not exist or no message has been received)</string>
+    <string name="debug_diagnostico_compartir">Share</string>
+    <string name="debug_diagnostico_cerrar">Close</string>
+    <string name="seccion_mensajes_titulo">Messages</string>
+    <string name="diagnostico_titulo">Diagnostics</string>
+    <string name="diagnostico_desc">Saves the voice flow (microphone and audio focus) and the phone state when a message arrives. Share it after a failure (e.g. if your reply is not heard) to review it.</string>
     <string name="debug_nota_respuesta">The RemoteInput reply is shown in Logcat (WalinkDebug tag).</string>
 
     <!-- Notificación "preguntar antes de leer" y asistente de voz -->

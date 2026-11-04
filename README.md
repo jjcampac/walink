@@ -188,6 +188,11 @@ Para extraerlo con el móvil enchufado por USB:
 adb exec-out run-as com.jjcampac.walink cat files/walink_diag.log > walink_diag.txt
 ```
 
+El comando `run-as` solo funciona en builds **debuggable**. En una build release
+(instalada sin ordenador) se puede ver en pantalla desde la propia app: en la
+tarjeta de depuración hay un botón **"Ver diagnóstico"** que abre el contenido de
+`walink_diag.log` y permite **compartirlo** (p. ej. guardarlo como texto).
+
 > En debug, el botón **"Simular mensaje"** también rellena este fichero, de modo
 > que se puede verificar que el registro funciona sin esperar a un mensaje real.
 

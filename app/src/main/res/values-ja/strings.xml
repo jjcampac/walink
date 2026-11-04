@@ -165,5 +165,13 @@
     <string name="debug_remitente">送信者</string>
     <string name="debug_mensaje_prueba">テストメッセージ</string>
     <string name="debug_simular">メッセージをシミュレート</string>
+    <string name="debug_ver_diagnostico">診断を表示</string>
+    <string name="debug_diagnostico_titulo">診断</string>
+    <string name="debug_diagnostico_vacio">(診断はまだありません: ファイルが存在しないか、メッセージが届いていません)</string>
+    <string name="debug_diagnostico_compartir">共有</string>
+    <string name="debug_diagnostico_cerrar">閉じる</string>
+    <string name="seccion_mensajes_titulo">メッセージ</string>
+    <string name="diagnostico_titulo">診断</string>
+    <string name="diagnostico_desc">メッセージ受信時の音声フロー（マイクとオーディオフォーカス）と電話の状態を保存します。不具合（例: 返答が聞き取れない）の後に共有して確認してください。</string>
     <string name="debug_nota_respuesta">RemoteInputの返信はLogcatに表示されます（タグ：WalinkDebug）。</string>
 </resources>

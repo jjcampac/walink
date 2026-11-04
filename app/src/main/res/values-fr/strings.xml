@@ -165,5 +165,13 @@
     <string name="debug_remitente">Expéditeur</string>
     <string name="debug_mensaje_prueba">Message de test</string>
     <string name="debug_simular">Simuler un message</string>
+    <string name="debug_ver_diagnostico">Voir le diagnostic</string>
+    <string name="debug_diagnostico_titulo">Diagnostic</string>
+    <string name="debug_diagnostico_vacio">(pas encore de diagnostic : le fichier n\'existe pas ou aucun message n\'a été reçu)</string>
+    <string name="debug_diagnostico_compartir">Partager</string>
+    <string name="debug_diagnostico_cerrar">Fermer</string>
+    <string name="seccion_mensajes_titulo">Messages</string>
+    <string name="diagnostico_titulo">Diagnostic</string>
+    <string name="diagnostico_desc">Enregistre le flux vocal (micro et audio focus) et l\'état du téléphone à la réception d\'un message. Partagez-le après un incident (p. ex. si votre réponse n\'est pas entendue) pour le consulter.</string>
     <string name="debug_nota_respuesta">La réponse du RemoteInput s\'affiche dans Logcat (tag WalinkDebug).</string>
 </resources>

@@ -59,11 +59,13 @@ import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.FilterChipDefaults
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Slider
@@ -83,7 +85,9 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
@@ -94,6 +98,7 @@ import com.jjcampac.walink.BuildConfig
 import com.jjcampac.walink.data.WalinkDataStore
 import com.jjcampac.walink.idioma.IdiomaHelper
 import com.jjcampac.walink.debug.DebugSimulator
+import com.jjcampac.walink.diag.LogDiag
 import com.jjcampac.walink.service.BluetoothCoche
 import com.jjcampac.walink.service.WhatsAppNotificationListener
 import com.jjcampac.walink.speech.SpeechReader
@@ -1121,7 +1126,7 @@ private fun CabeceraWalink(
                 modifier = Modifier.padding(top = 4.dp)
             )
             Text(
-                text = "v" + BuildConfig.VERSION_NAME,
+                text = if (BuildConfig.DEBUG) "v1.0d" else "v1.0r",
                 style = MaterialTheme.typography.bodySmall,
                 color = Color.White.copy(alpha = 0.6f),
                 textAlign = TextAlign.Center,
@@ -1771,19 +1776,17 @@ private fun TarjetaDepuracionPlegable(
     Card(
         modifier = Modifier.fillMaxWidth(),
         colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surfaceContainerHighest.copy(alpha = 0.5f)
+            containerColor = MaterialTheme.colorScheme.surfaceContainer.copy(alpha = 0.5f)
         ),
         elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
     ) {
-        Column(modifier = Modifier.fillMaxWidth().padding(14.dp)) {
+        Column(modifier = Modifier.fillMaxWidth().padding(16.dp)) {
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
                     .clickable { expandido = !expandido },
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Text(text = "🧪", fontSize = 22.sp)
-                Spacer(modifier = Modifier.width(10.dp))
                 Text(
                     text = stringResource(id = R.string.seccion_debug_titulo),
                     style = MaterialTheme.typography.titleSmall,
@@ -1802,11 +1805,18 @@ private fun TarjetaDepuracionPlegable(
                 exit = shrinkVertically() + fadeOut()
             ) {
                 Column(modifier = Modifier.padding(top = 10.dp)) {
+                    HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f))
+                    Spacer(modifier = Modifier.height(6.dp))
+
                     SeccionDepuracion(
-                            onSimularMensaje = onSimularMensaje,
-                            leerSinCoche = leerSinCoche,
-                            onCambiarLeerSinCoche = onCambiarLeerSinCoche
-                        )
+                        onSimularMensaje = onSimularMensaje,
+                        leerSinCoche = leerSinCoche,
+                        onCambiarLeerSinCoche = onCambiarLeerSinCoche
+                    )
+                    Spacer(modifier = Modifier.height(8.dp))
+                    HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f))
+                    Spacer(modifier = Modifier.height(8.dp))
+                    TarjetaDiagnostico()
                 }
             }
         }
@@ -2023,15 +2033,11 @@ private fun SeccionDepuracion(
     var textoMensaje by remember { mutableStateOf("Hola, ¿cómo estás?") }
 
     Column(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(horizontal = 24.dp, vertical = 16.dp),
+        modifier = Modifier.fillMaxWidth().padding(16.dp),
         verticalArrangement = Arrangement.spacedBy(8.dp)
     ) {
-        HorizontalDivider(color = Color(0xFFCCCCCC))
-
-        Text(
-            text = stringResource(id = R.string.seccion_debug_titulo),
+            Text(
+                text = stringResource(id = R.string.seccion_mensajes_titulo),
             style = MaterialTheme.typography.titleMedium,
             color = Color(0xFF6200EE)
         )
@@ -2091,4 +2097,89 @@ private fun SeccionDepuracion(
             )
         }
     }
+}
+
+/**
+ * Tarjeta para revisar y compartir el registro de diagnóstico (walink_diag.log).
+ * Es independiente del simulador de mensajes: guarda el flujo de voz y el estado
+ * del teléfono cuando llega un mensaje real, útil para diagnosticar fallos.
+ */
+@Composable
+private fun TarjetaDiagnostico() {
+    val contexto = LocalContext.current
+    var mostrarDiagnostico by remember { mutableStateOf(false) }
+    var contenidoDiagnostico by remember { mutableStateOf("") }
+
+    fun compartirDiagnostico() {
+        val contenido = if (contenidoDiagnostico.isBlank()) LogDiag.contenido(contexto) else contenidoDiagnostico
+        val intent = Intent(Intent.ACTION_SEND).apply {
+            type = "text/plain"
+            putExtra(Intent.EXTRA_SUBJECT, "Walink diagnóstico")
+            putExtra(Intent.EXTRA_TEXT, contenido)
+        }
+        try {
+            contexto.startActivity(Intent.createChooser(intent, "Compartir diagnóstico"))
+        } catch (e: Exception) {
+            Log.e("WalinkDebug", "No se pudo compartir el diagnóstico", e)
+        }
+    }
+
+    Column(
+        modifier = Modifier.fillMaxWidth().padding(16.dp),
+        verticalArrangement = Arrangement.spacedBy(8.dp)
+    ) {
+            Text(
+                text = stringResource(id = R.string.diagnostico_titulo),
+                style = MaterialTheme.typography.titleMedium,
+                color = Color(0xFF6200EE)
+            )
+
+            Text(
+                text = stringResource(id = R.string.diagnostico_desc),
+                style = MaterialTheme.typography.bodySmall,
+                color = Color(0xFF666666)
+            )
+
+            OutlinedButton(
+                onClick = {
+                    contenidoDiagnostico = LogDiag.contenido(contexto)
+                    mostrarDiagnostico = true
+                },
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Text(stringResource(id = R.string.debug_ver_diagnostico))
+            }
+
+            Button(
+                onClick = { compartirDiagnostico() },
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Text(stringResource(id = R.string.debug_diagnostico_compartir))
+            }
+
+            if (mostrarDiagnostico) {
+                AlertDialog(
+                    onDismissRequest = { mostrarDiagnostico = false },
+                    title = { Text(stringResource(id = R.string.debug_diagnostico_titulo)) },
+                    text = {
+                        Column(modifier = Modifier.verticalScroll(rememberScrollState())) {
+                            if (contenidoDiagnostico.isBlank()) {
+                                Text(stringResource(id = R.string.debug_diagnostico_vacio))
+                            } else {
+                                Text(
+                                    text = contenidoDiagnostico,
+                                    style = MaterialTheme.typography.bodySmall,
+                                    fontFamily = FontFamily.Monospace
+                                )
+                            }
+                        }
+                    },
+                    confirmButton = {
+                        TextButton(onClick = { mostrarDiagnostico = false }) {
+                            Text(stringResource(id = R.string.debug_diagnostico_cerrar))
+                        }
+                    }
+                )
+            }
+        }
 }

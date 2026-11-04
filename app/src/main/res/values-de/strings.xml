@@ -165,5 +165,13 @@
     <string name="debug_remitente">Absender</string>
     <string name="debug_mensaje_prueba">Testnachricht</string>
     <string name="debug_simular">Nachricht simulieren</string>
+    <string name="debug_ver_diagnostico">Diagnose ansehen</string>
+    <string name="debug_diagnostico_titulo">Diagnose</string>
+    <string name="debug_diagnostico_vacio">(noch keine Diagnose: die Datei existiert nicht oder es wurde keine Nachricht empfangen)</string>
+    <string name="debug_diagnostico_compartir">Teilen</string>
+    <string name="debug_diagnostico_cerrar">Schließen</string>
+    <string name="seccion_mensajes_titulo">Nachrichten</string>
+    <string name="diagnostico_titulo">Diagnose</string>
+    <string name="diagnostico_desc">Speichert den Sprachfluss (Mikrofon und Audio-Fokus) und den Telefonzustand, wenn eine Nachricht eintrifft. Teilen Sie sie nach einem Fehler (z. B. wenn Ihre Antwort nicht gehört wird), um sie zu überprüfen.</string>
     <string name="debug_nota_respuesta">Die RemoteInput-Antwort wird in Logcat angezeigt (Tag WalinkDebug).</string>
 </resources>
