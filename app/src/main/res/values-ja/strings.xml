@@ -66,7 +66,8 @@
     <string name="bt_excluir_bateria">除外</string>
     <string name="permiso_bateria_estado_ok">除外済み ✓</string>
     <string name="permiso_bateria_estado_pend">最適化中 — 停止しないよう除外してください</string>
-    <string name="seccion_debug_titulo">🧪 デバッグモード（debugのみ）</string>
+    <string name="seccion_debug_titulo">デバッグモード（debugのみ）</string>
+    <string name="seccion_debug_desc">実際の車やメッセージがなくても Walink をテスト・診断するためのツール。</string>
     <string name="voz_lectura_titulo">読み上げの声</string>
     <string name="voz_lectura_por_defecto">デフォルト（スペイン語）</string>
     <string name="voz_lectura_cambiar">変更</string>
@@ -139,7 +140,7 @@
     <string name="seccion_voz_audio_desc">音色、読み上げ速度、BGM</string>
     <string name="seccion_lectura_filtros_titulo">読み上げとプライバシー</string>
     <string name="seccion_lectura_filtros_desc">通知モード、グループチャット、連絡先フィルター</string>
-    <string name="seccion_permisos_ok">必要な権限はすべて許可済み ✓</string>
+    <string name="seccion_permisos_ok">必要な権限はすべて許可済み</string>
     <string name="seccion_permisos_atencion">%1$d個の権限で対応が必要です</string>
     <string name="tab_conduccion">運転</string>
     <string name="tab_voz_filtros">声とフィルター</string>

@@ -78,7 +78,8 @@
     <string name="bt_excluir_bateria">Excluir</string>
     <string name="permiso_bateria_estado_ok">Excluida ✓</string>
     <string name="permiso_bateria_estado_pend">En optimización — exclúyela para que no se detenga</string>
-    <string name="seccion_debug_titulo">🧪 Modo depuración (solo debug)</string>
+    <string name="seccion_debug_titulo">Modo depuración (solo debug)</string>
+    <string name="seccion_debug_desc">Herramientas para probar y diagnosticar Walink sin un coche conectado ni un mensaje real.</string>
 
     <!-- Selección de voz TTS -->
     <string name="voz_lectura_titulo">Voz de lectura</string>
@@ -169,7 +170,7 @@
     <string name="seccion_voz_audio_desc">Tono, velocidad de locución y música de fondo</string>
     <string name="seccion_lectura_filtros_titulo">Lectura y Privacidad</string>
     <string name="seccion_lectura_filtros_desc">Modo de aviso, chats de grupo y filtros de contactos</string>
-    <string name="seccion_permisos_ok">Todos los permisos necesarios concedidos ✓</string>
+    <string name="seccion_permisos_ok">Todos los permisos necesarios concedidos</string>
     <string name="seccion_permisos_atencion">%1$d permiso(s) requieren tu atención</string>
 
     <!-- Pestañas Opción B -->

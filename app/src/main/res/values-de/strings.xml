@@ -66,7 +66,8 @@
     <string name="bt_excluir_bateria">Ausschließen</string>
     <string name="permiso_bateria_estado_ok">Ausgeschlossen ✓</string>
     <string name="permiso_bateria_estado_pend">In der Optimierung — schließe sie aus, damit sie nicht stoppt</string>
-    <string name="seccion_debug_titulo">🧪 Debug-Modus (nur Debug)</string>
+    <string name="seccion_debug_titulo">Debug-Modus (nur Debug)</string>
+    <string name="seccion_debug_desc">Werkzeuge zum Testen und Diagnostizieren von Walink ohne verbundenes Auto oder echte Nachricht.</string>
     <string name="voz_lectura_titulo">Vorlesestimme</string>
     <string name="voz_lectura_por_defecto">Standard (Spanisch)</string>
     <string name="voz_lectura_cambiar">Ändern</string>

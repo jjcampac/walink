@@ -23,6 +23,7 @@ import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts.RequestMultiplePermissions
 import androidx.activity.result.contract.ActivityResultContracts.RequestPermission
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -93,6 +94,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.tooling.preview.Preview
 import androidx.lifecycle.lifecycleScope
 import com.jjcampac.walink.BuildConfig
 import com.jjcampac.walink.data.WalinkDataStore
@@ -710,36 +712,7 @@ class MainActivity : ComponentActivity() {
  */
 private data class VozTts(val nombre: String, val etiqueta: String, val idioma: String)
 
-/** Construye una etiqueta legible para una voz del motor TTS. */
-private fun etiquetaVoz(voz: Voice): String {
-    return voz.locale.getDisplayName(voz.locale)
-}
 
-/** Emoji de género deducido del objeto [Voice] del motor TTS. */
-private fun generoVozEmoji(voz: Voice): String {
-    // Intenta usar getGender() por reflexión (disponible en API 21+).
-    val gender = try {
-        val method = voz.javaClass.getMethod("getGender")
-        method.invoke(voz) as? Int ?: -1
-    } catch (e: Exception) {
-        -1
-    }
-    return when (gender) {
-        2 -> "👩"   // GENDER_FEMALE
-        1 -> "👨"   // GENDER_MALE
-        else -> {
-            // Respaldo: deducir del nombre interno
-            val n = voz.name.lowercase()
-            when {
-                "female" in n || "femenin" in n || "woman" in n || "-f-" in n || "_f_" in n ||
-                    n.endsWith("-f") || n.endsWith("-female") -> "👩"
-                "male" in n || "masculin" in n || "man" in n || "-m-" in n || "_m_" in n ||
-                    n.endsWith("-m") || n.endsWith("-male") -> "👨"
-                else -> "⚪"
-            }
-        }
-    }
-}
 
 /**
  * Orden numérico para agrupar por género en el listado:
@@ -1017,7 +990,7 @@ private fun PantallaPrincipal(
 
                     if (BuildConfig.DEBUG || modoDepuracion) {
                         Spacer(modifier = Modifier.height(14.dp))
-                        TarjetaDepuracionPlegable(
+                        TarjetaModoDepuracion(
                             onSimularMensaje = onSimularMensaje,
                             leerSinCoche = leerSinCoche,
                             onCambiarLeerSinCoche = onCambiarLeerSinCoche
@@ -1764,9 +1737,14 @@ private fun CabeceraTarjetaTematica(
     }
 }
 
-/** Tarjeta colapsable para la zona de depuración. */
+/**
+ * Tarjeta desplegable "Modo depuración", igual que la de Permisos: colapsada
+ * muestra solo el encabezado (emoji, título, descripción y flecha). Al
+ * expandir, una fina línea horizontal y el contenido como dos bloques simples
+ * (Mensajes y Diagnóstico), sin cards internas anidadas.
+ */
 @Composable
-private fun TarjetaDepuracionPlegable(
+private fun TarjetaModoDepuracion(
     onSimularMensaje: (remitente: String, texto: String) -> Unit,
     leerSinCoche: Boolean,
     onCambiarLeerSinCoche: (Boolean) -> Unit
@@ -1776,9 +1754,15 @@ private fun TarjetaDepuracionPlegable(
     Card(
         modifier = Modifier.fillMaxWidth(),
         colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surfaceContainer.copy(alpha = 0.5f)
+            containerColor = MaterialTheme.colorScheme.surfaceContainer
         ),
-        elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
+        // Borde del mismo color que el fondo del contenido para que no se vea.
+        border = BorderStroke(
+            width = 1.dp,
+            color = MaterialTheme.colorScheme.surfaceContainer
+        ),
+        // Sin elevación: la sombra se percibía como un borde de otro color.
+        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
     ) {
         Column(modifier = Modifier.fillMaxWidth().padding(16.dp)) {
             Row(
@@ -1787,13 +1771,20 @@ private fun TarjetaDepuracionPlegable(
                     .clickable { expandido = !expandido },
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Text(
-                    text = stringResource(id = R.string.seccion_debug_titulo),
-                    style = MaterialTheme.typography.titleSmall,
-                    fontWeight = FontWeight.SemiBold,
-                    color = Color(0xFF6200EE),
-                    modifier = Modifier.weight(1f)
-                )
+                Text(text = "🧪", fontSize = 24.sp)
+                Spacer(modifier = Modifier.width(12.dp))
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = stringResource(id = R.string.seccion_debug_titulo),
+                        style = MaterialTheme.typography.titleSmall,
+                        fontWeight = FontWeight.SemiBold
+                    )
+                    Text(
+                        text = stringResource(id = R.string.seccion_debug_desc),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = VerdeOk
+                    )
+                }
                 IconButton(onClick = { expandido = !expandido }) {
                     Text(if (expandido) "▲" else "▼", fontSize = 14.sp, color = GrisEstado)
                 }
@@ -1806,16 +1797,18 @@ private fun TarjetaDepuracionPlegable(
             ) {
                 Column(modifier = Modifier.padding(top = 10.dp)) {
                     HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f))
-                    Spacer(modifier = Modifier.height(6.dp))
+                    Spacer(modifier = Modifier.height(12.dp))
 
                     SeccionDepuracion(
                         onSimularMensaje = onSimularMensaje,
                         leerSinCoche = leerSinCoche,
                         onCambiarLeerSinCoche = onCambiarLeerSinCoche
                     )
-                    Spacer(modifier = Modifier.height(8.dp))
+
+                    Spacer(modifier = Modifier.height(16.dp))
                     HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f))
-                    Spacer(modifier = Modifier.height(8.dp))
+                    Spacer(modifier = Modifier.height(12.dp))
+
                     TarjetaDiagnostico()
                 }
             }
@@ -2032,19 +2025,12 @@ private fun SeccionDepuracion(
     var remitente by remember { mutableStateOf("Ana (Prueba)") }
     var textoMensaje by remember { mutableStateOf("Hola, ¿cómo estás?") }
 
-    Card(
+    Column(
         modifier = Modifier.fillMaxWidth(),
-        colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surfaceContainer.copy(alpha = 0.5f)
-        ),
-        elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
+        verticalArrangement = Arrangement.spacedBy(8.dp)
     ) {
-        Column(
-            modifier = Modifier.fillMaxWidth().padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(8.dp)
-        ) {
-            Text(
-                text = stringResource(id = R.string.seccion_mensajes_titulo),
+        Text(
+            text = stringResource(id = R.string.seccion_mensajes_titulo),
             style = MaterialTheme.typography.titleMedium,
             color = Color(0xFF6200EE)
         )
@@ -2104,7 +2090,6 @@ private fun SeccionDepuracion(
             )
         }
     }
-    }
 }
 
 /**
@@ -2132,19 +2117,12 @@ private fun TarjetaDiagnostico() {
         }
     }
 
-    Card(
+    Column(
         modifier = Modifier.fillMaxWidth(),
-        colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surfaceContainer.copy(alpha = 0.5f)
-        ),
-        elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
+        verticalArrangement = Arrangement.spacedBy(8.dp)
     ) {
-        Column(
-            modifier = Modifier.fillMaxWidth().padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(8.dp)
-        ) {
-            Text(
-                text = stringResource(id = R.string.diagnostico_titulo),
+        Text(
+            text = stringResource(id = R.string.diagnostico_titulo),
                 style = MaterialTheme.typography.titleMedium,
                 color = Color(0xFF6200EE)
             )
@@ -2197,5 +2175,57 @@ private fun TarjetaDiagnostico() {
                 )
             }
         }
+}
+
+@Preview(showBackground = true)
+@Composable
+private fun PantallaPrincipalPreview() {
+    WalinkTheme {
+        PantallaPrincipal(
+            permisoNotificaciones = true,
+            permisoPostNotificaciones = true,
+            permisoMicrofono = true,
+            permisoBluetooth = true,
+            bateriaExcluida = true,
+            servicioActivado = true,
+            idiomaActual = "es",
+            onCambiarIdioma = {},
+            vozActual = null,
+            voces = emptyList(),
+            onSeleccionarVoz = {},
+            onProbarVoz = {},
+            leerTrasPreguntar = false,
+            onCambiarModoLectura = {},
+            bajarVolumen = true,
+            onCambiarAudioFondo = {},
+            dispositivosSeleccionados = setOf("00:11:22:33:44:55"),
+            dispositivosEmparejados = listOf(
+                BluetoothCoche.Dispositivo("Mi Coche", "00:11:22:33:44:55")
+            ),
+            dispositivosConectados = setOf("00:11:22:33:44:55"),
+            onSeleccionarDispositivo = {},
+            onRefrescarDispositivos = {},
+            leerSinCoche = false,
+            onCambiarLeerSinCoche = {},
+            leerGrupos = true,
+            onCambiarLeerGrupos = {},
+            velocidadVoz = 1.0f,
+            onCambiarVelocidadVoz = {},
+            modoFiltro = 0,
+            contactosPermitidosTexto = "",
+            contactosBloqueadosTexto = "",
+            onCambiarModoFiltro = {},
+            onGuardarContactosPermitidos = {},
+            onGuardarContactosBloqueados = {},
+            onIrAjustesNotificaciones = {},
+            onIrAjustesBateria = {},
+            onSolicitarMicrofono = {},
+            onSolicitarBluetooth = {},
+            onSolicitarNotificacionesPost = {},
+            modoDepuracion = false,
+            onAlternarModoDepuracion = {},
+            onSimularMensaje = { _, _ -> }
+        )
     }
 }
+

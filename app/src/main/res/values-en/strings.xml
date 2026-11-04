@@ -77,7 +77,8 @@
     <string name="bt_excluir_bateria">Exclude</string>
     <string name="permiso_bateria_estado_ok">Excluded ✓</string>
     <string name="permiso_bateria_estado_pend">Under optimization — exclude it so it does not stop</string>
-    <string name="seccion_debug_titulo">🧪 Debug mode (debug only)</string>
+    <string name="seccion_debug_titulo">Debug mode (debug only)</string>
+    <string name="seccion_debug_desc">Tools to test and diagnose Walink without a connected car or a real message.</string>
 
     <!-- Selección de voz TTS -->
     <string name="voz_lectura_titulo">Reading voice</string>
