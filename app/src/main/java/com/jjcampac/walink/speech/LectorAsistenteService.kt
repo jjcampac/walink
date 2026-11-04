@@ -9,6 +9,7 @@ import android.app.Service
 import android.content.pm.PackageManager
 import android.content.pm.ServiceInfo
 import android.media.AudioAttributes
+import android.media.AudioDeviceInfo
 import android.media.AudioFocusRequest
 import android.media.AudioManager
 import android.os.Build
@@ -260,6 +261,67 @@ class LectorAsistenteService : Service(), RecognitionListener {
         }
     }
 
+    /**
+     * Fuerza el micrófono del teléfono (builtin) como dispositivo de entrada
+     * preferido del reconocedor. Cuando hay auriculares Bluetooth conectados el
+     * sistema puede enrutar la captura de forma intermitente a los micrófonos del
+     * auricular (perfil HFP/SCO); si su micro está en espera, el SpeechRecognizer
+     * casi no capta nada (ERROR_NO_MATCH/silencio) y se interpreta como "no
+     * escuchado". Forzar el builtin hace el reconocimiento independiente de esa ruta.
+     */
+    private fun configurarMicrofonoTelefono() {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.S) return
+        try {
+            // Elegimos un dispositivo de comunicación del propio teléfono (altavoz o
+            // auricular) en lugar del Bluetooth: así la captura de voz del
+            // SpeechRecognizer vuelve al micrófono del teléfono y deja de depender de
+            // si el sistema enrutó la entrada al micrófono de los auriculares.
+            val comunicacionTelefono = audioManagerPausa
+                .getAvailableCommunicationDevices()
+                .firstOrNull { d ->
+                    d.type == AudioDeviceInfo.TYPE_BUILTIN_SPEAKER ||
+                        d.type == AudioDeviceInfo.TYPE_BUILTIN_EARPIECE
+                }
+            if (comunicacionTelefono != null) {
+                val ok = audioManagerPausa.setCommunicationDevice(comunicacionTelefono)
+                Log.d(
+                    TAG,
+                    "Comunicación forzada al teléfono (micro builtin, res=$ok): '${comunicacionTelefono.productName}' (type=${comunicacionTelefono.type})"
+                )
+                if (!ok) {
+                    Log.w(TAG, "No se pudo forzar la comunicación al teléfono; se deja la ruta por defecto")
+                }
+            } else {
+                Log.w(TAG, "No hay dispositivo de comunicación del teléfono disponible; se deja la ruta por defecto")
+            }
+        } catch (e: Exception) {
+            Log.w(TAG, "Error forzando el micro del teléfono", e)
+        }
+    }
+
+    /** Revierte la comunicación forzada en [configurarMicrofonoTelefono]. */
+    private fun limpiarMicrofonoTelefono() {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.S) return
+        try {
+            audioManagerPausa.clearCommunicationDevice()
+        } catch (e: Exception) {
+            Log.w(TAG, "Error al limpiar el dispositivo de comunicación", e)
+        }
+    }
+
+    /** Registra en log los dispositivos de entrada y salida activos (diagnóstico). */
+    private fun logRutasAudio(contexto: String) {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.M) return
+        val entradas = audioManagerPausa
+            .getDevices(AudioManager.GET_DEVICES_INPUTS)
+            .joinToString(" | ") { "${it.type}:${it.productName}" }
+        val salidas = audioManagerPausa
+            .getDevices(AudioManager.GET_DEVICES_OUTPUTS)
+            .joinToString(" | ") { "${it.type}:${it.productName}" }
+        Log.d(TAG, "[$contexto] Entradas de audio: $entradas")
+        Log.d(TAG, "[$contexto] Salidas de audio: $salidas")
+    }
+
     /** Reproduce la pregunta por voz y, al terminar, activa el micrófono. */
     private fun hacerPregunta() {
         val pregunta = if (intentos == 0) {
@@ -310,6 +372,8 @@ class LectorAsistenteService : Service(), RecognitionListener {
             return
         }
         recognizer = sr.apply { setRecognitionListener(this@LectorAsistenteService) }
+        configurarMicrofonoTelefono()
+        logRutasAudio("escucharRespuesta")
 
         val intentReconocimiento = construyeIntentReconocimiento(R.string.pregunta_voz_prompt)
         activarFgMicrofono()
@@ -329,6 +393,9 @@ class LectorAsistenteService : Service(), RecognitionListener {
     // ---- Resultados del reconocimiento de voz ----
 
     override fun onResults(results: Bundle?) {
+        // El reconocedor ya terminó: restauramos la ruta de comunicación (vuelve el
+        // Bluetooth) antes de que hable el siguiente TTS.
+        limpiarMicrofonoTelefono()
         // El reconocedor ya terminó: lo destruimos AHORA para que ningún callback
         // tardío (onError/onResults repetido) corte la lectura posterior del mensaje.
         recognizer?.destroy()
@@ -441,12 +508,16 @@ class LectorAsistenteService : Service(), RecognitionListener {
 
     override fun onError(error: Int) {
         cancelarTiempoEscucha()
+        // Al terminar (con error) también restauramos la ruta de comunicación.
+        limpiarMicrofonoTelefono()
+        logRutasAudio("onError")
         Log.w(TAG, "Error de reconocimiento: ${nombreError(error)} ($error), pico RMS=${"%.0f".format(nivelPicoRms)}")
         reintentarONoEntendido()
     }
 
     override fun onReadyForSpeech(params: Bundle?) {
         nivelPicoRms = 0f
+        logRutasAudio("onReadyForSpeech")
         Log.d(TAG, "onReadyForSpeech: reconocedor listo, escuchando...")
     }
     override fun onBeginningOfSpeech() {
@@ -631,6 +702,7 @@ private fun insertarComasSeguras(t: String): String {
         recognizer = null
         liberarWakeLock()
         liberarPausaMusica()
+        limpiarMicrofonoTelefono()
         stopForeground(STOP_FOREGROUND_REMOVE)
         stopSelf()
     }
@@ -705,6 +777,8 @@ private fun insertarComasSeguras(t: String): String {
             return
         }
         recognizer = sr.apply { setRecognitionListener(this@LectorAsistenteService) }
+        configurarMicrofonoTelefono()
+        logRutasAudio("escucharTextoLibre")
 
         val intentReconocimiento = construyeIntentReconocimiento(R.string.pregunta_voz_prompt)
         activarFgMicrofono()
@@ -888,6 +962,7 @@ private fun insertarComasSeguras(t: String): String {
         fgMicActivo = false
         liberarWakeLock()
         liberarPausaMusica()
+        limpiarMicrofonoTelefono()
         Log.d(TAG, "LectorAsistenteService destruido")
         super.onDestroy()
     }

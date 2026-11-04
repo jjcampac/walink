@@ -71,8 +71,14 @@ class WhatsAppNotificationListener : NotificationListenerService() {
             // activo el ajuste "leerSinCoche" (modo pruebas), o que no haya
             // ninguno seleccionado (conjunto vacío), en cuyo caso se lee por el
             // altavoz del teléfono.
+            // El ajuste "leerSinCoche" solo tiene sentido en modo depuración (es una
+            // ayuda de pruebas). Si el modo depuración no está activo, se ignora
+            // aunque el valor persistido siga a true (por ejemplo, porque la tarjeta
+            // de depuración se ocultó tras haberlo activado).
+            val modoDebugActivo = BuildConfig.DEBUG || dataStore.modoDepuracion
+            val leerSinCocheEfectivo = modoDebugActivo && dataStore.leerSinCoche
             val direccionesCoche = dataStore.dispositivosBluetooth
-            if (direccionesCoche.isNotEmpty() && !dataStore.leerSinCoche) {
+            if (direccionesCoche.isNotEmpty() && !leerSinCocheEfectivo) {
                 if (!BluetoothCoche.estaConectadoCualquiera(applicationContext, direccionesCoche)) {
                     val nombres = direccionesCoche
                         .map { BluetoothCoche.nombreDe(applicationContext, it) ?: it }

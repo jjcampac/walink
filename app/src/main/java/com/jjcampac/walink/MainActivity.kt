@@ -374,6 +374,12 @@ class MainActivity : ComponentActivity() {
     private fun alternarModoDepuracion() {
         modoDepuracion = !modoDepuracion
         dataStore.setModoDepuracion(modoDepuracion)
+        // Si se desactiva el modo depuración, el ajuste "leer sin coche" deja de
+        // tener sentido: lo reseteamos para que no quede seleccionado "por detrás".
+        if (!modoDepuracion) {
+            leerSinCoche = false
+            lifecycleScope.launch { dataStore.setLeerSinCoche(false) }
+        }
         Toast.makeText(
             this,
             if (modoDepuracion) "Modo depuración ACTIVADO" else "Modo depuración desactivado",
@@ -980,8 +986,6 @@ private fun PantallaPrincipal(
                     Spacer(modifier = Modifier.height(14.dp))
 
                     TarjetaLecturaPrivacidad(
-                        leerTrasPreguntar = leerTrasPreguntar,
-                        onCambiarModoLectura = onCambiarModoLectura,
                         leerGrupos = leerGrupos,
                         onCambiarLeerGrupos = onCambiarLeerGrupos,
                         modoFiltro = modoFiltro,
@@ -1483,8 +1487,6 @@ private fun TarjetaVozAudio(
 /** 3. Lectura y Privacidad: modo de confirmación, grupos y filtros de contacto. */
 @Composable
 private fun TarjetaLecturaPrivacidad(
-    leerTrasPreguntar: Boolean,
-    onCambiarModoLectura: (Boolean) -> Unit,
     leerGrupos: Boolean,
     onCambiarLeerGrupos: (Boolean) -> Unit,
     modoFiltro: Int,
@@ -1511,36 +1513,7 @@ private fun TarjetaLecturaPrivacidad(
 
             Spacer(modifier = Modifier.height(14.dp))
 
-            // Sub-bloque 1: Modo de lectura (Chips)
-            Text(
-                text = stringResource(id = R.string.modo_lectura_titulo),
-                style = MaterialTheme.typography.bodyMedium,
-                fontWeight = FontWeight.Medium
-            )
-            Spacer(modifier = Modifier.height(6.dp))
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
-                FilterChip(
-                    selected = !leerTrasPreguntar,
-                    onClick = { onCambiarModoLectura(false) },
-                    label = { Text(stringResource(id = R.string.chip_inmediato)) },
-                    modifier = Modifier.weight(1f)
-                )
-                FilterChip(
-                    selected = leerTrasPreguntar,
-                    onClick = { onCambiarModoLectura(true) },
-                    label = { Text(stringResource(id = R.string.chip_preguntar)) },
-                    modifier = Modifier.weight(1f)
-                )
-            }
-
-            Spacer(modifier = Modifier.height(12.dp))
-            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f))
-            Spacer(modifier = Modifier.height(10.dp))
-
-            // Sub-bloque 2: Grupos
+            // Sub-bloque 1: Grupos
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -1569,7 +1542,7 @@ private fun TarjetaLecturaPrivacidad(
             HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f))
             Spacer(modifier = Modifier.height(10.dp))
 
-            // Sub-bloque 3: Filtro de contactos
+            // Sub-bloque 2: Filtro de contactos
             Text(
                 text = stringResource(id = R.string.ajuste_filtros_contacto_titulo),
                 style = MaterialTheme.typography.bodyMedium,
