@@ -2032,10 +2032,17 @@ private fun SeccionDepuracion(
     var remitente by remember { mutableStateOf("Ana (Prueba)") }
     var textoMensaje by remember { mutableStateOf("Hola, ¿cómo estás?") }
 
-    Column(
-        modifier = Modifier.fillMaxWidth().padding(16.dp),
-        verticalArrangement = Arrangement.spacedBy(8.dp)
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.surfaceContainer.copy(alpha = 0.5f)
+        ),
+        elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
     ) {
+        Column(
+            modifier = Modifier.fillMaxWidth().padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
             Text(
                 text = stringResource(id = R.string.seccion_mensajes_titulo),
             style = MaterialTheme.typography.titleMedium,
@@ -2097,6 +2104,7 @@ private fun SeccionDepuracion(
             )
         }
     }
+    }
 }
 
 /**
@@ -2124,10 +2132,17 @@ private fun TarjetaDiagnostico() {
         }
     }
 
-    Column(
-        modifier = Modifier.fillMaxWidth().padding(16.dp),
-        verticalArrangement = Arrangement.spacedBy(8.dp)
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.surfaceContainer.copy(alpha = 0.5f)
+        ),
+        elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
     ) {
+        Column(
+            modifier = Modifier.fillMaxWidth().padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
             Text(
                 text = stringResource(id = R.string.diagnostico_titulo),
                 style = MaterialTheme.typography.titleMedium,
@@ -2182,4 +2197,5 @@ private fun TarjetaDiagnostico() {
                 )
             }
         }
+    }
 }
