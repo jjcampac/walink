@@ -453,14 +453,25 @@ class MainActivity : ComponentActivity() {
         vozTtsSelector = TextToSpeech(this) { status ->
             if (status == TextToSpeech.SUCCESS) {
                 // Mostramos únicamente las voces del idioma activo, con la etiqueta
-                // que incluye género y calidad cuando es posible determinarlo.
+                // que incluye género y calidad cuando es posible determinarlo. Si la
+                // voz es de red se indica "(en línea)" para que el usuario sepa que
+                // requiere motor/red (puede cortarse en túneles o sin datos).
                 vocesDisponibles = vozTtsSelector?.voices
                     ?.filter { it.locale?.language.equals(idiomaVoz, ignoreCase = true) == true }
                     ?.sortedWith(compareBy({ it.locale?.displayCountry ?: "" }, { it.name }))
                     ?.mapIndexed { index, voz ->
                         val base = voz.locale.getDisplayName(voz.locale)
-                        val etiqueta = "$base — ${this@MainActivity.getString(R.string.voz_numero, index + 1)}"
-                        VozTts(nombre = voz.name, etiqueta = etiqueta, idioma = voz.locale?.language ?: "")
+                        val etiquetaBase =
+                            "$base — ${this@MainActivity.getString(R.string.voz_numero, index + 1)}"
+                        val etiqueta = if (voz.isNetworkConnectionRequired) {
+                            "$etiquetaBase · ${this@MainActivity.getString(R.string.voz_red_sufijo)}"
+                        } else etiquetaBase
+                        VozTts(
+                            nombre = voz.name,
+                            etiqueta = etiqueta,
+                            idioma = voz.locale?.language ?: "",
+                            deRed = voz.isNetworkConnectionRequired
+                        )
                     }
                     ?: emptyList()
             }
@@ -726,7 +737,12 @@ class MainActivity : ComponentActivity() {
  * @author jjcampac
  * @author cline
  */
-private data class VozTts(val nombre: String, val etiqueta: String, val idioma: String)
+private data class VozTts(
+    val nombre: String,
+    val etiqueta: String,
+    val idioma: String,
+    val deRed: Boolean
+)
 
 
 
