@@ -1131,7 +1131,7 @@ private fun CabeceraWalink(
                 modifier = Modifier.padding(top = 4.dp)
             )
             Text(
-                text = if (BuildConfig.DEBUG) "v1.0d" else "v1.0r",
+                text = if (BuildConfig.DEBUG) "v1.1d" else "v1.1r",
                 style = MaterialTheme.typography.bodySmall,
                 color = Color.White.copy(alpha = 0.6f),
                 textAlign = TextAlign.Center,
