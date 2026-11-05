@@ -43,6 +43,14 @@ class WalinkTileService : TileService() {
         val activado = !dataStore.estaActivado
         dataStore.setActivado(activado)
         Log.d(TAG, "Toggle desde tile -> activado=$activado")
+        // Al activar Walink, arrancamos en primer plano el servicio de micro permanente
+        // (aún tenemos la ventana elegible de la pulsación del tile). Al desactivar, se
+        // detiene.
+        if (activado) {
+            MicrofonoPermanenteService.iniciar(this)
+        } else {
+            MicrofonoPermanenteService.detener(this)
+        }
         actualizarEstado()
     }
 

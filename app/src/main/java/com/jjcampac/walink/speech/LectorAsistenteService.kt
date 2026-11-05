@@ -26,6 +26,7 @@ import com.jjcampac.walink.R
 import com.jjcampac.walink.data.WalinkDataStore
 import com.jjcampac.walink.diag.LogDiag
 import com.jjcampac.walink.idioma.IdiomaHelper
+import com.jjcampac.walink.service.MicrofonoPermanenteService
 import androidx.core.app.NotificationCompat
 
 /**
@@ -116,6 +117,11 @@ class LectorAsistenteService : Service(), RecognitionListener {
     private fun manejarPrepararVoz() {
         Log.d(TAG, "ACTION_PREPARAR_VOZ recibido (calentando micrófono en la ventana de notificación)")
         entrarEnForeground()
+        // Mantener la CPU despierta desde que llega la notificación real (pantalla
+        // apagada) hasta que termine la sesión: si no, entre la lectura del mensaje
+        // (hecha en el listener) y la llegada de ACTION_RESPONDER la CPU puede
+        // suspenderse y el reconocedor no consigue oír con pantalla apagada.
+        adquirirWakeLock()
         activarFgMicrofono()
         // Este servicio permanece en primer plano (tipo micrófono) a la espera de la
         // acción RESPONDER que llega al terminar la lectura del mensaje.
@@ -153,6 +159,14 @@ class LectorAsistenteService : Service(), RecognitionListener {
 
         entrarEnForeground()
         adquirirWakeLock()
+        // CRÍTICO: conmutar el FGS a tipo "microphone" YA aquí, en la ventana de la
+        // notificación. Si esperamos a escucharRespuesta (se llama varios segundos
+        // después, al terminar la pregunta hablada), esa ventana donde la app aún es
+        // elegible para el permiso foreground-only ya se ha agotado con pantalla
+        // apagada y startForeground(MICROPHONE) falla con SecurityException. El
+        // reconocedor entonces arranca igualmente, pero sin el while-in-use del micro
+        // no capta voz (picoRMS=0 y ERROR_NO_MATCH en cada intento).
+        activarFgMicrofono()
         hacerPregunta()
     }
 
@@ -173,13 +187,26 @@ class LectorAsistenteService : Service(), RecognitionListener {
         // Desde Android 14 (API 34), arrancar un FGS de tipo "microphone" desde
         // segundo plano (p. ej. al llegar una notificación de WhatsApp con la app
         // cerrada) se rechaza con SecurityException porque exige que la app esté
-        // en un estado elegible (primer plano). Por eso en API 34+ usamos
-        // "specialUse", que no tiene esa restricción while-in-use y permite el
-        // asistente de voz con micrófono aunque llegue un mensaje en segundo plano.
+        // en un estado elegible (primer plano o ventana de la notificación). Por eso
+        // en API 34+ intentamos PRIMERO arrancar directamente como "microphone": si
+        // llegamos aquí dentro de la ventana elegible, el while-in-use del micro
+        // queda activo desde el primer momento y la escucha posterior funciona
+        // aunque la pantalla esté apagada. Solo si no somos elegibles caemos a
+        // "specialUse", que no tiene esa restricción while-in-use y permite ejecutar
+        // el TTS; la conmutación a "microphone" se reintentará en escucharRespuesta.
         // El manifest declara "microphone|specialUse" para que ambas APIs pasen
         // la validación del tipo declarado.
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
-            startForeground(NOTIF_ID, notificacionActiva(), ServiceInfo.FOREGROUND_SERVICE_TYPE_SPECIAL_USE)
+            try {
+                startForeground(NOTIF_ID, notificacionActiva(), ServiceInfo.FOREGROUND_SERVICE_TYPE_MICROPHONE)
+                fgMicActivo = true
+                LogDiag.d("FGS iniciado directamente como tipo micrófono; micro while-in-use activo")
+                Log.d(TAG, "FGS iniciado como tipo micrófono")
+            } catch (e: SecurityException) {
+                startForeground(NOTIF_ID, notificacionActiva(), ServiceInfo.FOREGROUND_SERVICE_TYPE_SPECIAL_USE)
+                LogDiag.d("FGS arrancado como specialUse (no elegible para micrófono); se reintentará al escuchar")
+                Log.d(TAG, "FGS arrancado como specialUse (no elegible para micrófono)")
+            }
         } else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
             startForeground(NOTIF_ID, notificacionActiva(), ServiceInfo.FOREGROUND_SERVICE_TYPE_MICROPHONE)
             // En APIs 30-33 este es ya el tipo correcto (sin "specialUse").
@@ -201,7 +228,22 @@ class LectorAsistenteService : Service(), RecognitionListener {
         // Tiempo máximo de seguridad para no dejar la CPU activa si algo se atasca.
         lock.acquire(WAKE_LOCK_TIMEOUT_MS)
         wakeLock = lock
+        LogDiag.d("WakeLock parcial adquirido (CPU despierta para la sesión de voz)")
         Log.d(TAG, "WakeLock parcial adquirido (reconocimiento con pantalla apagada)")
+    }
+
+    /**
+     * Renueva el wake lock justo antes de cada escucha. Si la sesión lleva varios
+     * segundos (lectura + preguntas), el timeout del wake lock original podría
+     * expirar en mitad de la escucha y la CPU volvería a dormirse con la pantalla
+     * apagada, dejando al reconocedor sin audio.
+     */
+    private fun refrescarWakeLock() {
+        if (wakeLock?.isHeld == true) {
+            wakeLock?.release()
+        }
+        wakeLock = null
+        adquirirWakeLock()
     }
 
     private fun liberarWakeLock() {
@@ -209,6 +251,7 @@ class LectorAsistenteService : Service(), RecognitionListener {
             wakeLock?.release()
         }
         wakeLock = null
+        LogDiag.d("WakeLock liberado")
         Log.d(TAG, "WakeLock liberado")
     }
 
@@ -261,8 +304,19 @@ class LectorAsistenteService : Service(), RecognitionListener {
                 LogDiag.d("FGS conmutado a tipo micrófono (API 34+); permiso while-in-use del micro activo")
                 Log.d(TAG, "FGS marcado como tipo micrófono (API 34+)")
             } catch (e: Exception) {
-                LogDiag.e("Fallo al marcar el FGS como tipo micrófono", e)
-                Log.w(TAG, "No se pudo marcar el FGS como micrófono", e)
+                // Es esperado que este cambio falle con la pantalla apagada y la app en
+                // segundo plano (SecurityException por no ser elegible para el permiso
+                // while-in-use). Si el MicrofonoPermanenteService está activo, el micro
+                // ya lo cubre ese servicio y el reconocedor oirá igualmente: se registra
+                // como informativo, no como error. Solo es un fallo real cuando NO hay
+                // un micro permanente garantizando el permiso.
+                if (MicrofonoPermanenteService.estaActivo) {
+                    LogDiag.d("FGS propio no conmuta a microphone (esperado: MicrofonoPermanenteService ya cubre el micro)")
+                    Log.d(TAG, "No conmuto el FGS a micrófono; el servicio permanente ya lo cubre")
+                } else {
+                    LogDiag.e("Fallo al marcar el FGS como tipo micrófono", e)
+                    Log.w(TAG, "No se pudo marcar el FGS como micrófono", e)
+                }
             }
         }
     }
@@ -373,6 +427,7 @@ class LectorAsistenteService : Service(), RecognitionListener {
     /** Escucha la respuesta del usuario con reconocimiento de voz. */
     private fun escucharRespuesta() {
         Log.d(TAG, "escucharRespuesta: activando micrófono")
+        refrescarWakeLock()
         val sr = try {
             SpeechRecognizer.createSpeechRecognizer(this)
         } catch (e: Exception) {
@@ -753,6 +808,11 @@ private fun insertarComasSeguras(t: String): String {
 
         entrarEnForeground()
         adquirirWakeLock()
+        // Mismo motivo que en manejarPreguntar: intentar la conmutación a "microphone"
+        // cuanto antes (aquí aún cerca de la ventana de la notificación), en vez de
+        // esperar a escucharRespuesta. Si el paso a microphone ya se logró antes
+        // (manejarPrepararVoz), entrarEnForeground lo reafirma y esto es un no-op.
+        activarFgMicrofono()
         preguntarSiResponder()
     }
 
@@ -785,6 +845,7 @@ private fun insertarComasSeguras(t: String): String {
     /** Escucha un dictado de texto libre (respuesta a redactar). */
     private fun escucharTextoLibre() {
         Log.d(TAG, "escucharTextoLibre: activando micrófono para dictado")
+        refrescarWakeLock()
         val sr = try {
             SpeechRecognizer.createSpeechRecognizer(this)
         } catch (e: Exception) {
@@ -1001,8 +1062,10 @@ private fun insertarComasSeguras(t: String): String {
         private const val ETAPA_DICTADO = 3
         private const val ETAPA_CONFIRMAR_ENVIO = 4
 
-        private const val CANAL = "walink_asistente_voz"
-        private const val NOTIF_ID = 40
+        // Canal y notificación compartidos con MicrofonoPermanenteService (el canal se
+        // crea idempotentemente en ambos servicios).
+        const val CANAL = "walink_asistente_voz"
+        const val NOTIF_ID = 40
         private const val MAX_INTENTOS = 2
         // Si en este tiempo no se oye ninguna respuesta, se trata como "no entendido".
         private const val TIEMPO_ESCUCHA_MS = 12000L

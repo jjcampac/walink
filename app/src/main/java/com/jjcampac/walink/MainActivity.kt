@@ -102,6 +102,7 @@ import com.jjcampac.walink.idioma.IdiomaHelper
 import com.jjcampac.walink.debug.DebugSimulator
 import com.jjcampac.walink.diag.LogDiag
 import com.jjcampac.walink.service.BluetoothCoche
+import com.jjcampac.walink.service.MicrofonoPermanenteService
 import com.jjcampac.walink.service.WhatsAppNotificationListener
 import com.jjcampac.walink.speech.SpeechReader
 import com.jjcampac.walink.ui.theme.*
@@ -128,6 +129,13 @@ class MainActivity : ComponentActivity() {
         SharedPreferences.OnSharedPreferenceChangeListener { _, key ->
             if (key == KEY_ACTIVADO) {
                 servicioActivado = dataStore.estaActivado
+                // Reflejar el servicio de micro permanente cuando cambia la activación
+                // (p. ej. desde el tile) mientras la app está abierta.
+                if (servicioActivado) {
+                    MicrofonoPermanenteService.iniciar(applicationContext)
+                } else {
+                    MicrofonoPermanenteService.detener(applicationContext)
+                }
             }
         }
 
@@ -697,6 +705,14 @@ class MainActivity : ComponentActivity() {
         audioBajaVolumen = dataStore.bajarVolumenEnLugarDePausar
         dispositivosSeleccionados = dataStore.dispositivosBluetooth
         refrescarDispositivosBluetooth()
+        // Mantener el servicio de micro permanente alineado con la activación: se
+        // arranca al abrir la app con Walink activo (esta es una ventana elegible) y
+        // se detiene si la app se abre con Walink desactivado.
+        if (servicioActivado) {
+            MicrofonoPermanenteService.iniciar(this)
+        } else {
+            MicrofonoPermanenteService.detener(this)
+        }
     }
 
     companion object {
