@@ -111,40 +111,40 @@ class SpeechReader private constructor(private val contexto: Context) : TextToSp
         tts?.setSpeechRate(velocidad)
     }
 
-    /** Aplica la voz: respeta la guardada si es local; si es de red, prefiere una local. */
-    private fun aplicarVozGuardada() {
+    /**
+     * Aplica la voz guardada por el usuario tal cual (sea local o de red).
+     *
+     * Se llama al inicializar el motor y, por seguridad, antes de cada emisión
+     * ([hablar]), para que un cambio de voz en la app se refleje en la siguiente
+     * lectura aunque el motor TTS ya estuviera arrancado.
+     *
+     * La elección del usuario se respeta SIEMPRE: si eligió una voz de red se usa
+     * esa voz, aunque existan voces locales, para que la lectura suene igual que
+     * la prueba de voz del selector (que también respeta la elección). El selector
+     * muestra el distintivo "(en línea)" para que el usuario sepa que esa voz
+     * necesita el motor/red. Solo si la voz guardada no está disponible o no se
+     * puede aplicar, se usa la voz local del idioma como respaldo.
+     */
+    fun aplicarVozGuardada() {
         val tts = tts ?: return
-        val voces = tts.voices ?: emptyList()
-        val localeApp = IdiomaHelper.localeResuelto(contexto)
-        val vozLocal = preferirVozLocal(tts, localeApp)
-
         val nombreVoz = dataStore.vozTts
         if (!nombreVoz.isNullOrBlank()) {
-            val vozGuardada = voces.firstOrNull { it.name == nombreVoz }
-            if (vozGuardada != null && !vozGuardada.isNetworkConnectionRequired) {
-                // Voz guardada LOCAL: la respetamos tal cual.
+            val vozGuardada = tts.voices?.firstOrNull { it.name == nombreVoz }
+            if (vozGuardada != null) {
                 if (tts.setVoice(vozGuardada) == TextToSpeech.SUCCESS) {
-                    Log.d(TAG, "Voz aplicada (guardada local): ${vozGuardada.name}")
+                    Log.d(TAG, "Voz aplicada (${tipoVoz(vozGuardada)}): ${vozGuardada.name}")
                     return
                 }
-            } else if (vozGuardada != null && vozGuardada.isNetworkConnectionRequired) {
-                // Voz guardada de RED: puede cortarse al sintetizar. Preferimos una local.
-                Log.w(TAG, "La voz guardada '${vozGuardada.name}' es de red (puede cortarse)")
-                if (vozLocal != null && tts.setVoice(vozLocal) == TextToSpeech.SUCCESS) {
-                    Log.d(TAG, "Usando voz local en su lugar: ${vozLocal.name}")
-                    return
-                }
-                if (tts.setVoice(vozGuardada) == TextToSpeech.SUCCESS) {
-                    Log.d(TAG, "Voz de red aplicada (no hay local): ${vozGuardada.name}")
-                    return
-                }
+                Log.w(TAG, "setVoice falló para '${vozGuardada.name}', usando voz local")
             } else {
-                Log.w(TAG, "Voz guardada no disponible, usando voz local del idioma elegido")
+                Log.w(TAG, "Voz guardada '$nombreVoz' no disponible en el motor, usando voz local")
             }
         }
 
         // Sin voz guardada usable: preferir una voz LOCAL del idioma de la app.
         // Las voces locales suenan normalmente más fuertes, claras y sin cortes que las de red.
+        val localeApp = IdiomaHelper.localeResuelto(contexto)
+        val vozLocal = preferirVozLocal(tts, localeApp)
         if (vozLocal != null) {
             if (tts.setVoice(vozLocal) == TextToSpeech.SUCCESS) {
                 Log.d(TAG, "Voz local seleccionada: ${vozLocal.name}")
@@ -157,6 +157,10 @@ class SpeechReader private constructor(private val contexto: Context) : TextToSp
             tts.setLanguage(Locale.ENGLISH)
         }
     }
+
+    /** Etiqueta corta del tipo de voz (para los logs). */
+    private fun tipoVoz(voz: Voice): String =
+        if (voz.isNetworkConnectionRequired) "red" else "local"
 
     /**
      * Devuelve la mejor voz del idioma de la app disponible en el motor, prefiriendo
@@ -187,6 +191,10 @@ class SpeechReader private constructor(private val contexto: Context) : TextToSp
         // bloquee vueltas sucesivas.
         esperarInicializado { listo ->
             if (listo) {
+                // Reaplicamos la voz elegida antes de cada emisión: un cambio de voz
+                // en la app (sin cerrarla) se refleja en la siguiente lectura, aunque
+                // el motor TTS de SpeechReader ya estuviera arrancado.
+                aplicarVozGuardada()
                 pronunciar(texto, alTerminar)
             } else {
                 Log.e(TAG, "TTS no se inicializó en $TIEMPO_ESPERA_INIT ms; no se puede leer")

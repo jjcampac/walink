@@ -62,6 +62,20 @@
             </intent-filter>
         </receiver>
 
+        <!-- Receptor de arranque: restaura el MicrofonoPermanenteService al encender
+             el teléfono (o al reinstalar la app) si Walink estaba activado. El arranque
+             solo es posible si hay pantalla encendida o ventana elegible; si no, se
+             reintentará al abrir la app o pulsar el tile. -->
+        <receiver
+            android:name=".service.BootReceiver"
+            android:enabled="true"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.intent.action.BOOT_COMPLETED" />
+                <action android:name="android.intent.action.MY_PACKAGE_REPLACED" />
+            </intent-filter>
+        </receiver>
+
         <!-- Receptor del simulador de mensajes: captura la respuesta del RemoteInput
              de la notificación simulada y la muestra en Logcat (no se envía a WhatsApp).
              Vive en el manifiesto principal porque el modo depuración oculto también
@@ -99,6 +113,16 @@
                 android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE"
                 android:value="Asistente de voz para leer y responder mensajes de WhatsApp mientras conduces" />
         </service>
+
+        <!-- Servicio en primer plano de tipo "microphone" que se mantiene en marcha
+             mientras Walink está activado. Mantiene el permiso while-in-use del
+             micrófono ya concedido para que, al llegar un mensaje con la pantalla
+             apagada, el SpeechRecognizer pueda captar la voz sin necesidad de ser
+             elegible en ese momento (que Android 14+ no permite). -->
+        <service
+            android:name=".service.MicrofonoPermanenteService"
+            android:exported="false"
+            android:foregroundServiceType="microphone" />
 
     </application>
 

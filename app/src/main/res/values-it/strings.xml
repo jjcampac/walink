@@ -66,7 +66,8 @@
     <string name="bt_excluir_bateria">Escludi</string>
     <string name="permiso_bateria_estado_ok">Esclusa ✓</string>
     <string name="permiso_bateria_estado_pend">In ottimizzazione — escludila per non farla fermare</string>
-    <string name="seccion_debug_titulo">🧪 Modalità debug (solo debug)</string>
+    <string name="seccion_debug_titulo">Modalità debug (solo debug)</string>
+    <string name="seccion_debug_desc">Strumenti per testare e diagnosticare Walink senza auto collegata o messaggio reale.</string>
     <string name="voz_lectura_titulo">Voce di lettura</string>
     <string name="voz_lectura_por_defecto">Predefinita (spagnolo)</string>
     <string name="voz_lectura_cambiar">Cambia</string>
@@ -74,6 +75,8 @@
     <string name="voz_prueba_frase">Ciao, questa è la voce di Walink.</string>
     <string name="voz_prueba_bt">Ascolta un\'anteprima con questa voce</string>
     <string name="voz_numero">Voce %1$d</string>
+    <string name="voz_red_sufijo">online</string>
+
     <string name="modo_lectura_titulo">Quando leggere?</string>
     <string name="modo_lectura_desc">Scegli come viene letto ogni messaggio</string>
     <string name="modo_inmediato">Subito</string>
@@ -165,5 +168,13 @@
     <string name="debug_remitente">Mittente</string>
     <string name="debug_mensaje_prueba">Messaggio di prova</string>
     <string name="debug_simular">Simula messaggio</string>
+    <string name="debug_ver_diagnostico">Visualizza diagnostica</string>
+    <string name="debug_diagnostico_titulo">Diagnostica</string>
+    <string name="debug_diagnostico_vacio">(nessuna diagnosi ancora: il file non esiste o nessun messaggio è stato ricevuto)</string>
+    <string name="debug_diagnostico_compartir">Condividi</string>
+    <string name="debug_diagnostico_cerrar">Chiudi</string>
+    <string name="seccion_mensajes_titulo">Messaggi</string>
+    <string name="diagnostico_titulo">Diagnostica</string>
+    <string name="diagnostico_desc">Salva il flusso vocale (microfono e audio focus) e lo stato del telefono quando arriva un messaggio. Condividilo dopo un errore (es. se la tua risposta non viene ascoltata) per esaminarlo.</string>
     <string name="debug_nota_respuesta">La risposta del RemoteInput viene mostrata in Logcat (tag WalinkDebug).</string>
 </resources>

@@ -78,7 +78,8 @@
     <string name="bt_excluir_bateria">Excluir</string>
     <string name="permiso_bateria_estado_ok">Excluida ✓</string>
     <string name="permiso_bateria_estado_pend">En optimización — exclúyela para que no se detenga</string>
-    <string name="seccion_debug_titulo">🧪 Modo depuración (solo debug)</string>
+    <string name="seccion_debug_titulo">Modo depuración (solo debug)</string>
+    <string name="seccion_debug_desc">Herramientas para probar y diagnosticar Walink sin un coche conectado ni un mensaje real.</string>
 
     <!-- Selección de voz TTS -->
     <string name="voz_lectura_titulo">Voz de lectura</string>
@@ -88,6 +89,8 @@
     <string name="voz_prueba_frase">Hola, esta es la voz de Walink.</string>
     <string name="voz_prueba_bt">Escuchar una prueba con esta voz</string>
     <string name="voz_numero">Voz %1$d</string>
+    <string name="voz_red_sufijo">en línea</string>
+
 
     <!-- Modo de lectura (inmediato / preguntar antes) -->
     <string name="modo_lectura_titulo">¿Cuándo leer?</string>
@@ -169,7 +172,7 @@
     <string name="seccion_voz_audio_desc">Tono, velocidad de locución y música de fondo</string>
     <string name="seccion_lectura_filtros_titulo">Lectura y Privacidad</string>
     <string name="seccion_lectura_filtros_desc">Modo de aviso, chats de grupo y filtros de contactos</string>
-    <string name="seccion_permisos_ok">Todos los permisos necesarios concedidos ✓</string>
+    <string name="seccion_permisos_ok">Todos los permisos necesarios concedidos</string>
     <string name="seccion_permisos_atencion">%1$d permiso(s) requieren tu atención</string>
 
     <!-- Pestañas Opción B -->
@@ -201,5 +204,13 @@
     <string name="debug_remitente">Remitente</string>
     <string name="debug_mensaje_prueba">Mensaje de prueba</string>
     <string name="debug_simular">Simular mensaje</string>
+    <string name="debug_ver_diagnostico">Ver diagnóstico</string>
+    <string name="debug_diagnostico_titulo">Diagnóstico</string>
+    <string name="debug_diagnostico_vacio">(todavía no hay diagnóstico: el fichero no existe o no se ha recibido ningún mensaje)</string>
+    <string name="debug_diagnostico_compartir">Compartir</string>
+    <string name="debug_diagnostico_cerrar">Cerrar</string>
+    <string name="seccion_mensajes_titulo">Mensajes</string>
+    <string name="diagnostico_titulo">Diagnóstico</string>
+    <string name="diagnostico_desc">Guarda el flujo de voz (micrófono y audio focus) y el estado del teléfono cuando llega un mensaje. Compártelo después de un fallo (p. ej. si no se oye tu respuesta) para revisarlo.</string>
     <string name="debug_nota_respuesta">La respuesta del RemoteInput se muestra en Logcat (etiqueta WalinkDebug).</string>
 </resources>

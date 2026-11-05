@@ -23,6 +23,7 @@ import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts.RequestMultiplePermissions
 import androidx.activity.result.contract.ActivityResultContracts.RequestPermission
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -59,11 +60,13 @@ import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.FilterChipDefaults
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Slider
@@ -83,18 +86,23 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.tooling.preview.Preview
 import androidx.lifecycle.lifecycleScope
 import com.jjcampac.walink.BuildConfig
 import com.jjcampac.walink.data.WalinkDataStore
 import com.jjcampac.walink.idioma.IdiomaHelper
 import com.jjcampac.walink.debug.DebugSimulator
+import com.jjcampac.walink.diag.LogDiag
 import com.jjcampac.walink.service.BluetoothCoche
+import com.jjcampac.walink.service.MicrofonoPermanenteService
 import com.jjcampac.walink.service.WhatsAppNotificationListener
 import com.jjcampac.walink.speech.SpeechReader
 import com.jjcampac.walink.ui.theme.*
@@ -121,6 +129,13 @@ class MainActivity : ComponentActivity() {
         SharedPreferences.OnSharedPreferenceChangeListener { _, key ->
             if (key == KEY_ACTIVADO) {
                 servicioActivado = dataStore.estaActivado
+                // Reflejar el servicio de micro permanente cuando cambia la activación
+                // (p. ej. desde el tile) mientras la app está abierta.
+                if (servicioActivado) {
+                    MicrofonoPermanenteService.iniciar(applicationContext)
+                } else {
+                    MicrofonoPermanenteService.detener(applicationContext)
+                }
             }
         }
 
@@ -374,6 +389,12 @@ class MainActivity : ComponentActivity() {
     private fun alternarModoDepuracion() {
         modoDepuracion = !modoDepuracion
         dataStore.setModoDepuracion(modoDepuracion)
+        // Si se desactiva el modo depuración, el ajuste "leer sin coche" deja de
+        // tener sentido: lo reseteamos para que no quede seleccionado "por detrás".
+        if (!modoDepuracion) {
+            leerSinCoche = false
+            lifecycleScope.launch { dataStore.setLeerSinCoche(false) }
+        }
         Toast.makeText(
             this,
             if (modoDepuracion) "Modo depuración ACTIVADO" else "Modo depuración desactivado",
@@ -432,14 +453,25 @@ class MainActivity : ComponentActivity() {
         vozTtsSelector = TextToSpeech(this) { status ->
             if (status == TextToSpeech.SUCCESS) {
                 // Mostramos únicamente las voces del idioma activo, con la etiqueta
-                // que incluye género y calidad cuando es posible determinarlo.
+                // que incluye género y calidad cuando es posible determinarlo. Si la
+                // voz es de red se indica "(en línea)" para que el usuario sepa que
+                // requiere motor/red (puede cortarse en túneles o sin datos).
                 vocesDisponibles = vozTtsSelector?.voices
                     ?.filter { it.locale?.language.equals(idiomaVoz, ignoreCase = true) == true }
                     ?.sortedWith(compareBy({ it.locale?.displayCountry ?: "" }, { it.name }))
                     ?.mapIndexed { index, voz ->
                         val base = voz.locale.getDisplayName(voz.locale)
-                        val etiqueta = "$base — ${this@MainActivity.getString(R.string.voz_numero, index + 1)}"
-                        VozTts(nombre = voz.name, etiqueta = etiqueta, idioma = voz.locale?.language ?: "")
+                        val etiquetaBase =
+                            "$base — ${this@MainActivity.getString(R.string.voz_numero, index + 1)}"
+                        val etiqueta = if (voz.isNetworkConnectionRequired) {
+                            "$etiquetaBase · ${this@MainActivity.getString(R.string.voz_red_sufijo)}"
+                        } else etiquetaBase
+                        VozTts(
+                            nombre = voz.name,
+                            etiqueta = etiqueta,
+                            idioma = voz.locale?.language ?: "",
+                            deRed = voz.isNetworkConnectionRequired
+                        )
                     }
                     ?: emptyList()
             }
@@ -684,6 +716,14 @@ class MainActivity : ComponentActivity() {
         audioBajaVolumen = dataStore.bajarVolumenEnLugarDePausar
         dispositivosSeleccionados = dataStore.dispositivosBluetooth
         refrescarDispositivosBluetooth()
+        // Mantener el servicio de micro permanente alineado con la activación: se
+        // arranca al abrir la app con Walink activo (esta es una ventana elegible) y
+        // se detiene si la app se abre con Walink desactivado.
+        if (servicioActivado) {
+            MicrofonoPermanenteService.iniciar(this)
+        } else {
+            MicrofonoPermanenteService.detener(this)
+        }
     }
 
     companion object {
@@ -697,38 +737,14 @@ class MainActivity : ComponentActivity() {
  * @author jjcampac
  * @author cline
  */
-private data class VozTts(val nombre: String, val etiqueta: String, val idioma: String)
+private data class VozTts(
+    val nombre: String,
+    val etiqueta: String,
+    val idioma: String,
+    val deRed: Boolean
+)
 
-/** Construye una etiqueta legible para una voz del motor TTS. */
-private fun etiquetaVoz(voz: Voice): String {
-    return voz.locale.getDisplayName(voz.locale)
-}
 
-/** Emoji de género deducido del objeto [Voice] del motor TTS. */
-private fun generoVozEmoji(voz: Voice): String {
-    // Intenta usar getGender() por reflexión (disponible en API 21+).
-    val gender = try {
-        val method = voz.javaClass.getMethod("getGender")
-        method.invoke(voz) as? Int ?: -1
-    } catch (e: Exception) {
-        -1
-    }
-    return when (gender) {
-        2 -> "👩"   // GENDER_FEMALE
-        1 -> "👨"   // GENDER_MALE
-        else -> {
-            // Respaldo: deducir del nombre interno
-            val n = voz.name.lowercase()
-            when {
-                "female" in n || "femenin" in n || "woman" in n || "-f-" in n || "_f_" in n ||
-                    n.endsWith("-f") || n.endsWith("-female") -> "👩"
-                "male" in n || "masculin" in n || "man" in n || "-m-" in n || "_m_" in n ||
-                    n.endsWith("-m") || n.endsWith("-male") -> "👨"
-                else -> "⚪"
-            }
-        }
-    }
-}
 
 /**
  * Orden numérico para agrupar por género en el listado:
@@ -972,16 +988,12 @@ private fun PantallaPrincipal(
                         onSeleccionarVoz = onSeleccionarVoz,
                         onProbarVoz = onProbarVoz,
                         velocidad = velocidadVoz,
-                        onCambiarVelocidad = onCambiarVelocidadVoz,
-                        bajarVolumen = bajarVolumen,
-                        onCambiarAudioFondo = onCambiarAudioFondo
+                        onCambiarVelocidad = onCambiarVelocidadVoz
                     )
 
                     Spacer(modifier = Modifier.height(14.dp))
 
                     TarjetaLecturaPrivacidad(
-                        leerTrasPreguntar = leerTrasPreguntar,
-                        onCambiarModoLectura = onCambiarModoLectura,
                         leerGrupos = leerGrupos,
                         onCambiarLeerGrupos = onCambiarLeerGrupos,
                         modoFiltro = modoFiltro,
@@ -1010,7 +1022,7 @@ private fun PantallaPrincipal(
 
                     if (BuildConfig.DEBUG || modoDepuracion) {
                         Spacer(modifier = Modifier.height(14.dp))
-                        TarjetaDepuracionPlegable(
+                        TarjetaModoDepuracion(
                             onSimularMensaje = onSimularMensaje,
                             leerSinCoche = leerSinCoche,
                             onCambiarLeerSinCoche = onCambiarLeerSinCoche
@@ -1119,7 +1131,7 @@ private fun CabeceraWalink(
                 modifier = Modifier.padding(top = 4.dp)
             )
             Text(
-                text = "v" + BuildConfig.VERSION_NAME,
+                text = if (BuildConfig.DEBUG) "v1.1d" else "v1.1r",
                 style = MaterialTheme.typography.bodySmall,
                 color = Color.White.copy(alpha = 0.6f),
                 textAlign = TextAlign.Center,
@@ -1331,7 +1343,7 @@ private fun TarjetaCocheConectividad(
     }
 }
 
-/** 2. Voz y Audio: selección de locución, velocidad y atenuación de música. */
+/** 2. Voz y Audio: selección de locución y velocidad de la voz. */
 @Composable
 private fun TarjetaVozAudio(
     vozActual: String?,
@@ -1339,9 +1351,7 @@ private fun TarjetaVozAudio(
     onSeleccionarVoz: (String) -> Unit,
     onProbarVoz: () -> Unit,
     velocidad: Float,
-    onCambiarVelocidad: (Float) -> Unit,
-    bajarVolumen: Boolean,
-    onCambiarAudioFondo: (Boolean) -> Unit
+    onCambiarVelocidad: (Float) -> Unit
 ) {
     val etiquetaActual = if (vozActual.isNullOrBlank()) {
         stringResource(id = R.string.voz_lectura_por_defecto)
@@ -1448,43 +1458,13 @@ private fun TarjetaVozAudio(
                 Text(stringResource(id = R.string.vel_rapida), style = MaterialTheme.typography.labelSmall, color = GrisEstado)
             }
 
-            Spacer(modifier = Modifier.height(12.dp))
-            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f))
-            Spacer(modifier = Modifier.height(10.dp))
-
-            // Sub-bloque 3: Música de fondo (Chips selectores modernos)
-            Text(
-                text = stringResource(id = R.string.audio_fondo_titulo),
-                style = MaterialTheme.typography.bodyMedium,
-                fontWeight = FontWeight.Medium
-            )
-            Spacer(modifier = Modifier.height(6.dp))
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
-                FilterChip(
-                    selected = bajarVolumen,
-                    onClick = { onCambiarAudioFondo(true) },
-                    label = { Text(stringResource(id = R.string.chip_bajar_volumen)) },
-                    modifier = Modifier.weight(1f)
-                )
-                FilterChip(
-                    selected = !bajarVolumen,
-                    onClick = { onCambiarAudioFondo(false) },
-                    label = { Text(stringResource(id = R.string.chip_pausar_musica)) },
-                    modifier = Modifier.weight(1f)
-                )
             }
-        }
     }
 }
 
 /** 3. Lectura y Privacidad: modo de confirmación, grupos y filtros de contacto. */
 @Composable
 private fun TarjetaLecturaPrivacidad(
-    leerTrasPreguntar: Boolean,
-    onCambiarModoLectura: (Boolean) -> Unit,
     leerGrupos: Boolean,
     onCambiarLeerGrupos: (Boolean) -> Unit,
     modoFiltro: Int,
@@ -1511,36 +1491,7 @@ private fun TarjetaLecturaPrivacidad(
 
             Spacer(modifier = Modifier.height(14.dp))
 
-            // Sub-bloque 1: Modo de lectura (Chips)
-            Text(
-                text = stringResource(id = R.string.modo_lectura_titulo),
-                style = MaterialTheme.typography.bodyMedium,
-                fontWeight = FontWeight.Medium
-            )
-            Spacer(modifier = Modifier.height(6.dp))
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
-                FilterChip(
-                    selected = !leerTrasPreguntar,
-                    onClick = { onCambiarModoLectura(false) },
-                    label = { Text(stringResource(id = R.string.chip_inmediato)) },
-                    modifier = Modifier.weight(1f)
-                )
-                FilterChip(
-                    selected = leerTrasPreguntar,
-                    onClick = { onCambiarModoLectura(true) },
-                    label = { Text(stringResource(id = R.string.chip_preguntar)) },
-                    modifier = Modifier.weight(1f)
-                )
-            }
-
-            Spacer(modifier = Modifier.height(12.dp))
-            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f))
-            Spacer(modifier = Modifier.height(10.dp))
-
-            // Sub-bloque 2: Grupos
+            // Sub-bloque 1: Grupos
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -1569,7 +1520,7 @@ private fun TarjetaLecturaPrivacidad(
             HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f))
             Spacer(modifier = Modifier.height(10.dp))
 
-            // Sub-bloque 3: Filtro de contactos
+            // Sub-bloque 2: Filtro de contactos
             Text(
                 text = stringResource(id = R.string.ajuste_filtros_contacto_titulo),
                 style = MaterialTheme.typography.bodyMedium,
@@ -1818,9 +1769,14 @@ private fun CabeceraTarjetaTematica(
     }
 }
 
-/** Tarjeta colapsable para la zona de depuración. */
+/**
+ * Tarjeta desplegable "Modo depuración", igual que la de Permisos: colapsada
+ * muestra solo el encabezado (emoji, título, descripción y flecha). Al
+ * expandir, una fina línea horizontal y el contenido como dos bloques simples
+ * (Mensajes y Diagnóstico), sin cards internas anidadas.
+ */
 @Composable
-private fun TarjetaDepuracionPlegable(
+private fun TarjetaModoDepuracion(
     onSimularMensaje: (remitente: String, texto: String) -> Unit,
     leerSinCoche: Boolean,
     onCambiarLeerSinCoche: (Boolean) -> Unit
@@ -1830,26 +1786,37 @@ private fun TarjetaDepuracionPlegable(
     Card(
         modifier = Modifier.fillMaxWidth(),
         colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surfaceContainerHighest.copy(alpha = 0.5f)
+            containerColor = MaterialTheme.colorScheme.surfaceContainer
         ),
-        elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
+        // Borde del mismo color que el fondo del contenido para que no se vea.
+        border = BorderStroke(
+            width = 1.dp,
+            color = MaterialTheme.colorScheme.surfaceContainer
+        ),
+        // Sin elevación: la sombra se percibía como un borde de otro color.
+        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
     ) {
-        Column(modifier = Modifier.fillMaxWidth().padding(14.dp)) {
+        Column(modifier = Modifier.fillMaxWidth().padding(16.dp)) {
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
                     .clickable { expandido = !expandido },
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Text(text = "🧪", fontSize = 22.sp)
-                Spacer(modifier = Modifier.width(10.dp))
-                Text(
-                    text = stringResource(id = R.string.seccion_debug_titulo),
-                    style = MaterialTheme.typography.titleSmall,
-                    fontWeight = FontWeight.SemiBold,
-                    color = Color(0xFF6200EE),
-                    modifier = Modifier.weight(1f)
-                )
+                Text(text = "🧪", fontSize = 24.sp)
+                Spacer(modifier = Modifier.width(12.dp))
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = stringResource(id = R.string.seccion_debug_titulo),
+                        style = MaterialTheme.typography.titleSmall,
+                        fontWeight = FontWeight.SemiBold
+                    )
+                    Text(
+                        text = stringResource(id = R.string.seccion_debug_desc),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = VerdeOk
+                    )
+                }
                 IconButton(onClick = { expandido = !expandido }) {
                     Text(if (expandido) "▲" else "▼", fontSize = 14.sp, color = GrisEstado)
                 }
@@ -1861,11 +1828,20 @@ private fun TarjetaDepuracionPlegable(
                 exit = shrinkVertically() + fadeOut()
             ) {
                 Column(modifier = Modifier.padding(top = 10.dp)) {
+                    HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f))
+                    Spacer(modifier = Modifier.height(12.dp))
+
                     SeccionDepuracion(
-                            onSimularMensaje = onSimularMensaje,
-                            leerSinCoche = leerSinCoche,
-                            onCambiarLeerSinCoche = onCambiarLeerSinCoche
-                        )
+                        onSimularMensaje = onSimularMensaje,
+                        leerSinCoche = leerSinCoche,
+                        onCambiarLeerSinCoche = onCambiarLeerSinCoche
+                    )
+
+                    Spacer(modifier = Modifier.height(16.dp))
+                    HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f))
+                    Spacer(modifier = Modifier.height(12.dp))
+
+                    TarjetaDiagnostico()
                 }
             }
         }
@@ -2082,15 +2058,11 @@ private fun SeccionDepuracion(
     var textoMensaje by remember { mutableStateOf("Hola, ¿cómo estás?") }
 
     Column(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(horizontal = 24.dp, vertical = 16.dp),
+        modifier = Modifier.fillMaxWidth(),
         verticalArrangement = Arrangement.spacedBy(8.dp)
     ) {
-        HorizontalDivider(color = Color(0xFFCCCCCC))
-
         Text(
-            text = stringResource(id = R.string.seccion_debug_titulo),
+            text = stringResource(id = R.string.seccion_mensajes_titulo),
             style = MaterialTheme.typography.titleMedium,
             color = Color(0xFF6200EE)
         )
@@ -2151,3 +2123,141 @@ private fun SeccionDepuracion(
         }
     }
 }
+
+/**
+ * Tarjeta para revisar y compartir el registro de diagnóstico (walink_diag.log).
+ * Es independiente del simulador de mensajes: guarda el flujo de voz y el estado
+ * del teléfono cuando llega un mensaje real, útil para diagnosticar fallos.
+ */
+@Composable
+private fun TarjetaDiagnostico() {
+    val contexto = LocalContext.current
+    var mostrarDiagnostico by remember { mutableStateOf(false) }
+    var contenidoDiagnostico by remember { mutableStateOf("") }
+
+    fun compartirDiagnostico() {
+        val contenido = if (contenidoDiagnostico.isBlank()) LogDiag.contenido(contexto) else contenidoDiagnostico
+        val intent = Intent(Intent.ACTION_SEND).apply {
+            type = "text/plain"
+            putExtra(Intent.EXTRA_SUBJECT, "Walink diagnóstico")
+            putExtra(Intent.EXTRA_TEXT, contenido)
+        }
+        try {
+            contexto.startActivity(Intent.createChooser(intent, "Compartir diagnóstico"))
+        } catch (e: Exception) {
+            Log.e("WalinkDebug", "No se pudo compartir el diagnóstico", e)
+        }
+    }
+
+    Column(
+        modifier = Modifier.fillMaxWidth(),
+        verticalArrangement = Arrangement.spacedBy(8.dp)
+    ) {
+        Text(
+            text = stringResource(id = R.string.diagnostico_titulo),
+                style = MaterialTheme.typography.titleMedium,
+                color = Color(0xFF6200EE)
+            )
+
+            Text(
+                text = stringResource(id = R.string.diagnostico_desc),
+                style = MaterialTheme.typography.bodySmall,
+                color = Color(0xFF666666)
+            )
+
+            OutlinedButton(
+                onClick = {
+                    contenidoDiagnostico = LogDiag.contenido(contexto)
+                    mostrarDiagnostico = true
+                },
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Text(stringResource(id = R.string.debug_ver_diagnostico))
+            }
+
+            Button(
+                onClick = { compartirDiagnostico() },
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Text(stringResource(id = R.string.debug_diagnostico_compartir))
+            }
+
+            if (mostrarDiagnostico) {
+                AlertDialog(
+                    onDismissRequest = { mostrarDiagnostico = false },
+                    title = { Text(stringResource(id = R.string.debug_diagnostico_titulo)) },
+                    text = {
+                        Column(modifier = Modifier.verticalScroll(rememberScrollState())) {
+                            if (contenidoDiagnostico.isBlank()) {
+                                Text(stringResource(id = R.string.debug_diagnostico_vacio))
+                            } else {
+                                Text(
+                                    text = contenidoDiagnostico,
+                                    style = MaterialTheme.typography.bodySmall,
+                                    fontFamily = FontFamily.Monospace
+                                )
+                            }
+                        }
+                    },
+                    confirmButton = {
+                        TextButton(onClick = { mostrarDiagnostico = false }) {
+                            Text(stringResource(id = R.string.debug_diagnostico_cerrar))
+                        }
+                    }
+                )
+            }
+        }
+}
+
+@Preview(showBackground = true)
+@Composable
+private fun PantallaPrincipalPreview() {
+    WalinkTheme {
+        PantallaPrincipal(
+            permisoNotificaciones = true,
+            permisoPostNotificaciones = true,
+            permisoMicrofono = true,
+            permisoBluetooth = true,
+            bateriaExcluida = true,
+            servicioActivado = true,
+            idiomaActual = "es",
+            onCambiarIdioma = {},
+            vozActual = null,
+            voces = emptyList(),
+            onSeleccionarVoz = {},
+            onProbarVoz = {},
+            leerTrasPreguntar = false,
+            onCambiarModoLectura = {},
+            bajarVolumen = true,
+            onCambiarAudioFondo = {},
+            dispositivosSeleccionados = setOf("00:11:22:33:44:55"),
+            dispositivosEmparejados = listOf(
+                BluetoothCoche.Dispositivo("Mi Coche", "00:11:22:33:44:55")
+            ),
+            dispositivosConectados = setOf("00:11:22:33:44:55"),
+            onSeleccionarDispositivo = {},
+            onRefrescarDispositivos = {},
+            leerSinCoche = false,
+            onCambiarLeerSinCoche = {},
+            leerGrupos = true,
+            onCambiarLeerGrupos = {},
+            velocidadVoz = 1.0f,
+            onCambiarVelocidadVoz = {},
+            modoFiltro = 0,
+            contactosPermitidosTexto = "",
+            contactosBloqueadosTexto = "",
+            onCambiarModoFiltro = {},
+            onGuardarContactosPermitidos = {},
+            onGuardarContactosBloqueados = {},
+            onIrAjustesNotificaciones = {},
+            onIrAjustesBateria = {},
+            onSolicitarMicrofono = {},
+            onSolicitarBluetooth = {},
+            onSolicitarNotificacionesPost = {},
+            modoDepuracion = false,
+            onAlternarModoDepuracion = {},
+            onSimularMensaje = { _, _ -> }
+        )
+    }
+}
+

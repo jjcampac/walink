@@ -66,7 +66,8 @@
     <string name="bt_excluir_bateria">Exclure</string>
     <string name="permiso_bateria_estado_ok">Exclue ✓</string>
     <string name="permiso_bateria_estado_pend">Sous optimisation — excluez-la pour qu\'elle ne s\'arrête pas</string>
-    <string name="seccion_debug_titulo">🧪 Mode débogage (debug uniquement)</string>
+    <string name="seccion_debug_titulo">Mode débogage (debug uniquement)</string>
+    <string name="seccion_debug_desc">Outils pour tester et diagnostiquer Walink sans voiture connectée ni message réel.</string>
     <string name="voz_lectura_titulo">Voix de lecture</string>
     <string name="voz_lectura_por_defecto">Par défaut (espagnol)</string>
     <string name="voz_lectura_cambiar">Changer</string>
@@ -74,6 +75,8 @@
     <string name="voz_prueba_frase">Bonjour, voici la voix de Walink.</string>
     <string name="voz_prueba_bt">Écouter un aperçu avec cette voix</string>
     <string name="voz_numero">Voix %1$d</string>
+    <string name="voz_red_sufijo">en ligne</string>
+
     <string name="modo_lectura_titulo">Quand lire ?</string>
     <string name="modo_lectura_desc">Choisissez comment chaque message est lu</string>
     <string name="modo_inmediato">Immédiatement</string>
@@ -139,7 +142,7 @@
     <string name="seccion_voz_audio_desc">Ton, vitesse de parole et musique de fond</string>
     <string name="seccion_lectura_filtros_titulo">Lecture et confidentialité</string>
     <string name="seccion_lectura_filtros_desc">Mode d\'alerte, chats de groupe et filtres de contacts</string>
-    <string name="seccion_permisos_ok">Toutes les permissions nécessaires accordées ✓</string>
+    <string name="seccion_permisos_ok">Toutes les permissions nécessaires accordées</string>
     <string name="seccion_permisos_atencion">%1$d permission(s) requièrent votre attention</string>
     <string name="tab_conduccion">Conduite</string>
     <string name="tab_voz_filtros">Voix et filtres</string>
@@ -165,5 +168,13 @@
     <string name="debug_remitente">Expéditeur</string>
     <string name="debug_mensaje_prueba">Message de test</string>
     <string name="debug_simular">Simuler un message</string>
+    <string name="debug_ver_diagnostico">Voir le diagnostic</string>
+    <string name="debug_diagnostico_titulo">Diagnostic</string>
+    <string name="debug_diagnostico_vacio">(pas encore de diagnostic : le fichier n\'existe pas ou aucun message n\'a été reçu)</string>
+    <string name="debug_diagnostico_compartir">Partager</string>
+    <string name="debug_diagnostico_cerrar">Fermer</string>
+    <string name="seccion_mensajes_titulo">Messages</string>
+    <string name="diagnostico_titulo">Diagnostic</string>
+    <string name="diagnostico_desc">Enregistre le flux vocal (micro et audio focus) et l\'état du téléphone à la réception d\'un message. Partagez-le après un incident (p. ex. si votre réponse n\'est pas entendue) pour le consulter.</string>
     <string name="debug_nota_respuesta">La réponse du RemoteInput s\'affiche dans Logcat (tag WalinkDebug).</string>
 </resources>

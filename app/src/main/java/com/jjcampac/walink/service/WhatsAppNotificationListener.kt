@@ -10,6 +10,7 @@ import androidx.core.content.ContextCompat
 import com.jjcampac.walink.BuildConfig
 import com.jjcampac.walink.R
 import com.jjcampac.walink.data.WalinkDataStore
+import com.jjcampac.walink.diag.LogDiag
 import com.jjcampac.walink.idioma.IdiomaHelper
 import com.jjcampac.walink.parser.NotificationParser
 import com.jjcampac.walink.speech.LectorAsistenteService
@@ -43,6 +44,7 @@ class WhatsAppNotificationListener : NotificationListenerService() {
         super.onCreate()
         speechReader = SpeechReader.obtener(this)
         dataStore = WalinkDataStore.getInstance(applicationContext)
+        LogDiag.iniciar(this)
         Log.d(TAG, "Servicio de notificaciones creado")
     }
 
@@ -65,14 +67,26 @@ class WhatsAppNotificationListener : NotificationListenerService() {
                 aceptarPaquetePropio = BuildConfig.DEBUG || dataStore.modoDepuracion
             ) ?: return
 
+            // Foto del estado del teléfono en el momento exacto de recibir un mensaje
+            // real (pantalla, no-molestar, batería y Bluetooth). Se guarda en logcat y
+            // en filesDir/walink_diag.log para poder diagnosticar un fallo aunque
+            // ocurra lejos del ordenador.
+            LogDiag.registrarEstado(this, "mensaje recibido de '${mensaje.remitente}' (grupo=${mensaje.esGrupo})")
+
             // ---- Regla del dispositivo Bluetooth del coche (uno o varios) ----
             // Si el usuario ha elegido uno o más dispositivos en los ajustes, Walink
             // solo actúa cuando ALGUNO de ellos está conectado. Salvo que esté
             // activo el ajuste "leerSinCoche" (modo pruebas), o que no haya
             // ninguno seleccionado (conjunto vacío), en cuyo caso se lee por el
             // altavoz del teléfono.
+            // El ajuste "leerSinCoche" solo tiene sentido en modo depuración (es una
+            // ayuda de pruebas). Si el modo depuración no está activo, se ignora
+            // aunque el valor persistido siga a true (por ejemplo, porque la tarjeta
+            // de depuración se ocultó tras haberlo activado).
+            val modoDebugActivo = BuildConfig.DEBUG || dataStore.modoDepuracion
+            val leerSinCocheEfectivo = modoDebugActivo && dataStore.leerSinCoche
             val direccionesCoche = dataStore.dispositivosBluetooth
-            if (direccionesCoche.isNotEmpty() && !dataStore.leerSinCoche) {
+            if (direccionesCoche.isNotEmpty() && !leerSinCocheEfectivo) {
                 if (!BluetoothCoche.estaConectadoCualquiera(applicationContext, direccionesCoche)) {
                     val nombres = direccionesCoche
                         .map { BluetoothCoche.nombreDe(applicationContext, it) ?: it }

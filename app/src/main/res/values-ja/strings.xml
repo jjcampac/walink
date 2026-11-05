@@ -66,7 +66,8 @@
     <string name="bt_excluir_bateria">除外</string>
     <string name="permiso_bateria_estado_ok">除外済み ✓</string>
     <string name="permiso_bateria_estado_pend">最適化中 — 停止しないよう除外してください</string>
-    <string name="seccion_debug_titulo">🧪 デバッグモード（debugのみ）</string>
+    <string name="seccion_debug_titulo">デバッグモード（debugのみ）</string>
+    <string name="seccion_debug_desc">実際の車やメッセージがなくても Walink をテスト・診断するためのツール。</string>
     <string name="voz_lectura_titulo">読み上げの声</string>
     <string name="voz_lectura_por_defecto">デフォルト（スペイン語）</string>
     <string name="voz_lectura_cambiar">変更</string>
@@ -74,6 +75,8 @@
     <string name="voz_prueba_frase">こんにちは。これはWalinkの声です。</string>
     <string name="voz_prueba_bt">この声でプレビューを聞く</string>
     <string name="voz_numero">声 %1$d</string>
+    <string name="voz_red_sufijo">オンライン</string>
+
     <string name="modo_lectura_titulo">いつ読む？</string>
     <string name="modo_lectura_desc">メッセージの読み方を選択</string>
     <string name="modo_inmediato">すぐに</string>
@@ -139,7 +142,7 @@
     <string name="seccion_voz_audio_desc">音色、読み上げ速度、BGM</string>
     <string name="seccion_lectura_filtros_titulo">読み上げとプライバシー</string>
     <string name="seccion_lectura_filtros_desc">通知モード、グループチャット、連絡先フィルター</string>
-    <string name="seccion_permisos_ok">必要な権限はすべて許可済み ✓</string>
+    <string name="seccion_permisos_ok">必要な権限はすべて許可済み</string>
     <string name="seccion_permisos_atencion">%1$d個の権限で対応が必要です</string>
     <string name="tab_conduccion">運転</string>
     <string name="tab_voz_filtros">声とフィルター</string>
@@ -165,5 +168,13 @@
     <string name="debug_remitente">送信者</string>
     <string name="debug_mensaje_prueba">テストメッセージ</string>
     <string name="debug_simular">メッセージをシミュレート</string>
+    <string name="debug_ver_diagnostico">診断を表示</string>
+    <string name="debug_diagnostico_titulo">診断</string>
+    <string name="debug_diagnostico_vacio">(診断はまだありません: ファイルが存在しないか、メッセージが届いていません)</string>
+    <string name="debug_diagnostico_compartir">共有</string>
+    <string name="debug_diagnostico_cerrar">閉じる</string>
+    <string name="seccion_mensajes_titulo">メッセージ</string>
+    <string name="diagnostico_titulo">診断</string>
+    <string name="diagnostico_desc">メッセージ受信時の音声フロー（マイクとオーディオフォーカス）と電話の状態を保存します。不具合（例: 返答が聞き取れない）の後に共有して確認してください。</string>
     <string name="debug_nota_respuesta">RemoteInputの返信はLogcatに表示されます（タグ：WalinkDebug）。</string>
 </resources>

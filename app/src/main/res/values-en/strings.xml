@@ -77,7 +77,8 @@
     <string name="bt_excluir_bateria">Exclude</string>
     <string name="permiso_bateria_estado_ok">Excluded ✓</string>
     <string name="permiso_bateria_estado_pend">Under optimization — exclude it so it does not stop</string>
-    <string name="seccion_debug_titulo">🧪 Debug mode (debug only)</string>
+    <string name="seccion_debug_titulo">Debug mode (debug only)</string>
+    <string name="seccion_debug_desc">Tools to test and diagnose Walink without a connected car or a real message.</string>
 
     <!-- Selección de voz TTS -->
     <string name="voz_lectura_titulo">Reading voice</string>
@@ -87,6 +88,8 @@
     <string name="voz_prueba_frase">Hello, this is Walink\'s voice.</string>
     <string name="voz_prueba_bt">Hear a preview with this voice</string>
     <string name="voz_numero">Voice %1$d</string>
+    <string name="voz_red_sufijo">online</string>
+
 
     <!-- Modo de lectura -->
     <string name="modo_lectura_titulo">When to read?</string>
@@ -177,6 +180,14 @@
     <string name="debug_remitente">Sender</string>
     <string name="debug_mensaje_prueba">Test message</string>
     <string name="debug_simular">Simulate message</string>
+    <string name="debug_ver_diagnostico">View diagnostics</string>
+    <string name="debug_diagnostico_titulo">Diagnostics</string>
+    <string name="debug_diagnostico_vacio">(no diagnostics yet: the file does not exist or no message has been received)</string>
+    <string name="debug_diagnostico_compartir">Share</string>
+    <string name="debug_diagnostico_cerrar">Close</string>
+    <string name="seccion_mensajes_titulo">Messages</string>
+    <string name="diagnostico_titulo">Diagnostics</string>
+    <string name="diagnostico_desc">Saves the voice flow (microphone and audio focus) and the phone state when a message arrives. Share it after a failure (e.g. if your reply is not heard) to review it.</string>
     <string name="debug_nota_respuesta">The RemoteInput reply is shown in Logcat (WalinkDebug tag).</string>
 
     <!-- Notificación "preguntar antes de leer" y asistente de voz -->
