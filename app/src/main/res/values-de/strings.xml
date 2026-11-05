@@ -177,4 +177,71 @@
     <string name="diagnostico_titulo">Diagnose</string>
     <string name="diagnostico_desc">Speichert den Sprachfluss (Mikrofon und Audio-Fokus) und den Telefonzustand, wenn eine Nachricht eintrifft. Teilen Sie sie nach einem Fehler (z. B. wenn Ihre Antwort nicht gehört wird), um sie zu überprüfen.</string>
     <string name="debug_nota_respuesta">Die RemoteInput-Antwort wird in Logcat angezeigt (Tag WalinkDebug).</string>
+
+    <!-- Im aktiven Sprachmodus akzeptierte Sprachantworten. Der Assistent vergleicht
+         die erkannte Antwort mit diesen vollständigen Wörtern bzw. Sätzen (Groß-/Kleinschreibung egal). -->
+    <string-array name="palabras_si">
+        <item>ja</item>
+        <item>jap</item>
+        <item>jep</item>
+        <item>jo</item>
+        <item>ok</item>
+        <item>okay</item>
+        <item>lese</item>
+        <item>los</item>
+        <item>gerne</item>
+        <item>gern</item>
+        <item>stimmt</item>
+        <item>klar</item>
+        <item>richtig</item>
+    </string-array>
+    <string-array name="palabras_no">
+        <item>nein</item>
+        <item>nee</item>
+        <item>nö</item>
+        <item>no</item>
+        <item>negativ</item>
+        <item>nichts</item>
+        <item>nicht</item>
+        <item>lies nicht</item>
+        <item>skip</item>
+    </string-array>
+    <string-array name="palabras_enviar">
+        <item>ja</item>
+        <item>jap</item>
+        <item>ok</item>
+        <item>okay</item>
+        <item>senden</item>
+        <item>sende</item>
+        <item>schick</item>
+        <item>schicke</item>
+        <item>schick los</item>
+        <item>los</item>
+        <item>abschicken</item>
+    </string-array>
+    <string-array name="palabras_corregir">
+        <item>nein</item>
+        <item>nicht</item>
+        <item>korrigieren</item>
+        <item>korrigier</item>
+        <item>korrigiere</item>
+        <item>wiederholen</item>
+        <item>nochmal</item>
+        <item>noch einmal</item>
+        <item>ändern</item>
+        <item>ändere</item>
+        <item>neu</item>
+    </string-array>
+    <string-array name="palabras_cancelar">
+        <item>abbrechen</item>
+        <item>abbrech</item>
+        <item>verwerfen</item>
+        <item>löschen</item>
+        <item>stornieren</item>
+        <item>absagen</item>
+        <item>nicht senden</item>
+        <item>vergiss es</item>
+        <item>lass es</item>
+        <item>lass es sein</item>
+    </string-array>
 </resources>

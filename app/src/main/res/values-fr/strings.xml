@@ -177,4 +177,65 @@
     <string name="diagnostico_titulo">Diagnostic</string>
     <string name="diagnostico_desc">Enregistre le flux vocal (micro et audio focus) et l\'état du téléphone à la réception d\'un message. Partagez-le après un incident (p. ex. si votre réponse n\'est pas entendue) pour le consulter.</string>
     <string name="debug_nota_respuesta">La réponse du RemoteInput s\'affiche dans Logcat (tag WalinkDebug).</string>
+
+    <!-- Réponses vocales acceptées dans la langue active. L'assistant compare la réponse
+         captée à ces mots ou phrases complets, sans tenir compte des majuscules. -->
+    <string-array name="palabras_si">
+        <item>oui</item>
+        <item>ouais</item>
+        <item>ok</item>
+        <item>okay</item>
+        <item>lis</item>
+        <item>vas-y</item>
+        <item>bien</item>
+        <item>correct</item>
+        <item>affirmatif</item>
+        <item>d\'accord</item>
+        <item>carrément</item>
+    </string-array>
+    <string-array name="palabras_no">
+        <item>non</item>
+        <item>négatif</item>
+        <item>nan</item>
+        <item>rien</item>
+        <item>ne lis pas</item>
+        <item>ne me lis pas</item>
+        <item>nope</item>
+    </string-array>
+    <string-array name="palabras_enviar">
+        <item>oui</item>
+        <item>ok</item>
+        <item>okay</item>
+        <item>envoie</item>
+        <item>envoyer</item>
+        <item>envoie-le</item>
+        <item>envoie le</item>
+        <item>vas-y</item>
+        <item>valide</item>
+        <item>d\'accord</item>
+    </string-array>
+    <string-array name="palabras_corregir">
+        <item>non</item>
+        <item>corriger</item>
+        <item>corrige</item>
+        <item>répète</item>
+        <item>répéter</item>
+        <item>encore</item>
+        <item>modifier</item>
+        <item>change</item>
+        <item>recommence</item>
+        <item>une autre fois</item>
+        <item>répète encore</item>
+    </string-array>
+    <string-array name="palabras_cancelar">
+        <item>annuler</item>
+        <item>annule</item>
+        <item>abandonner</item>
+        <item>abandonne</item>
+        <item>laisse tomber</item>
+        <item>ne pas envoyer</item>
+        <item>oublie</item>
+        <item>efface</item>
+        <item>annule ça</item>
+    </string-array>
 </resources>

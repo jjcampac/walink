@@ -177,4 +177,66 @@
     <string name="diagnostico_titulo">Diagnostica</string>
     <string name="diagnostico_desc">Salva il flusso vocale (microfono e audio focus) e lo stato del telefono quando arriva un messaggio. Condividilo dopo un errore (es. se la tua risposta non viene ascoltata) per esaminarlo.</string>
     <string name="debug_nota_respuesta">La risposta del RemoteInput viene mostrata in Logcat (tag WalinkDebug).</string>
+
+    <!-- Risposte vocali accettate nella lingua attiva. L'assistente confronta la risposta
+         captata con queste parole o frasi complete, senza distinzione tra maiuscole e minuscole. -->
+    <string-array name="palabras_si">
+        <item>sì</item>
+        <item>si</item>
+        <item>ok</item>
+        <item>okay</item>
+        <item>leggi</item>
+        <item>avanti</item>
+        <item>certo</item>
+        <item>volentieri</item>
+        <item>procedi</item>
+        <item>affermativo</item>
+    </string-array>
+    <string-array name="palabras_no">
+        <item>no</item>
+        <item>negativo</item>
+        <item>niente</item>
+        <item>non</item>
+        <item>non leggere</item>
+        <item>per niente</item>
+        <item>nope</item>
+        <item>nah</item>
+    </string-array>
+    <string-array name="palabras_enviar">
+        <item>sì</item>
+        <item>si</item>
+        <item>ok</item>
+        <item>okay</item>
+        <item>invia</item>
+        <item>inviare</item>
+        <item>spedisci</item>
+        <item>manda</item>
+        <item>avanti</item>
+        <item>procedi</item>
+        <item>invia ora</item>
+    </string-array>
+    <string-array name="palabras_corregir">
+        <item>no</item>
+        <item>correggere</item>
+        <item>correggi</item>
+        <item>ripeti</item>
+        <item>ripetere</item>
+        <item>cambia</item>
+        <item>cambiare</item>
+        <item>di nuovo</item>
+        <item>rifai</item>
+        <item>rivedi</item>
+        <item>modifica</item>
+    </string-array>
+    <string-array name="palabras_cancelar">
+        <item>annulla</item>
+        <item>annullare</item>
+        <item>cancella</item>
+        <item>elimina</item>
+        <item>abbandona</item>
+        <item>dimentica</item>
+        <item>non inviare</item>
+        <item>lascia stare</item>
+        <item>lascia perdere</item>
+    </string-array>
 </resources>

@@ -730,13 +730,37 @@ private fun insertarComasSeguras(t: String): String {
 
 /** true = leer, false = no leer, null = no entendido. */
     private fun decidir(respuesta: String): Boolean? {
-        val quiereSi = REGEX_SI.containsMatchIn(respuesta) ||
-            "lee" in respuesta || "adelante" in respuesta
-        val quiereNo = REGEX_NO.containsMatchIn(respuesta) || "negativo" in respuesta
+        val texto = respuesta.lowercase()
+        val quiereSi = contienePalabra(palabrasRecurso(R.array.palabras_si), texto)
+        val quiereNo = contienePalabra(palabrasRecurso(R.array.palabras_no), texto)
         return when {
             quiereSi && !quiereNo -> true
             quiereNo && !quiereSi -> false
             else -> null
+        }
+    }
+
+    /**
+     * Palabras de voz aceptadas para un tipo de respuesta, localizadas al idioma
+     * activo de la app. Los arrays se resuelven según el locale del contexto
+     * localizado del servicio, igual que el TTS y el SpeechRecognizer: si la app
+     * está en inglés se acepta "yes"/"no", en alemán "ja"/"nein", etc.
+     */
+    private fun palabrasRecurso(idRecurso: Int): List<String> =
+        try {
+            resources.getStringArray(idRecurso).toList()
+        } catch (_: Throwable) {
+            emptyList()
+        }
+
+    /** true si el texto contiene alguna palabra como término completo (o frase multi-palabra). */
+    private fun contienePalabra(palabras: List<String>, texto: String): Boolean {
+        val t = texto.lowercase()
+        return palabras.any { palabra ->
+            val patron = palabra.trim()
+                .split(Regex("\\s+"))
+                .joinToString("\\s+") { Regex.escape(it) }
+            Regex("(^|[^\\p{L}\\p{N}])$patron($|[^\\p{L}\\p{N}])").containsMatchIn(t)
         }
     }
 
@@ -880,7 +904,13 @@ private fun insertarComasSeguras(t: String): String {
     private fun construyeIntentReconocimiento(promptRes: Int): Intent =
         Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH).apply {
             putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)
-            putExtra(RecognizerIntent.EXTRA_LANGUAGE, "es-ES")
+            // El reconocimiento se hace en el idioma activo de la app (igual que el TTS):
+            // así la respuesta esperada se capta en el idioma correcto ("sí"/"no" en
+            // español, "yes"/"no" en inglés, "ja"/"nein" en alemán, ...).
+            putExtra(
+                RecognizerIntent.EXTRA_LANGUAGE,
+                IdiomaHelper.localeResuelto(this@LectorAsistenteService).toLanguageTag()
+            )
             putExtra(RecognizerIntent.EXTRA_PROMPT, getString(promptRes))
             putExtra(RecognizerIntent.EXTRA_PARTIAL_RESULTS, false)
             putExtra("android.speech.extra.MAX_RESULTS", 3)
@@ -932,13 +962,9 @@ private fun insertarComasSeguras(t: String): String {
     /** Enviar, corregir o cancelar la respuesta dictada; null = no entendido. */
     private fun decidirEnviarOCorregir(respuesta: String): DecisionConfirmEnvio? {
         val texto = respuesta.lowercase()
-        val quiereEnviar = REGEX_SI.containsMatchIn(respuesta) ||
-            "enviar" in texto || "mandar" in texto ||
-            "manda" in texto || "adelante" in texto
-        val quiereCorregir = REGEX_NO.containsMatchIn(respuesta) ||
-            "corregir" in texto || "repetir" in texto ||
-            "cambiar" in texto || "otra vez" in texto
-        val quiereCancelar = PALABRAS_CANCELAR.any { it in texto }
+        val quiereEnviar = contienePalabra(palabrasRecurso(R.array.palabras_enviar), texto)
+        val quiereCorregir = contienePalabra(palabrasRecurso(R.array.palabras_corregir), texto)
+        val quiereCancelar = contienePalabra(palabrasRecurso(R.array.palabras_cancelar), texto)
         return when {
             // La cancelación tiene prioridad: evita que un "no" de la frase se
             // interprete como corregir, y corta el flujo sin enviar nada.
@@ -1075,29 +1101,13 @@ private fun insertarComasSeguras(t: String): String {
         // micrófono igualmente (evita ciclos congelados por un onDone TTS perdido).
         private const val WATCHDOG_PREGUNTA_MS = 6000L
 
-        private val REGEX_SI = Regex(
-            "\\b(s[ií])\\b|\\byes\\b|\\bok\\b|\\bokay\\b",
-            RegexOption.IGNORE_CASE
-        )
-        private val REGEX_NO = Regex(
-            "\\bno\\b|\\bnegative\\b",
-            RegexOption.IGNORE_CASE
-        )
+        // Las palabras aceptadas como respuesta (sí/no, enviar/corregir/cancelar) se
+        // leen de recursos localizados por idioma (arrays `palabras_*`).
         // Interrogativos con los que una frase dictada suele ser una pregunta. Se usa
         // el espacio tras el token para descartar casos como "quédate" que no preguntan.
         private val INTERROGATIVOS = listOf(
             "qué ", "quién ", "quiénes ", "cuándo ", "dónde ", "adónde ",
             "cómo ", "cuánto ", "cuánta ", "cuántos ", "cuántas ", "por qué "
-        )
-        // Palabras que indican "cancelar" en la confirmación de envío. Se comprueban
-        // antes que "enviar"/"corregir" para dar prioridad a la cancelación.
-        private val PALABRAS_CANCELAR = listOf(
-            "cancelar", "cancela", "cancel", "abortar", "abort",
-            "olvídalo", "olvidalo", "descartar", "no enviar", "no envíes",
-            "abbrechen", "stornieren", "verwerfen",
-            "annulla", "annullare", "cancella",
-            "annule", "annuler", "abandonne",
-            "キャンセル", "やめる", "中止"
         )
     }
 }

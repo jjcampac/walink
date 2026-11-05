@@ -206,4 +206,69 @@
     <string name="canal_asistente_desc">Voice questions and read-outs when messages arrive</string>
     <string name="notif_escuchando_titulo">Walink is listening</string>
     <string name="notif_escuchando_desc">Asking if you want to read a message…</string>
+
+    <!-- Voice answers accepted in the active language. The assistant compares the
+         captured answer against these complete words or phrases, case-insensitive. -->
+    <string-array name="palabras_si">
+        <item>yes</item>
+        <item>yep</item>
+        <item>yeah</item>
+        <item>yah</item>
+        <item>ok</item>
+        <item>okay</item>
+        <item>sure</item>
+        <item>correct</item>
+        <item>affirmative</item>
+        <item>aye</item>
+        <item>right</item>
+        <item>go ahead</item>
+        <item>read</item>
+    </string-array>
+    <string-array name="palabras_no">
+        <item>no</item>
+        <item>negative</item>
+        <item>nope</item>
+        <item>nah</item>
+        <item>don\'t read</item>
+        <item>skip</item>
+        <item>nothing</item>
+    </string-array>
+    <string-array name="palabras_enviar">
+        <item>yes</item>
+        <item>yep</item>
+        <item>yeah</item>
+        <item>ok</item>
+        <item>okay</item>
+        <item>send</item>
+        <item>send it</item>
+        <item>send now</item>
+        <item>go ahead</item>
+        <item>sure</item>
+        <item>do it</item>
+    </string-array>
+    <string-array name="palabras_corregir">
+        <item>no</item>
+        <item>correct</item>
+        <item>redo</item>
+        <item>repeat</item>
+        <item>change</item>
+        <item>again</item>
+        <item>edit</item>
+        <item>rewrite</item>
+        <item>negative</item>
+        <item>do it over</item>
+        <item>try again</item>
+    </string-array>
+    <string-array name="palabras_cancelar">
+        <item>cancel</item>
+        <item>cancel it</item>
+        <item>cancel that</item>
+        <item>abort</item>
+        <item>forget it</item>
+        <item>discard</item>
+        <item>don\'t send</item>
+        <item>drop it</item>
+        <item>dismiss</item>
+        <item>scrap it</item>
+    </string-array>
 </resources>

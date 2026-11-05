@@ -177,4 +177,63 @@
     <string name="diagnostico_titulo">診断</string>
     <string name="diagnostico_desc">メッセージ受信時の音声フロー（マイクとオーディオフォーカス）と電話の状態を保存します。不具合（例: 返答が聞き取れない）の後に共有して確認してください。</string>
     <string name="debug_nota_respuesta">RemoteInputの返信はLogcatに表示されます（タグ：WalinkDebug）。</string>
+
+    <!-- 選択中の言語で受け付ける音声応答。アシスタントは認識結果をこれらの単語・
+         フレーズ全体と比較する（大文字小文字は区別しない）。 -->
+    <string-array name="palabras_si">
+        <item>はい</item>
+        <item>うん</item>
+        <item>ええ</item>
+        <item>そう</item>
+        <item>読んで</item>
+        <item>お願い</item>
+        <item>いいよ</item>
+        <item>OK</item>
+        <item>オーケー</item>
+        <item>賛成</item>
+        <item>読みます</item>
+    </string-array>
+    <string-array name="palabras_no">
+        <item>いいえ</item>
+        <item>ううん</item>
+        <item>だめ</item>
+        <item>やめて</item>
+        <item>読まない</item>
+        <item>不要</item>
+        <item>結構</item>
+        <item>いいです</item>
+        <item>やめておく</item>
+    </string-array>
+    <string-array name="palabras_enviar">
+        <item>送って</item>
+        <item>送信</item>
+        <item>送る</item>
+        <item>はい</item>
+        <item>いいよ</item>
+        <item>OK</item>
+        <item>オーケー</item>
+        <item>送付</item>
+    </string-array>
+    <string-array name="palabras_corregir">
+        <item>いいえ</item>
+        <item>直して</item>
+        <item>やり直し</item>
+        <item>もう一度</item>
+        <item>修正</item>
+        <item>変えて</item>
+        <item>訂正</item>
+        <item>だめ</item>
+    </string-array>
+    <string-array name="palabras_cancelar">
+        <item>キャンセル</item>
+        <item>取消</item>
+        <item>やめ</item>
+        <item>やめる</item>
+        <item>中止</item>
+        <item>送らない</item>
+        <item>削除</item>
+        <item>忘れて</item>
+        <item>取り消し</item>
+        <item>やめとく</item>
+    </string-array>
 </resources>

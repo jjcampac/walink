@@ -8,7 +8,7 @@ Algunos vehículos con sistemas de infoentretenimiento propietarios (p. ej. **Te
 
 Coches así suelen aceptar, en cambio, la conexión **Bluetooth** con el teléfono. De esa idea nace Walink: aprovechar la tecnología de notificaciones de Android y esa conexión Bluetooth para que, mientras conduces y **sin tocar el móvil**, la app:
 
-- Te **informe por voz de la recepción** de un mensaje de WhatsApp (o Telegram, ampliable) y lo **lea en voz alta** en español de España.
+- Te **informe por voz de la recepción** de un mensaje de WhatsApp y lo **lea en voz alta** en el idioma activo de la app (español, inglés, alemán, italiano, francés o japonés).
 - Te permita **responder por voz** (dictado) y **enviar la respuesta** usando la acción oficial de respuesta de la propia notificación, sin Accessibility, ni apps de terceros, ni APIs no oficiales.
 
 Todo ello con una **privacidad estricta**: el procesamiento es 100 % local, sin red y sin analítica.
@@ -20,7 +20,7 @@ Todo ello con una **privacidad estricta**: el procesamiento es 100 % local, sin 
 - ✅ `NotificationListenerService` que detecta notificaciones de WhatsApp (`com.whatsapp` y `com.whatsapp.w4b`).
 - ✅ Parseo de remitente y texto (`NotificationParser`), incluyendo `MessagingStyle`.
 - ✅ Filtrado de notificaciones de resumen ("3 mensajes nuevos") y de llamadas.
-- ✅ Lectura en voz alta con `TextToSpeech` en español de España: *"Mensaje de [remitente]: [texto]"*.
+- ✅ Lectura en voz alta con `TextToSpeech` (primera versión en español de España; desde la Fase 5 siempre en el **idioma activo** de la app): *"Mensaje de [remitente]: [texto]"*.
 - ✅ Audio focus con `USAGE_ASSISTANCE_NAVIGATION_GUIDANCE` / `CONTENT_TYPE_SPEECH`.
 - ✅ Ajuste de **bajar volumen** (`AUDIOFOCUS_GAIN_TRANSIENT_MAY_DUCK`) o **pausar música** (`AUDIOFOCUS_GAIN_TRANSIENT`).
 - ✅ Interruptor en el mosaico de accesos rápidos (Quick Settings Tile) con pulsación larga que abre la `MainActivity`.
@@ -39,14 +39,14 @@ Todo ello con una **privacidad estricta**: el procesamiento es 100 % local, sin 
 - ✅ **Modo "Preguntar antes de leer"**: el `LectorAsistenteService` (servicio en primer plano) pregunta por voz *"¿Quieres que lo lea?"* y escucha sí/no.
 - ✅ El servicio en primer plano se usa **solo** en el modo "preguntar antes"; en el modo "inmediato" el mensaje se lee directamente sin arrancar el servicio.
 - ✅ **Retraso inicial de Bluetooth** (por defecto 800 ms de silencio solo cuando la salida es Bluetooth) para que no se corte el inicio de la frase.
-- ✅ Servicio en primer plano tipo **`microphone`** (API < 34) y **`specialUse`** (API 34+, para poder arrancar con la app en segundo plano).
+- ✅ Servicio en primer plano declarado tipo **`microphone|specialUse`**: arranca como `specialUse` en API 34+ (para poder iniciar con la app en segundo plano) y **conmuta a `microphone`** justo antes de `startListening` (así mantiene el permiso *while-in-use* del micrófono mientras dura el reconocimiento).
 - ✅ Correcciones de estabilidad: notificaciones del canal de servicio ignoradas por el parser (evita bucle), IDs de locución TTS únicos (evita callbacks fantasma), y cada simulación usa un ID de notificación nuevo.
 
 ## ✅ Fase 3 — Respuesta por voz: dictado, corrección y envío *(completada)*
 
 - ✅ Tras leer un mensaje (en cualquiera de los dos modos) se ofrece por voz responder al remitente.
 - ✅ Pregunta sí/no para responder.
-- ✅ **Dictado** de la respuesta con `SpeechRecognizer` (es-ES).
+- ✅ **Dictado** de la respuesta con `SpeechRecognizer`.
 - ✅ Se anuncia el texto redactado y se pregunta **"¿Enviar, corregir o cancelar?"**.
 - ✅ Si se elige **corregir**, vuelve a escuchar el dictado (se descarta el borrador anterior).
 - ✅ Si se elige **cancelar**, se descarta el borrador y no se envía nada.
@@ -70,13 +70,24 @@ Todo ello con una **privacidad estricta**: el procesamiento es 100 % local, sin 
   - Archivo `proguard-rules.pro` configurado para mantener componentes Android, servicios en primer plano y serializaciones.
   - Compilación `assembleRelease` y `assembleDebug` verificadas con éxito.
 
+## ✅ Fase 5 — Micrófono permanente, arranque al encender, diagnóstico y pulido *(completada)*
+
+- ✅ **Micrófono permanente con pantalla apagada:** el `MicrofonoPermanenteService` (FGS tipo `microphone`, en segundo plano) mantiene el permiso *while-in-use* del micrófono mientras Walink está activo. Corrige el fallo por el que, con la pantalla apagada, el `SpeechRecognizer` solo captaba el primer buffer y devolvía `ERROR_NO_MATCH` (pico RMS 0).
+- ✅ **Arranque automático al encender el teléfono:** `BootReceiver` arranca el servicio de micrófono permanente al completarse el arranque del dispositivo, sin necesidad de abrir la app.
+- ✅ **Registro de diagnóstico persistente** (`diag/LogDiag.kt`): archivo local `filesDir/walink_diag.log` con rotación (~512 KB + una copia anterior) que guarda el flujo de voz (audio focus, FGS y reconocedor) y una foto del estado del teléfono (pantalla, no-molestar, batería y Bluetooth) en el momento de cada mensaje. Se puede ver y compartir desde la app, o extraer con `adb` en builds debug.
+- ✅ **Se respeta la voz elegida:** el `SpeechReader` vuelve a aplicar la voz guardada (local o de red) antes de cada locución. Antes, las voces de red se descartaban y siempre se usaba la voz local por defecto (la previsualización del selector sí funcionaba porque usaba otra instancia de TTS).
+- ✅ **Voz y respuestas en el idioma activo de la app** (ES/EN/DE/IT/FR/JA):
+  - `SpeechRecognizer` reconoce en el idioma activo (antes iba fijado a `es-ES`).
+  - Las respuestas esperadas (sí/no y enviar/corregir/cancelar) están localizadas por idioma en `strings.xml`, con comparación de palabra completa (y frases como "no envíes", "go ahead" o "don't send").
+- ✅ Versión **1.1** (versionCode 2).
+
 ---
 
 ## ✔️ Decisiones de arquitectura ya fijadas
 
 - **Respuestas:** se envían con la acción `RemoteInput` de la propia notificación de WhatsApp. No se usa accesibilidad ni APIs no oficiales.
-- **Voz:** `TextToSpeech` y `SpeechRecognizer` en español de España (`es-ES`).
-- **FGS con micrófono:** desde Android 14 (API 34) el tipo `microphone` no puede arrancar en segundo plano; por eso el servicio declara `microphone|specialUse` y usa `specialUse` en API 34+.
+- **Voz:** `TextToSpeech` y `SpeechRecognizer` en el idioma activo de la app (el elegido en ajustes o, si es "seguir sistema", el del teléfono). Las respuestas esperadas (sí/no, enviar/corregir/cancelar) están localizadas por idioma.
+- **FGS con micrófono:** desde Android 14 (API 34) el tipo `microphone` no puede arrancar en segundo plano; por eso el servicio de voz se inicia como `specialUse` y **conmuta a `microphone`** justo antes de escuchar. Además, un FGS permanente de tipo `microphone` (`MicrofonoPermanenteService`) mantiene el permiso *while-in-use* del micrófono y permite oír y responder con la pantalla apagada.
 - **Solo el coche:** si el usuario elige un dispositivo Bluetooth como "coche", la app solo lee/pregunta/reproduce cuando ese dispositivo está conectado. Sin selección, lee siempre por el teléfono.
 
 ## Requisitos
@@ -132,25 +143,33 @@ respuesta por RemoteInput) funcione también en release.
 
 ```
 app/src/main/java/com/jjcampac/walink/
-├── MainActivity.kt                       # Pantalla principal + permisos + sección debug
+├── MainActivity.kt                       # Pantalla principal + ajustes + permisos + sección debug
+├── WalinkApplication.kt                  # Locale activo para todo el proceso + observador del coche (ACL)
 ├── data/
-│   └── WalinkDataStore.kt                 # Preferencias locales (SharedPreferences) + borrador de respuesta
+│   └── WalinkDataStore.kt                # Preferencias locales (SharedPreferences) + borrador de respuesta
 ├── debug/
-│   └── DebugSimulator.kt                  # Simulador de mensajes + DebugReplyReceiver (solo debug)
+│   └── DebugSimulator.kt                 # Simulador de mensajes + DebugReplyReceiver (solo debug)
+├── diag/
+│   └── LogDiag.kt                        # Log persistente walink_diag.log con rotación (~512 KB)
+├── idioma/
+│   └── IdiomaHelper.kt                   # Idiomas soportados (ES/EN/DE/IT/FR/JA) + locale del contexto
 ├── parser/
-│   └── NotificationParser.kt              # Parseo de notificaciones de WhatsApp
+│   └── NotificationParser.kt             # Parseo de notificaciones de WhatsApp
 ├── service/
-│   ├── WhatsAppNotificationListener.kt    # Listener de notificaciones (+ extracción RemoteInput + filtro coche)
-│   ├── BluetoothCoche.kt                  # Lista dispositivos emparejados + comprueba conexión por audio
-│   ├── WalinkTileService.kt               # Mosaico de accesos rápidos (activar/desactivar)
-│   └── BluetoothAudioReceiver.kt          # Observador de conectividad de audio Bluetooth
+│   ├── WhatsAppNotificationListener.kt    # Listener de notificaciones (+ RemoteInput + filtro de coche/contactos)
+│   ├── BluetoothCoche.kt                 # Dispositivo emparejado del coche + estado de conexión por dispositivo
+│   ├── BluetoothAudioReceiver.kt         # Conectividad de audio Bluetooth (A2DP/HEADSET)
+│   ├── BluetoothAclReceiver.kt           # Enlace ACL del Bluetooth (conexión real por MAC)
+│   ├── WalinkTileService.kt              # Mosaico de accesos rápidos (activar/desactivar)
+│   ├── BootReceiver.kt                   # Arranca MicrofonoPermanenteService al encender el teléfono
+│   └── MicrofonoPermanenteService.kt     # FGS tipo microphone permanente (micrófono con pantalla apagada)
 ├── speech/
-│   ├── SpeechReader.kt                    # TextToSpeech + audio focus + retraso Bluetooth
-│   └── LectorAsistenteService.kt          # FGS de voz: preguntar/responder/dictar/enviar
-└── ui/theme/                              # Tema Compose
+│   ├── SpeechReader.kt                   # TextToSpeech + audio focus + retraso Bluetooth
+│   └── LectorAsistenteService.kt         # FGS de voz: preguntar/responder/dictar/enviar
+└── ui/theme/                             # Tema Compose
 
 app/src/debug/
-└── AndroidManifest.xml                    # Registrar DebugReplyReceiver solo en debug
+└── AndroidManifest.xml                   # Registrar DebugReplyReceiver solo en debug
 ```
 
 ## Privacidad
@@ -172,7 +191,7 @@ app/src/debug/
 ### El comando exacto para ver el log de la app en logcat
 
 ```bash
-adb logcat -s WalinkListener WalinkLectorVoz WalinkTTS WalinkDebug WalinkParser
+adb logcat -s WalinkListener WalinkLectorVoz WalinkTTS WalinkDebug WalinkParser WalinkDiag
 ```
 
 ### Log persistente para diagnosticar fallos difíciles de reproducir

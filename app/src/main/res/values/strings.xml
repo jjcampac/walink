@@ -213,4 +213,62 @@
     <string name="diagnostico_titulo">Diagnóstico</string>
     <string name="diagnostico_desc">Guarda el flujo de voz (micrófono y audio focus) y el estado del teléfono cuando llega un mensaje. Compártelo después de un fallo (p. ej. si no se oye tu respuesta) para revisarlo.</string>
     <string name="debug_nota_respuesta">La respuesta del RemoteInput se muestra en Logcat (etiqueta WalinkDebug).</string>
+
+    <!-- Respuestas de voz aceptadas según el idioma activo. El LectorAsistenteService
+         compara la respuesta captada contra estas palabras completas (o frases),
+         sin distinguir mayúsculas ni acentos de reconocimiento. -->
+    <string-array name="palabras_si">
+        <item>sí</item>
+        <item>si</item>
+        <item>vale</item>
+        <item>yes</item>
+        <item>ok</item>
+        <item>okay</item>
+        <item>adelante</item>
+        <item>lee</item>
+        <item>claro</item>
+        <item>correcto</item>
+        <item>positivo</item>
+    </string-array>
+    <string-array name="palabras_no">
+        <item>no</item>
+        <item>negativo</item>
+        <item>para</item>
+        <item>quita</item>
+    </string-array>
+    <string-array name="palabras_enviar">
+        <item>sí</item>
+        <item>si</item>
+        <item>yes</item>
+        <item>ok</item>
+        <item>okay</item>
+        <item>enviar</item>
+        <item>envíalo</item>
+        <item>envíalo ya</item>
+        <item>mandar</item>
+        <item>manda</item>
+        <item>adelante</item>
+        <item>dale</item>
+    </string-array>
+    <string-array name="palabras_corregir">
+        <item>no</item>
+        <item>corregir</item>
+        <item>repetir</item>
+        <item>cambiar</item>
+        <item>otra vez</item>
+        <item>rehacer</item>
+        <item>deshacer</item>
+    </string-array>
+    <string-array name="palabras_cancelar">
+        <item>cancelar</item>
+        <item>cancela</item>
+        <item>abortar</item>
+        <item>aborta</item>
+        <item>olvídalo</item>
+        <item>olvidalo</item>
+        <item>descartar</item>
+        <item>no enviar</item>
+        <item>no envíes</item>
+        <item>quítalo</item>
+    </string-array>
 </resources>
