@@ -217,4 +217,34 @@ tarjeta de depuración hay un botón **"Ver diagnóstico"** que abre el contenid
 
 ---
 
-**Autores:** Proyecto Walink — desarrollado por **jjcampac** y **cline**, por fases para pruebas en dispositivo real.
+**Autor:** Proyecto Walink — desarrollado por **jjcampac**, por fases para pruebas en dispositivo real.
+
+**IA:** Con la asistencia de  **cline**
+
+---
+
+## Licencia
+
+Esta aplicación se distribuye bajo la licencia Creative Commons
+**Atribución-NoComercial 4.0 Internacional** (CC BY-NC 4.0).
+
+- ✅ **Uso libre:** se puede usar, copiar, modificar y compartir libremente,
+  siempre que el uso sea de carácter **no comercial**.
+- ✅ **Prohibido su uso comercial:** cualquier uso destinado a fines
+  comerciales (incluso apps comerciales, servicios de pago o integración
+  dentro de productos con fines de lucro) está **expressamente prohibido**
+  sin el permiso expreso del autor.
+- ✅ **Atribución:** en cualquier copia o trabajo derivado debes mencionar
+  siempre al autor (**jjcampac**), el nombre de la aplicación (**Walink**)
+  y la URL del repositorio original
+  (**https://github.com/jjcampac/walink**), indicando si se han realizado
+  cambios.
+- ✅ **Sin garantía:** el software se ofrece "tal cual" (`as-is`),
+  sin garantía de ningún tipo, expresada o implícita.
+
+Visita el siguiente enlace para consultar la licencia completa en español:
+
+https://creativecommons.org/licenses/by-nc/4.0/deed.es
+
+El texto completo de la licencia está disponible en el archivo
+[LICENSE](../../LICENSE) en la raíz del repositorio.
