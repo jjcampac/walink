@@ -117,6 +117,17 @@ object NotificationParser {
         // texto como "RemitenteGrupo: mensaje" o el título coincide con un grupo.
         val infoTexto = extras.getString(Notification.EXTRA_INFO_TEXT) ?: ""
         val (remitente, textoLimpio, esGrupo) = separarRemitenteGrupo(titulo, texto, infoTexto)
+
+        // Ignorar notificaciones cuyo remitente sea una autoreferencia del
+        // usuario (p. ej. "Tú" en WhatsApp en español). Esto se produce cuando
+        // WhatsApp actualiza la notificación tras un envío por RemoteInput y la
+        // notificación no expone MessagingStyle (caso raro en versiones modernas).
+        val autoreferencias = setOf("tú", "you", "du", "tu", "ti", "ich")
+        if (remitente.lowercase().trim() in autoreferencias) {
+            Log.d(TAG, "Remitente es autoreferencia ('$remitente'), se ignora")
+            return null
+        }
+
         val esAudio = esMensajeDeVoz(textoLimpio.lowercase())
 
         return MensajeWhatsApp(
@@ -144,6 +155,18 @@ object NotificationParser {
         val ultimoMensaje = mensajes.lastOrNull() ?: return null
         val texto = ultimoMensaje.text?.toString() ?: return null
         if (texto.isBlank()) return null
+
+        // IMPORTANTE: si el último mensaje fue enviado por el propio usuario
+        // (sender es null o vacío), significa que la notificación se ha actualizado
+        // tras responder desde Walink (RemoteInput) o desde la propia WhatsApp.
+        // Ignoramos estas notificaciones para evitar leer mensajes propios y
+        // el bucle "Tú" descrito en el fallo diagnosticado.
+        val sender = ultimoMensaje.sender
+        val esMensajePropio = sender == null || sender.isEmpty()
+        if (esMensajePropio) {
+            Log.d(TAG, "Último mensaje es propio (sender=${ultimoMensaje.sender}), se ignora")
+            return null
+        }
 
         // El autor puede ser null en WhatsApp Business / algunas versiones.
         // sender está deprecado en la API de MessagingStyle pero es la única

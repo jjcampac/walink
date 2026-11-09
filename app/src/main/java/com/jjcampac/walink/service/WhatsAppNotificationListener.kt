@@ -36,6 +36,27 @@ class WhatsAppNotificationListener : NotificationListenerService() {
     private lateinit var speechReader: SpeechReader
     private lateinit var dataStore: WalinkDataStore
 
+    companion object {
+        private const val TAG = "WalinkListener"
+        // Ventana de deduplicación: si la misma clave de notificación llega dos
+        // veces en menos de este tiempo, se ignora la segunda. Esto evita procesar
+        // la misma notificación cuando el sistema la reenvía por una actualización
+        // que no cambia el contenido sustancial (p. ej. el contador de la
+        // notificación en el panel).
+        private const val DEDUP_WINDOW_MS = 1500L
+        // Tamaño máximo del caché de claves recientes para evitar crecimiento
+        // infinito.
+        private const val DEDUP_MAX_SIZE = 32
+    }
+
+    /** Caché de claves de notificación procesadas recientemente (timestamp). */
+    // Usamos LinkedHashMap normal; la deduplicación por ventana de tiempo (DEDUP_WINDOW_MS)
+    // en onNotificationPosted es suficiente para evitar procesar duplicados.    private val notificacionesRecientes = LinkedHashMap<String, Long>(
+        /* initialCapacity */ 16,
+        /* loadFactor */ 0.75f,
+        /* accessOrder */ false
+    )
+
     override fun attachBaseContext(newBase: Context) {
         super.attachBaseContext(IdiomaHelper.contextoLocalizado(newBase))
     }
@@ -57,6 +78,22 @@ class WhatsAppNotificationListener : NotificationListenerService() {
         super.onNotificationPosted(sbn)
         try {
             if (!dataStore.estaActivado) return
+
+            // Deduplicación: si esta clave de notificación ya se procesó hace
+            // menos de DEDUP_WINDOW_MS, la ignoramos. Esto evita procesar varias
+            // veces la misma notificación cuando el sistema la reenvía por
+            // actualizaciones de metadatos (contador, orden en el panel, etc.).
+            val ahora = System.currentTimeMillis()
+            val clave = sbn.key
+            val ultimaVez = notificacionesRecientes[clave]
+            if (ultimaVez != null) {
+                val diff = ahora - ultimaVez
+                if (diff < DEDUP_WINDOW_MS) {
+                    Log.d(TAG, "Notificación duplicada ignorada (clave=$clave, hace $diff ms)")
+                    return
+                }
+            }
+            notificacionesRecientes[clave] = ahora
 
             val mensaje = NotificationParser.parsear(
                 sbn,
@@ -231,7 +268,4 @@ class WhatsAppNotificationListener : NotificationListenerService() {
         return pendingIntent to claves
     }
 
-    companion object {
-        private const val TAG = "WalinkListener"
     }
-}
