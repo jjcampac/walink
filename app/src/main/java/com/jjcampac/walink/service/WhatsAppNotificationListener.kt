@@ -38,24 +38,41 @@ class WhatsAppNotificationListener : NotificationListenerService() {
 
     companion object {
         private const val TAG = "WalinkListener"
-        // Ventana de deduplicación: si la misma clave de notificación llega dos
-        // veces en menos de este tiempo, se ignora la segunda. Esto evita procesar
-        // la misma notificación cuando el sistema la reenvía por una actualización
-        // que no cambia el contenido sustancial (p. ej. el contador de la
-        // notificación en el panel).
-        private const val DEDUP_WINDOW_MS = 1500L
-        // Tamaño máximo del caché de claves recientes para evitar crecimiento
-        // infinito.
-        private const val DEDUP_MAX_SIZE = 32
+        // Ventana de seguridad: ignoramos re-posts de la misma clave que ocurren
+        // en menos de este tiempo (evita ráfagas de reenvíos).
+        private const val DEDUP_WINDOW_MS = 30_000L
+        // Tamaño máximo del caché de claves gestionadas (evita crecimiento infinito).
+        private const val DEDUP_MAX_SIZE = 64
     }
 
-    /** Caché de claves de notificación procesadas recientemente (timestamp). */
-    // Usamos LinkedHashMap normal; la deduplicación por ventana de tiempo (DEDUP_WINDOW_MS)
-    // en onNotificationPosted es suficiente para evitar procesar duplicados.    private val notificacionesRecientes = LinkedHashMap<String, Long>(
+    /** Caché de claves de notificación procesadas recientemente (timestamp de llegada). */
+    private val notificacionesRecientes = LinkedHashMap<String, Long>(
         /* initialCapacity */ 16,
         /* loadFactor */ 0.75f,
         /* accessOrder */ false
     )
+
+    /** Clave de notificación -> postTime de última notificación que gestionamos
+     *  (leímos o preguntamos). Si WhatsApp vuelve a publicar el mismo aviso con un
+     *  postTime igual o anterior, no es un mensaje nuevo: se ignora. Esto rompe el
+     *  bucle de "¿lo leo?" cuando una notificación activa se reenvía varias veces. */
+    private val notificacionesGestionadas = LinkedHashMap<String, Long>(
+        /* initialCapacity */ 16,
+        /* loadFactor */ 0.75f,
+        /* accessOrder */ false
+    )
+
+    private fun yaGestionada(clave: String, postTime: Long): Boolean {
+        val previo = notificacionesGestionadas[clave]
+        return previo != null && postTime <= previo
+    }
+
+    private fun marcarGestionada(clave: String, postTime: Long) {
+        if (notificacionesGestionadas.size >= DEDUP_MAX_SIZE) {
+            notificacionesGestionadas.remove(notificacionesGestionadas.keys.first())
+        }
+        notificacionesGestionadas[clave] = postTime
+    }
 
     override fun attachBaseContext(newBase: Context) {
         super.attachBaseContext(IdiomaHelper.contextoLocalizado(newBase))
@@ -79,21 +96,27 @@ class WhatsAppNotificationListener : NotificationListenerService() {
         try {
             if (!dataStore.estaActivado) return
 
-            // Deduplicación: si esta clave de notificación ya se procesó hace
-            // menos de DEDUP_WINDOW_MS, la ignoramos. Esto evita procesar varias
-            // veces la misma notificación cuando el sistema la reenvía por
-            // actualizaciones de metadatos (contador, orden en el panel, etc.).
+            // ---- Deduplicación y protección contra bucles ----
             val ahora = System.currentTimeMillis()
             val clave = sbn.key
+            val postTime = sbn.postTime
+
+            // 1. Re-post demasiado rápido de la misma clave (ventana de seguridad).
             val ultimaVez = notificacionesRecientes[clave]
-            if (ultimaVez != null) {
-                val diff = ahora - ultimaVez
-                if (diff < DEDUP_WINDOW_MS) {
-                    Log.d(TAG, "Notificación duplicada ignorada (clave=$clave, hace $diff ms)")
-                    return
-                }
+            if (ultimaVez != null && ahora - ultimaVez < DEDUP_WINDOW_MS) {
+                Log.d(TAG, "Notificación duplicada (ventana) ignorada (clave=$clave, hace ${ahora - ultimaVez} ms)")
+                return
             }
+
+            // 2. Ya gestionamos este aviso con un postTime igual o posterior ->
+            //    no es un mensaje nuevo, es un re-post del mismo aviso.
+            if (yaGestionada(clave, postTime)) {
+                Log.d(TAG, "Notificación ya gestionada, ignorada (clave=$clave, postTime=$postTime)")
+                return
+            }
+
             notificacionesRecientes[clave] = ahora
+            marcarGestionada(clave, postTime)
 
             val mensaje = NotificationParser.parsear(
                 sbn,

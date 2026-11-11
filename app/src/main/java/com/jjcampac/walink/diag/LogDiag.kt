@@ -65,6 +65,22 @@ object LogDiag {
         }
     }
 
+    /** Devuelve las últimas [n] líneas del fichero de diagnóstico, sin leer todo
+     *  el fichero en memoria. Útil para compartir solo lo relevante cuando el log
+     *  ya es muy grande. */
+    fun ultimasLineas(contexto: Context, n: Int): String {
+        val fichero = File(contexto.applicationContext.filesDir, NOMBRE_FICHERO)
+        return try {
+            if (!fichero.exists()) return ""
+            val todas = fichero.readLines()
+            if (todas.isEmpty()) return ""
+            val desde = maxOf(0, todas.size - n)
+            todas.subList(desde, todas.size).joinToString("\n")
+        } catch (t: Throwable) {
+            "Error al leer las últimas líneas del diagnóstico: $t"
+        }
+    }
+
     /**
      * Foto del estado del teléfono en el momento exacto de llegar una notificación
      * (pantalla, no-molestar, batería y Bluetooth). Es justo lo que no conocemos del

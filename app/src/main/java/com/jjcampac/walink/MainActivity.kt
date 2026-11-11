@@ -1131,7 +1131,7 @@ private fun CabeceraWalink(
                 modifier = Modifier.padding(top = 4.dp)
             )
             Text(
-                text = if (BuildConfig.DEBUG) "v1.1d" else "v1.1r",
+                text = "v${BuildConfig.VERSION_NAME}${if (BuildConfig.DEBUG) "d" else "r"}",
                 style = MaterialTheme.typography.bodySmall,
                 color = Color.White.copy(alpha = 0.6f),
                 textAlign = TextAlign.Center,
@@ -2149,6 +2149,26 @@ private fun TarjetaDiagnostico() {
         }
     }
 
+    /** Comparte solo las últimas líneas del diagnóstico para no saturar el destinatario
+     *  cuando el fichero de log ya es muy grande. */
+    fun compartirUltimasLineas(lineas: Int = 100) {
+        val contenido = LogDiag.ultimasLineas(contexto, lineas)
+        if (contenido.isBlank()) {
+            Toast.makeText(contexto, contexto.getString(R.string.debug_diagnostico_vacio), Toast.LENGTH_SHORT).show()
+            return
+        }
+        val intent = Intent(Intent.ACTION_SEND).apply {
+            type = "text/plain"
+            putExtra(Intent.EXTRA_SUBJECT, contexto.getString(R.string.debug_diagnostico_compartir_ultimas_lineas_asunto, lineas))
+            putExtra(Intent.EXTRA_TEXT, contenido)
+        }
+        try {
+            contexto.startActivity(Intent.createChooser(intent, contexto.getString(R.string.debug_diagnostico_compartir_ultimas_lineas_titulo)))
+        } catch (e: Exception) {
+            Log.e("WalinkDebug", "No se pudo compartir las últimas líneas del diagnóstico", e)
+        }
+    }
+
     Column(
         modifier = Modifier.fillMaxWidth(),
         verticalArrangement = Arrangement.spacedBy(8.dp)
@@ -2180,6 +2200,13 @@ private fun TarjetaDiagnostico() {
                 modifier = Modifier.fillMaxWidth()
             ) {
                 Text(stringResource(id = R.string.debug_diagnostico_compartir))
+            }
+
+            OutlinedButton(
+                onClick = { compartirUltimasLineas() },
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Text(stringResource(id = R.string.debug_diagnostico_compartir_ultimas_lineas))
             }
 
             if (mostrarDiagnostico) {

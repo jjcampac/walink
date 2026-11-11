@@ -208,6 +208,9 @@
     <string name="debug_diagnostico_titulo">Diagnóstico</string>
     <string name="debug_diagnostico_vacio">(todavía no hay diagnóstico: el fichero no existe o no se ha recibido ningún mensaje)</string>
     <string name="debug_diagnostico_compartir">Compartir</string>
+    <string name="debug_diagnostico_compartir_ultimas_lineas">Compartir últimas líneas</string>
+    <string name="debug_diagnostico_compartir_ultimas_lineas_asunto">Walink diagnóstico (últimas %1$d líneas)</string>
+    <string name="debug_diagnostico_compartir_ultimas_lineas_titulo">Compartir últimas líneas del diagnóstico</string>
     <string name="debug_diagnostico_cerrar">Cerrar</string>
     <string name="seccion_mensajes_titulo">Mensajes</string>
     <string name="diagnostico_titulo">Diagnóstico</string>
