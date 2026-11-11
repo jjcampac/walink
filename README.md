@@ -225,22 +225,26 @@ tarjeta de depuración hay un botón **"Ver diagnóstico"** que abre el contenid
 
 ## Licencia
 
-Este proyecto se distribuye bajo la **Apache License, Version 2.0**
-(`Apache-2.0`), una licencia de código abierto permisiva.
+Esta aplicación se distribuye bajo la licencia Creative Commons
+**Atribución-NoComercial 4.0 Internacional** (CC BY-NC 4.0).
 
-- ✅ **Uso libre:** puedes usar, copiar, modificar, fusionar, publicar,
-  distribuir, sublicenciar y/o vender copias del software, también con fines
-  comerciales.
-- ✅ **Condiciones:** conservar los avisos de copyright y el texto de la
-  licencia ([`LICENSE`](LICENSE)), mantener el fichero [`NOTICE`](NOTICE) y
-  indicar los cambios realizados en los ficheros modificados.
-- ✅ **Marcas:** la licencia **no** concede permiso para usar el nombre, el logo
-  ni las marcas del autor, salvo para describir el origen del software.
-- ✅ **Sin garantía:** el software se ofrece "tal cual" (`as-is`), sin garantías
-  ni condiciones de ningún tipo, expresas o implícitas.
+- ✅ **Uso libre:** se puede usar, copiar, modificar y compartir libremente,
+  siempre que el uso sea de carácter **no comercial**.
+- ✅ **Prohibido su uso comercial:** cualquier uso destinado a fines
+  comerciales (incluso apps comerciales, servicios de pago o integración
+  dentro de productos con fines de lucro) está **expressamente prohibido**
+  sin el permiso expreso del autor.
+- ✅ **Atribución:** en cualquier copia o trabajo derivado debes mencionar
+  siempre al autor (**jjcampac**), el nombre de la aplicación (**Walink**)
+  y la URL del repositorio original
+  (**https://github.com/jjcampac/walink**), indicando si se han realizado
+  cambios.
+- ✅ **Sin garantía:** el software se ofrece "tal cual" (`as-is`),
+  sin garantía de ningún tipo, expresada o implícita.
 
-Texto completo de la licencia (en inglés, versión oficial):
+Visita el siguiente enlace para consultar la licencia completa en español:
 
-https://www.apache.org/licenses/LICENSE-2.0
+https://creativecommons.org/licenses/by-nc/4.0/deed.es
 
-Copyright 2026 jjcampac
+El texto completo de la licencia está disponible en el archivo
+[LICENSE](../../LICENSE) en la raíz del repositorio.
