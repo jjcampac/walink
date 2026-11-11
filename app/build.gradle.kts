@@ -52,8 +52,7 @@ android {
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
             )
-            versionNameSuffix = "walink"
-            // Solo se firma si hay keystore.properties con credenciales.
+// Solo se firma si hay keystore.properties con credenciales.
             if (keystoreProps.isNotEmpty()) {
                 signingConfig = signingConfigs.getByName("release")
             }
