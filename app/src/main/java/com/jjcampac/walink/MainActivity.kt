@@ -2133,6 +2133,20 @@ private fun TarjetaDiagnostico() {
     var mostrarDiagnostico by remember { mutableStateOf(false) }
     var contenidoDiagnostico by remember { mutableStateOf("") }
 
+    // Número de líneas que comparte el botón "Compartir últimas líneas".
+    val lineasDiagnostico = 100
+
+    // Strings resueltos en el ámbito composable: consultar recursos mediante
+    // LocalContext.current lo marca el Lint de Compose como error.
+    val textoDiagnosticoVacio = stringResource(id = R.string.debug_diagnostico_vacio)
+    val textoAsuntoUltimasLineas = stringResource(
+        id = R.string.debug_diagnostico_compartir_ultimas_lineas_asunto,
+        lineasDiagnostico
+    )
+    val textoTituloUltimasLineas = stringResource(
+        id = R.string.debug_diagnostico_compartir_ultimas_lineas_titulo
+    )
+
     fun compartirDiagnostico() {
         val contenido = if (contenidoDiagnostico.isBlank()) LogDiag.contenido(contexto) else contenidoDiagnostico
         val intent = Intent(Intent.ACTION_SEND).apply {
@@ -2149,19 +2163,19 @@ private fun TarjetaDiagnostico() {
 
     /** Comparte solo las últimas líneas del diagnóstico para no saturar el destinatario
      *  cuando el fichero de log ya es muy grande. */
-    fun compartirUltimasLineas(lineas: Int = 100) {
-        val contenido = LogDiag.ultimasLineas(contexto, lineas)
+    fun compartirUltimasLineas() {
+        val contenido = LogDiag.ultimasLineas(contexto, lineasDiagnostico)
         if (contenido.isBlank()) {
-            Toast.makeText(contexto, contexto.getString(R.string.debug_diagnostico_vacio), Toast.LENGTH_SHORT).show()
+            Toast.makeText(contexto, textoDiagnosticoVacio, Toast.LENGTH_SHORT).show()
             return
         }
         val intent = Intent(Intent.ACTION_SEND).apply {
             type = "text/plain"
-            putExtra(Intent.EXTRA_SUBJECT, contexto.getString(R.string.debug_diagnostico_compartir_ultimas_lineas_asunto, lineas))
+            putExtra(Intent.EXTRA_SUBJECT, textoAsuntoUltimasLineas)
             putExtra(Intent.EXTRA_TEXT, contenido)
         }
         try {
-            contexto.startActivity(Intent.createChooser(intent, contexto.getString(R.string.debug_diagnostico_compartir_ultimas_lineas_titulo)))
+            contexto.startActivity(Intent.createChooser(intent, textoTituloUltimasLineas))
         } catch (e: Exception) {
             Log.e("WalinkDebug", "No se pudo compartir las últimas líneas del diagnóstico", e)
         }
