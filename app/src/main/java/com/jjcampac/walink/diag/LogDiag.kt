@@ -86,7 +86,7 @@ object LogDiag {
      * (pantalla, no-molestar, batería y Bluetooth). Es justo lo que no conocemos del
      * fallo real: saber en qué estado estaba el móvil cuando se recibió el mensaje.
      */
-    fun registrarEstado(contexto: Context, motivo: String) {
+    fun registrarEstado(contexto: Context, motivo: String, extra: String? = null) {
         val c = contexto.applicationContext
 
         val pantalla = try {
@@ -129,9 +129,14 @@ object LogDiag {
             "desconocido"
         }
 
+        // Información adicional que solo conoce quien llama (p. ej. si el FGS
+        // permanente de micrófono está activo: sin él no hay permiso while-in-use y
+        // el reconocedor no capta nada, aunque la app lea y pregunte con normalidad).
+        val sufijo = if (extra.isNullOrBlank()) "" else " | $extra"
+
         escribir(
             "I",
-            "ESTADO[$motivo] pantalla=$pantalla | no-molestar=$dnd | bateria=$bateria | bluetooth=[$bluetooth] | salidas=[$salidas]"
+            "ESTADO[$motivo] pantalla=$pantalla | no-molestar=$dnd | bateria=$bateria | bluetooth=[$bluetooth] | salidas=[$salidas]$sufijo"
         )
     }
 

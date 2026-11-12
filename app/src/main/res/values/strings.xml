@@ -126,6 +126,14 @@
     <string name="canal_asistente_desc">Preguntas y lecturas por voz al recibir mensajes</string>
     <string name="notif_escuchando_titulo">Walink escuchando</string>
     <string name="notif_escuchando_desc">Preguntando si quieres leer un mensaje…</string>
+    <!-- Aviso y acción para recuperar el permiso while-in-use del micrófono -->
+    <string name="micro_no_disponible">No puedo usar el micrófono del teléfono. Abre Walink o toca Reactivar micrófono en la notificación.</string>
+    <string name="mic_reactivar_titulo">Micrófono desactivado</string>
+    <string name="mic_reactivar_desc">Toca para reactivar el micrófono de Walink</string>
+    <string name="mic_reactivar_accion">Reactivar</string>
+    <!-- Notificacion del servicio de microfono permanente (distinta de la sesion de voz) -->
+    <string name="notif_micro_titulo">Walink activo</string>
+    <string name="notif_micro_desc">Micrófono preparado para responder por voz</string>
 
     <!-- Responder por voz después de leer -->
     <string name="pregunta_responder">¿Quieres responder a %1$s?</string>

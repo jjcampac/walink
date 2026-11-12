@@ -124,6 +124,20 @@
             android:exported="false"
             android:foregroundServiceType="microphone" />
 
+        <!-- Actividad sin interfaz (tema translúcido) que abre el mosaico cuando hace
+             falta una ventana elegible para arrancar el FGS de tipo "microphone".
+             Sin ella, activar Walink desde el mosaico dejaba el micrófono sin permiso
+             (SecurityException) hasta tocar el aviso de reactivación. Se cierra sola
+             en cuanto el servicio queda en primer plano. -->
+        <activity
+            android:name=".service.ArranqueRapidoActivity"
+            android:excludeFromRecents="true"
+            android:exported="false"
+            android:noHistory="true"
+            android:showWhenLocked="true"
+            android:taskAffinity=""
+            android:theme="@android:style/Theme.Translucent.NoTitleBar" />
+
     </application>
 
 </manifest>

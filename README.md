@@ -81,6 +81,22 @@ Todo ello con una **privacidad estricta**: el procesamiento es 100 % local, sin 
   - Las respuestas esperadas (sí/no y enviar/corregir/cancelar) están localizadas por idioma en `strings.xml`, con comparación de palabra completa (y frases como "no envíes", "go ahead" o "don't send").
 - ✅ Versión **1.1** (versionCode 2).
 
+## ✅ Fase 6 — El micrófono permanente no puede perderse en silencio *(completada)*
+
+- ✅ **Diagnóstico del fallo real:** al actualizar la app o reiniciar el teléfono, el `MicrofonoPermanenteService` no podía arrancar (desde Android 15 un `BOOT_COMPLETED` no puede iniciar un FGS de tipo `microphone`) y se detenía **sin avisar**. A partir de ahí, la app leía y preguntaba con normalidad pero el `SpeechRecognizer` no captaba nada (`SecurityException` al conmutar el FGS + `picoRMS=0` + `ERROR_NO_MATCH`).
+- ✅ **Aviso accionable para recuperar el micrófono:** cuando el FGS permanente no puede arrancar, se publica una notificación con acción **"Reactivar"**. Al tocarla, la app entra en las exenciones de Android (*"the service starts by interacting with a notification"*) y el FGS de tipo `microphone` arranca y se mantiene. El aviso se retira solo cuando el micro queda activo o Walink se desactiva.
+- ✅ **No más reintentos mudos:** antes de crear el `SpeechRecognizer` se comprueba que exista acceso *while-in-use*; si no lo hay, se avisa por voz (nuevo texto `micro_no_disponible`), se reintenta el micro permanente y, en modo "preguntar antes de leer", se **lee el mensaje igualmente** para no perderlo.
+- ✅ **El FGS permanente ya no se para al retirar la app de recientes** (`onTaskRemoved`) y `iniciar()` registra en diagnóstico el arranque solicitado y captura los rechazos del sistema.
+- ✅ **Comprobado en el móvil real:** si el sistema mata el proceso en segundo plano y reinicia el FGS, Android sí le vuelve a conceder el tipo `microphone` (el reinicio por un componente del sistema es otra exención), de modo que ese caso se recupera solo. El permiso se pierde únicamente al **actualizar la app** (`MY_PACKAGE_REPLACED`) o **reiniciar el móvil** (`BOOT_COMPLETED`), que es cuando aparece el aviso "Reactivar".
+- ✅ **Diagnóstico ampliado:** la línea `ESTADO[...]` de cada mensaje incluye ahora `micro-permanente=ACTIVO / NO ACTIVO`, que es justo el dato que faltaba para interpretar un `picoRMS=0`.
+
+## ✅ Fase 7 — Duplicados, mosaico y avisos que no son mensajes *(completada)*
+
+- ✅ **Duplicados de WhatsApp:** cuando WhatsApp publica **dos avisos distintos** (con `key`/`tag` diferentes) del mismo mensaje, los filtros por clave no los detectaban y se preguntaba "¿lo leo?" dos veces (y en modo "leer inmediato" se leía el mensaje dos veces). Nuevo tercer filtro por **huella de contenido** (`paquete + remitente + texto`, ventana de 2,5 s). Los duplicados observados en el móvil real llegaban en 40–70 ms.
+- ✅ **Diagnóstico de notificaciones:** cada mensaje aceptado deja ahora una línea `Notif: pkg / id / tag / postTime / grupo / groupKey / flags / categoría / canal / longitud del texto` (sin guardar el texto del mensaje), suficiente para entender cualquier duplicado futuro.
+- ✅ **Mosaico de accesos rápidos:** activar Walink desde el mosaico **no** era una ventana elegible y el FGS de tipo `microphone` se rechazaba (`SecurityException`). Ahora se abre `ArranqueRapidoActivity` (transparente, sin interfaz, se cierra sola en ~0,7 s) que sí es elegible y arranca el servicio; solo se usa si el micro permanente no está ya en marcha.
+- ✅ **Avisos de WhatsApp que no son mensajes:** se descartan las notificaciones de sistema del propio WhatsApp (categoría de progreso/servicio, eventos en curso, no descartables sin `MessagingStyle`) y se exige **cuerpo de texto** en el fallback. Antes se leía como mensaje un aviso del tipo *"Eliminando chat seleccionado…"*.
+
 ---
 
 ## ✔️ Decisiones de arquitectura ya fijadas

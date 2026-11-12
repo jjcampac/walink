@@ -104,6 +104,18 @@
     <string name="canal_asistente_desc">Questions et lectures vocales à la réception des messages</string>
     <string name="notif_escuchando_titulo">Walink écoute</string>
     <string name="notif_escuchando_desc">Demande si vous voulez lire un message…</string>
+    <!-- Aviso y acción para recuperar el permiso while-in-use del micrófono -->
+    <string name="micro_no_disponible">Je ne peux pas utiliser le micro du téléphone. Ouvre Walink ou touche Activer le micro dans la notification.</string>
+    <string name="mic_reactivar_titulo">Micro désactivé</string>
+    <string name="mic_reactivar_desc">Touche pour réactiver le micro de Walink</string>
+    <string name="mic_reactivar_accion">Activer</string>
+    <!-- Notificacion del servicio de microfono permanente (distinta de la sesion de voz) -->
+    <string name="notif_micro_titulo">Walink actif</string>
+    <string name="notif_micro_desc">Micro prêt pour les réponses vocales</string>
+    <!-- Compartir las ultimas lineas del diagnostico -->
+    <string name="debug_diagnostico_compartir_ultimas_lineas">Partager les dernières lignes</string>
+    <string name="debug_diagnostico_compartir_ultimas_lineas_asunto">Diagnostic Walink (dernières %1$d lignes)</string>
+    <string name="debug_diagnostico_compartir_ultimas_lineas_titulo">Partager les dernières lignes du diagnostic</string>
     <string name="pregunta_responder">Voulez-vous répondre à %1$s ?</string>
     <string name="pregunta_responder_reintento">Je ne vous ai pas bien entendu. Dites oui pour répondre ou non pour annuler.</string>
     <string name="pedir_dictado">Dites-moi votre réponse</string>

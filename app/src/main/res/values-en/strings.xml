@@ -206,6 +206,18 @@
     <string name="canal_asistente_desc">Voice questions and read-outs when messages arrive</string>
     <string name="notif_escuchando_titulo">Walink is listening</string>
     <string name="notif_escuchando_desc">Asking if you want to read a message…</string>
+    <!-- Aviso y acción para recuperar el permiso while-in-use del micrófono -->
+    <string name="micro_no_disponible">I cannot use the phone microphone. Open Walink or tap Enable microphone on the notification.</string>
+    <string name="mic_reactivar_titulo">Microphone off</string>
+    <string name="mic_reactivar_desc">Tap to re-enable the Walink microphone</string>
+    <string name="mic_reactivar_accion">Enable</string>
+    <!-- Notificacion del servicio de microfono permanente (distinta de la sesion de voz) -->
+    <string name="notif_micro_titulo">Walink on</string>
+    <string name="notif_micro_desc">Microphone ready for voice replies</string>
+    <!-- Compartir las ultimas lineas del diagnostico -->
+    <string name="debug_diagnostico_compartir_ultimas_lineas">Share last lines</string>
+    <string name="debug_diagnostico_compartir_ultimas_lineas_asunto">Walink diagnostics (last %1$d lines)</string>
+    <string name="debug_diagnostico_compartir_ultimas_lineas_titulo">Share last diagnostic lines</string>
 
     <!-- Voice answers accepted in the active language. The assistant compares the
          captured answer against these complete words or phrases, case-insensitive. -->

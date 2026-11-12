@@ -1,6 +1,7 @@
 package com.jjcampac.walink.service
 
 import android.Manifest
+import android.annotation.SuppressLint
 import android.bluetooth.BluetoothAdapter
 import android.bluetooth.BluetoothDevice
 import android.bluetooth.BluetoothProfile
@@ -87,6 +88,9 @@ object BluetoothCoche {
      * por nombre. Devuelve una lista vacía si no hay permiso o si el teléfono
      * no tiene Bluetooth.
      */
+    // El permiso BLUETOOTH_CONNECT se comprueba en la primera línea y, además, todo
+    // va dentro de try/catch: si Android lo rechazase, se devuelve una lista vacía.
+    @SuppressLint("MissingPermission")
     fun obtenerDispositivosEmparejados(context: Context): List<Dispositivo> {
         if (!tienePermiso(context)) return emptyList()
         val adapter = obtenerAdapter() ?: return emptyList()

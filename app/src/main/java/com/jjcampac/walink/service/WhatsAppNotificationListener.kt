@@ -43,6 +43,10 @@ class WhatsAppNotificationListener : NotificationListenerService() {
         private const val DEDUP_WINDOW_MS = 30_000L
         // Tamaño máximo del caché de claves gestionadas (evita crecimiento infinito).
         private const val DEDUP_MAX_SIZE = 64
+        // Ventana para descartar el mismo mensaje publicado dos veces con avisos
+        // distintos (clave/tag diferente). Los duplicados observados llegan en 40-70 ms,
+        // así que una ventana corta basta y no oculta mensajes repetidos legítimos.
+        private const val DEDUP_HUELLA_MS = 2_500L
     }
 
     /** Caché de claves de notificación procesadas recientemente (timestamp de llegada). */
@@ -66,6 +70,17 @@ class WhatsAppNotificationListener : NotificationListenerService() {
         val previo = notificacionesGestionadas[clave]
         return previo != null && postTime <= previo
     }
+
+    /** Huella de contenido (paquete + remitente + texto) -> instante en que se gestionó.
+     *
+     *  Cubre el caso en que WhatsApp publica **dos avisos distintos** (con `key`/`tag`
+     *  diferentes, por lo que los filtros por clave no los ven) del mismo mensaje: sin
+     *  esto se preguntaba "¿lo leo?" dos veces o se leía el mensaje dos veces. */
+    private val huellasRecientes = LinkedHashMap<String, Long>(
+        /* initialCapacity */ 16,
+        /* loadFactor */ 0.75f,
+        /* accessOrder */ false
+    )
 
     private fun marcarGestionada(clave: String, postTime: Long) {
         if (notificacionesGestionadas.size >= DEDUP_MAX_SIZE) {
@@ -127,11 +142,50 @@ class WhatsAppNotificationListener : NotificationListenerService() {
                 aceptarPaquetePropio = BuildConfig.DEBUG || dataStore.modoDepuracion
             ) ?: return
 
+            // Metadatos del aviso en el diagnóstico: imprescindibles para entender los
+            // duplicados (dos avisos con clave/tag distinta para el mismo mensaje).
+            val notif = sbn.notification
+            LogDiag.d(
+                "Notif: pkg=${sbn.packageName} id=${sbn.id} tag=${sbn.tag} postTime=$postTime " +
+                    "grupo=${sbn.isGroup()} groupKey=${sbn.groupKey} " +
+                    "flags=0x${Integer.toHexString(notif?.flags ?: 0)} " +
+                    "cat=${notif?.category} canal=${notif?.channelId} " +
+                    "longitudTexto=${mensaje.texto.length}"
+            )
+
             // Foto del estado del teléfono en el momento exacto de recibir un mensaje
             // real (pantalla, no-molestar, batería y Bluetooth). Se guarda en logcat y
             // en filesDir/walink_diag.log para poder diagnosticar un fallo aunque
             // ocurra lejos del ordenador.
-            LogDiag.registrarEstado(this, "mensaje recibido de '${mensaje.remitente}' (grupo=${mensaje.esGrupo})")
+            // Se incluye el estado del FGS permanente de micrófono: si no está activo,
+            // la app no tiene el permiso while-in-use de RECORD_AUDIO y el reconocedor
+            // no captará voz (picoRMS=0) con la pantalla apagada y la app en segundo plano.
+            val estadoMicro = if (MicrofonoPermanenteService.estaActivo) {
+                "micro-permanente=ACTIVO"
+            } else {
+                "micro-permanente=NO ACTIVO (sin while-in-use: la escucha fallará)"
+            }
+            LogDiag.registrarEstado(
+                this,
+                "mensaje recibido de '${mensaje.remitente}' (grupo=${mensaje.esGrupo})",
+                estadoMicro
+            )
+
+            // 3. Mismo contenido en una ventana muy corta: WhatsApp a veces publica dos
+            //    avisos distintos (clave/tag/id diferentes) para el mismo mensaje, por lo
+            //    que los filtros 1 y 2 no los detectan y se preguntaba o leía dos veces.
+            val huella = "${mensaje.paqueteOrigen}|${mensaje.remitente.trim().lowercase()}|" +
+                mensaje.texto.trim()
+            val huellaPrevia = huellasRecientes[huella]
+            if (huellaPrevia != null && ahora - huellaPrevia < DEDUP_HUELLA_MS) {
+                LogDiag.d("Mensaje repetido ignorado (misma huella hace ${ahora - huellaPrevia} ms)")
+                Log.d(TAG, "Mensaje repetido ignorado (misma huella, hace ${ahora - huellaPrevia} ms)")
+                return
+            }
+            if (huellasRecientes.size >= DEDUP_MAX_SIZE) {
+                huellasRecientes.remove(huellasRecientes.keys.first())
+            }
+            huellasRecientes[huella] = ahora
 
             // ---- Regla del dispositivo Bluetooth del coche (uno o varios) ----
             // Si el usuario ha elegido uno o más dispositivos en los ajustes, Walink

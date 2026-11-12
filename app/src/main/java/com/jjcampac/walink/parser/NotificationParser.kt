@@ -100,18 +100,26 @@ object NotificationParser {
         // 2) Ignorar resumen de varios mensajes ("3 mensajes nuevos", etc.).
         if (esNotificacionResumen(extras)) return null
 
-        // 3) Intentar extraer de MessagingStyle (si WhatsApp lo expone).
+        // 3) Ignorar avisos de WhatsApp que no son mensajes (progreso, servicio,
+        // copia de seguridad, sistema…). Sin este filtro se leían como si fueran
+        // mensajes de un contacto: p. ej. "Eliminando chat seleccionado…".
+        if (esNotificacionDeSistema(notification)) return null
+
+        // 4) Intentar extraer de MessagingStyle (si WhatsApp lo expone).
         val estilo = NotificationCompat.MessagingStyle.extractMessagingStyleFromNotification(notification)
         if (estilo != null) {
             val mensaje = extraerDeMessagingStyle(estilo, notification, paquete)
             if (mensaje != null) return mensaje
         }
 
-        // 4) Fallback: usar EXTRA_TITLE / EXTRA_TEXT.
+        // 5) Fallback: usar EXTRA_TITLE / EXTRA_TEXT.
         val titulo = extras.getString(Notification.EXTRA_TITLE) ?: ""
         val texto = extras.getString(Notification.EXTRA_TEXT) ?: ""
 
-        if (titulo.isBlank() && texto.isBlank()) return null
+        // Un mensaje real siempre trae cuerpo (texto, emoji, "📷 Foto", "🎤 mensaje de
+        // voz"...). Si solo hay título (p. ej. "Eliminando chat seleccionado…") es un
+        // aviso de sistema de WhatsApp, no un mensaje de un contacto.
+        if (titulo.isBlank() || texto.isBlank()) return null
 
         // Heurística de grupo: en WhatsApp, un chat de grupo suele marcar el
         // texto como "RemitenteGrupo: mensaje" o el título coincide con un grupo.
@@ -275,6 +283,57 @@ object NotificationParser {
         if (posibleNombre.length < 2) return null to null
 
         return posibleNombre to resto
+    }
+
+    /**
+     * Descarta las notificaciones de WhatsApp que **no son mensajes**: avisos de
+     * progreso (p. ej. "Eliminando chat seleccionado…"), copias de seguridad,
+     * "WhatsApp Web conectado", avisos de servicio, etc.
+     *
+     * WhatsApp publica estos avisos en su mismo paquete y, sin este filtro, se
+     * trataban como si fueran mensajes de un contacto: se leía en voz alta un
+     * remitente inexistente y se ofrecía responder a algo que no era un chat.
+     *
+     * Solo se descartan los casos claramente identificables (categoría de sistema,
+     * notificación "en curso" o no descartable sin MessagingStyle); un mensaje real
+     * de WhatsApp es descartable (FLAG_AUTO_CANCEL) y trae cuerpo de texto.
+     */
+    private fun esNotificacionDeSistema(notification: Notification): Boolean {
+        val categoriasNoMensaje = setOf(
+            Notification.CATEGORY_PROGRESS,
+            Notification.CATEGORY_SERVICE,
+            Notification.CATEGORY_SYSTEM,
+            Notification.CATEGORY_TRANSPORT,
+            Notification.CATEGORY_ERROR,
+            Notification.CATEGORY_NAVIGATION,
+            Notification.CATEGORY_REMINDER,
+            Notification.CATEGORY_EVENT,
+            Notification.CATEGORY_PROMO,
+            Notification.CATEGORY_RECOMMENDATION,
+            Notification.CATEGORY_STATUS,
+            Notification.CATEGORY_ALARM
+        )
+        val categoria = notification.category ?: ""
+        if (categoria in categoriasNoMensaje) {
+            Log.d(TAG, "Notificación descartada: categoría de sistema '$categoria'")
+            return true
+        }
+
+        // Un mensaje nunca es una notificación "en curso" (progreso que no termina).
+        if ((notification.flags and Notification.FLAG_ONGOING_EVENT) != 0) {
+            Log.d(TAG, "Notificación descartada: es un evento en curso (FLAG_ONGOING_EVENT)")
+            return true
+        }
+
+        // Avisos que no se pueden descartar y que no traen conversación: son de sistema.
+        val tieneEstilo =
+            NotificationCompat.MessagingStyle.extractMessagingStyleFromNotification(notification) != null
+        if (!tieneEstilo && (notification.flags and Notification.FLAG_NO_CLEAR) != 0) {
+            Log.d(TAG, "Notificación descartada: no descartable y sin MessagingStyle")
+            return true
+        }
+
+        return false
     }
 
     private fun esNotificacionDeLlamada(extras: Bundle, notification: Notification): Boolean {
