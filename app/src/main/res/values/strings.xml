@@ -108,6 +108,10 @@
     <string name="audio_pausar">Pausar la música</string>
     <string name="audio_pausar_desc">Silencia del todo la música mientras habla (más efectivo)</string>
 
+    <!-- Notas de voz de WhatsApp -->
+    <string name="nota_voz_ajuste">Reproducir notas de voz</string>
+    <string name="nota_voz_ajuste_desc">Reproduce el audio de WhatsApp después de anunciar el mensaje</string>
+
     <!-- Notificación de "preguntar antes de leer" -->
     <string name="notif_leer_titulo">¿Leer mensaje?</string>
     <string name="accion_leer">Leer ahora</string>
@@ -171,7 +175,10 @@
     <string name="filtro_modo_bloqueados">Bloquear contactos específicos (lista negra)</string>
     <string name="filtro_contactos_hint">Nombres separados por comas (ej: Mamá, Juan, Trabajo)</string>
     <string name="filtro_contactos_guardar">Guardar lista</string>
-    <string name="nota_de_voz_detectada">Mensaje de voz de WhatsApp (%1$s)</string>
+    <string name="nota_de_voz_detectada">una nota de voz</string>
+    <string name="nota_voz_no_reproducible">No he podido reproducir la nota de voz</string>
+    <string name="permiso_notas_voz">Notas de voz (audio)</string>
+    <string name="debug_simular_nota_voz">Simular nota de voz</string>
 
     <!-- Rediseño UI (Opción A: Tarjetas Temáticas) -->
     <string name="seccion_coche_titulo">Coche y Conectividad</string>

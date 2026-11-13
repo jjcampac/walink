@@ -12,6 +12,7 @@ import com.jjcampac.walink.R
 import com.jjcampac.walink.data.WalinkDataStore
 import com.jjcampac.walink.diag.LogDiag
 import com.jjcampac.walink.idioma.IdiomaHelper
+import com.jjcampac.walink.notasvoz.LecturaNotaVoz
 import com.jjcampac.walink.parser.NotificationParser
 import com.jjcampac.walink.speech.LectorAsistenteService
 import com.jjcampac.walink.speech.SpeechReader
@@ -309,7 +310,10 @@ class WhatsAppNotificationListener : NotificationListenerService() {
             }
 
             val cuerpoMensaje = when {
-                mensaje.esNotaDeVoz -> getString(R.string.nota_de_voz_detectada, mensaje.texto)
+                // Para una nota de voz se anuncia el tipo ("una nota de voz") y el audio
+                // se reproduce después: leer el texto de la notificación ("🎤 Audio
+                // (0:12)") no aporta nada y sonaba redundante.
+                mensaje.esNotaDeVoz -> getString(R.string.nota_de_voz_detectada)
                 !dataStore.leerTextoCompleto -> "[texto oculto]"
                 else -> mensaje.texto
             }
@@ -348,25 +352,35 @@ class WhatsAppNotificationListener : NotificationListenerService() {
                 )
                 Log.d(TAG, "Mensaje de '${mensaje.remitente}' (grupo=${mensaje.esGrupo}) -> leyendo ahora (mic precalentado)")
                 speechReader.hablar(textoParaLeer) {
-                    // Tras terminar la lectura, ofrecer responder por voz.
-                    // El servicio ya verificará el permiso de micrófono internamente.
-                    val intent = Intent(this, LectorAsistenteService::class.java)
-                        .setAction(LectorAsistenteService.ACTION_RESPONDER)
-                        .putExtra(LectorAsistenteService.EXTRA_REMITENTE, mensaje.remitente)
-                        .putExtra(LectorAsistenteService.EXTRA_TEXTO, textoParaLeer)
-                        .putExtra(
-                            LectorAsistenteService.EXTRA_PENDING_INTENT_RESPONDER,
-                            pendingResponder as? android.os.Parcelable
-                        )
-                        .putExtra(
-                            LectorAsistenteService.EXTRA_CLAVE_NOTIFICACION,
-                            sbn.key
-                        )
-                        .putStringArrayListExtra(
-                            LectorAsistenteService.EXTRA_CLAVES_REMOTE_INPUT,
-                            ArrayList(clavesRemoteInput)
-                        )
-                    ContextCompat.startForegroundService(this, intent)
+                    // Si es una nota de voz, se reproduce el audio de WhatsApp antes de
+                    // ofrecer la respuesta. reproducirSiProcede llama al bloque final
+                    // siempre (también si no hay nota o falla la reproducción).
+                    LecturaNotaVoz.reproducirSiProcede(
+                        contexto = this,
+                        lector = speechReader,
+                        esNotaDeVoz = mensaje.esNotaDeVoz,
+                        marcaTiempoMensaje = mensaje.marcaTiempoMensaje
+                    ) {
+                        // Tras terminar la lectura, ofrecer responder por voz.
+                        // El servicio ya verificará el permiso de micrófono internamente.
+                        val intent = Intent(this, LectorAsistenteService::class.java)
+                            .setAction(LectorAsistenteService.ACTION_RESPONDER)
+                            .putExtra(LectorAsistenteService.EXTRA_REMITENTE, mensaje.remitente)
+                            .putExtra(LectorAsistenteService.EXTRA_TEXTO, textoParaLeer)
+                            .putExtra(
+                                LectorAsistenteService.EXTRA_PENDING_INTENT_RESPONDER,
+                                pendingResponder as? android.os.Parcelable
+                            )
+                            .putExtra(
+                                LectorAsistenteService.EXTRA_CLAVE_NOTIFICACION,
+                                sbn.key
+                            )
+                            .putStringArrayListExtra(
+                                LectorAsistenteService.EXTRA_CLAVES_REMOTE_INPUT,
+                                ArrayList(clavesRemoteInput)
+                            )
+                        ContextCompat.startForegroundService(this, intent)
+                    }
                 }
             } else {
                 // Modo "preguntar": delega en el servicio en primer plano.
@@ -375,6 +389,11 @@ class WhatsAppNotificationListener : NotificationListenerService() {
                     .setAction(LectorAsistenteService.ACTION_PREGUNTAR)
                     .putExtra(LectorAsistenteService.EXTRA_REMITENTE, mensaje.remitente)
                     .putExtra(LectorAsistenteService.EXTRA_TEXTO, textoParaLeer)
+                    .putExtra(LectorAsistenteService.EXTRA_ES_NOTA_VOZ, mensaje.esNotaDeVoz)
+                    .putExtra(
+                        LectorAsistenteService.EXTRA_MARCA_MENSAJE,
+                        mensaje.marcaTiempoMensaje
+                    )
                     .putExtra(
                         LectorAsistenteService.EXTRA_PENDING_INTENT_RESPONDER,
                         pendingResponder as? android.os.Parcelable

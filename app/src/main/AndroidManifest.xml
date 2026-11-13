@@ -9,6 +9,13 @@
     <uses-permission android:name="android.permission.RECORD_AUDIO" />
     <uses-permission android:name="android.permission.WAKE_LOCK" />
     <uses-permission android:name="android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS" />
+    <!-- Permiso de audio: necesario para leer los .opus de las notas de voz de
+         WhatsApp, que viven en /storage/emulated/0/Android/media/com.whatsapp/...
+         (Android 13+ usa READ_MEDIA_AUDIO; antes, READ_EXTERNAL_STORAGE). -->
+    <uses-permission android:name="android.permission.READ_MEDIA_AUDIO" />
+    <uses-permission
+        android:name="android.permission.READ_EXTERNAL_STORAGE"
+        android:maxSdkVersion="32" />
     <!-- Servicios en primer plano para el asistente de voz (preguntar antes de leer / responder). -->
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MICROPHONE" />

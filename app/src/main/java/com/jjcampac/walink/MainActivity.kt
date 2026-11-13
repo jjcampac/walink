@@ -99,12 +99,14 @@ import com.jjcampac.walink.data.WalinkDataStore
 import com.jjcampac.walink.idioma.IdiomaHelper
 import com.jjcampac.walink.debug.DebugSimulator
 import com.jjcampac.walink.diag.LogDiag
+import com.jjcampac.walink.notasvoz.NotasVoz
 import com.jjcampac.walink.service.BluetoothCoche
 import com.jjcampac.walink.service.MicrofonoPermanenteService
 import com.jjcampac.walink.service.WhatsAppNotificationListener
 import com.jjcampac.walink.speech.SpeechReader
 import com.jjcampac.walink.ui.theme.*
 import java.util.Locale
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.launch
 
@@ -158,11 +160,20 @@ class MainActivity : ComponentActivity() {
             avanzarOnboarding()
         }
 
+    // Permiso de audio (READ_MEDIA_AUDIO en Android 13+, READ_EXTERNAL_STORAGE antes).
+    // Es lo que permite leer los .opus de las notas de voz de WhatsApp.
+    private val solicitarAudio =
+        registerForActivityResult(RequestMultiplePermissions()) { concedidos ->
+            permisoAudio = concedidos.values.contains(true)
+            avanzarOnboarding()
+        }
+
     // ---- Estados de la UI ----
     private var permisoNotificaciones by mutableStateOf(false)     // acceso especial del listener
     private var permisoPostNotificaciones by mutableStateOf(false)  // POST_NOTIFICATIONS (API 33+)
     private var permisoMicrofono by mutableStateOf(false)
     private var permisoBluetooth by mutableStateOf(false)
+    private var permisoAudio by mutableStateOf(false)      // notas de voz (READ_MEDIA_AUDIO)
     private var bateriaExcluida by mutableStateOf(false)
     private var servicioActivado by mutableStateOf(false)
     private var mostrarOnboarding by mutableStateOf(false)
@@ -180,6 +191,9 @@ class MainActivity : ComponentActivity() {
     // ---- Audio de fondo durante la lectura ----
     // true = bajar el volumen de la música (MAY_DUCK); false = pausarla (GAIN_TRANSIENT).
     private var audioBajaVolumen by mutableStateOf(true)
+
+    // ---- Notas de voz: reproducir el audio de WhatsApp (activo por defecto) ----
+    private var reproducirNotasVoz by mutableStateOf(true)
 
     // ---- Dispositivos Bluetooth del coche (Fase 2) ----
     // Uno o varios dispositivos. Walink solo actúa cuando ALGUNO de ellos
@@ -229,7 +243,7 @@ class MainActivity : ComponentActivity() {
      */
     private fun hayPermisosRuntimePendientes(): Boolean {
         val postPendiente = Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU && !permisoPostNotificaciones
-        return postPendiente || !permisoMicrofono || !permisoBluetooth
+        return postPendiente || !permisoMicrofono || !permisoBluetooth || !permisoAudio
     }
 
     /**
@@ -246,6 +260,8 @@ class MainActivity : ComponentActivity() {
                     Manifest.permission.BLUETOOTH_CONNECT,
                     Manifest.permission.BLUETOOTH_SCAN
                 ))
+            !permisoAudio ->
+                solicitarAudio.launch(arrayOf(NotasVoz.permisoRequerido()))
         }
     }
 
@@ -277,6 +293,31 @@ class MainActivity : ComponentActivity() {
     private fun estaExcluidoDeBateria(): Boolean {
         val pm = getSystemService(PowerManager::class.java)
         return pm.isIgnoringBatteryOptimizations(packageName)
+    }
+
+    /**
+     * Deja en el diagnóstico el estado de las notas de voz: si hay permiso de audio,
+     * si las carpetas de WhatsApp son accesibles y cuántos `.opus` se ven.
+     *
+     * Es una comprobación de solo lectura (no reproduce nada) pensada para verificar
+     * el acceso al almacenamiento de WhatsApp sin tener que esperar a que llegue una
+     * nota de voz real.
+     */
+    private fun diagnosticoNotasVoz() {
+        lifecycleScope.launch(Dispatchers.IO) {
+            val conPermiso = NotasVoz.permisoConcedido(applicationContext)
+            val resultado = NotasVoz.localizar(applicationContext, System.currentTimeMillis())
+            val archivo = resultado.archivo
+            val detalle = if (archivo != null) {
+                "último=${archivo.name} (hace ${resultado.edadMs / 1000} s)"
+            } else {
+                resultado.motivo
+            }
+            LogDiag.d(
+                "Notas de voz: permiso=" + (if (conPermiso) "OK" else "NO concedido") +
+                    " · " + detalle
+            )
+        }
     }
 
     /**
@@ -422,6 +463,7 @@ class MainActivity : ComponentActivity() {
         permisoMicrofono = checkSelfPermission(Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED
         permisoBluetooth = checkSelfPermission(Manifest.permission.BLUETOOTH_CONNECT) == PackageManager.PERMISSION_GRANTED &&
             checkSelfPermission(Manifest.permission.BLUETOOTH_SCAN) == PackageManager.PERMISSION_GRANTED
+        permisoAudio = NotasVoz.permisoConcedido(this)
 
         servicioActivado = dataStore.estaActivado
         mostrarOnboarding = !dataStore.onboardingCompletado
@@ -429,8 +471,14 @@ class MainActivity : ComponentActivity() {
         vozActual = dataStore.vozTts
         leerTrasPreguntar = dataStore.leerTrasPreguntar
         audioBajaVolumen = dataStore.bajarVolumenEnLugarDePausar
+        reproducirNotasVoz = dataStore.reproducirNotasVoz
         dispositivosSeleccionados = dataStore.dispositivosBluetooth
         leerSinCoche = dataStore.leerSinCoche
+
+        // Diagnóstico de las notas de voz: deja en el log si el almacenamiento de
+        // WhatsApp es accesible y cuántos .opus se ven, sin reproducir nada. Así se
+        // puede comprobar el permiso de audio sin esperar a que llegue una nota.
+        diagnosticoNotasVoz()
         modoDepuracion = dataStore.modoDepuracion
         leerGrupos = dataStore.leerGrupos
         velocidadVoz = dataStore.velocidadVoz
@@ -517,6 +565,7 @@ class MainActivity : ComponentActivity() {
                         permisoPostNotificaciones = permisoPostNotificaciones,
                         permisoMicrofono = permisoMicrofono,
                         permisoBluetooth = permisoBluetooth,
+                        permisoAudio = permisoAudio,
                         bateriaExcluida = bateriaExcluida,
                         servicioActivado = servicioActivado,
                         idiomaActual = idiomaActual,
@@ -541,6 +590,13 @@ class MainActivity : ComponentActivity() {
                             lifecycleScope.launch {
                                 dataStore.setBajarVolumenEnLugarDePausar(bajar)
                                 audioBajaVolumen = bajar
+                            }
+                        },
+                        reproducirNotasVoz = reproducirNotasVoz,
+                        onCambiarReproducirNotasVoz = { reproducir ->
+                            lifecycleScope.launch {
+                                dataStore.setReproducirNotasVoz(reproducir)
+                                reproducirNotasVoz = reproducir
                             }
                         },
                         dispositivosSeleccionados = dispositivosSeleccionados,
@@ -647,6 +703,9 @@ class MainActivity : ComponentActivity() {
                             Manifest.permission.BLUETOOTH_CONNECT,
                             Manifest.permission.BLUETOOTH_SCAN
                         )) },
+                        onSolicitarAudio = {
+                            solicitarAudio.launch(arrayOf(NotasVoz.permisoRequerido()))
+                        },
                         onSolicitarNotificacionesPost = {
                             solicitarNotificacionesPost.launch(
                                 arrayOf(Manifest.permission.POST_NOTIFICATIONS)
@@ -708,10 +767,12 @@ class MainActivity : ComponentActivity() {
         permisoMicrofono = checkSelfPermission(Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED
         permisoBluetooth = checkSelfPermission(Manifest.permission.BLUETOOTH_CONNECT) == PackageManager.PERMISSION_GRANTED &&
             checkSelfPermission(Manifest.permission.BLUETOOTH_SCAN) == PackageManager.PERMISSION_GRANTED
+        permisoAudio = NotasVoz.permisoConcedido(this)
         bateriaExcluida = estaExcluidoDeBateria()
         servicioActivado = dataStore.estaActivado
         leerTrasPreguntar = dataStore.leerTrasPreguntar
         audioBajaVolumen = dataStore.bajarVolumenEnLugarDePausar
+        reproducirNotasVoz = dataStore.reproducirNotasVoz
         dispositivosSeleccionados = dataStore.dispositivosBluetooth
         refrescarDispositivosBluetooth()
         // Mantener el servicio de micro permanente alineado con la activación: se
@@ -802,6 +863,7 @@ private fun PantallaPrincipal(
     permisoPostNotificaciones: Boolean,
     permisoMicrofono: Boolean,
     permisoBluetooth: Boolean,
+    permisoAudio: Boolean,
     bateriaExcluida: Boolean,
     servicioActivado: Boolean,
     idiomaActual: String,
@@ -814,6 +876,8 @@ private fun PantallaPrincipal(
     onCambiarModoLectura: (Boolean) -> Unit,
     bajarVolumen: Boolean,
     onCambiarAudioFondo: (Boolean) -> Unit,
+    reproducirNotasVoz: Boolean,
+    onCambiarReproducirNotasVoz: (Boolean) -> Unit,
     dispositivosSeleccionados: Set<String>,
     dispositivosEmparejados: List<BluetoothCoche.Dispositivo>,
     dispositivosConectados: Set<String>,
@@ -835,6 +899,7 @@ private fun PantallaPrincipal(
     onIrAjustesBateria: () -> Unit,
     onSolicitarMicrofono: () -> Unit,
     onSolicitarBluetooth: () -> Unit,
+    onSolicitarAudio: () -> Unit,
     onSolicitarNotificacionesPost: () -> Unit,
     modoDepuracion: Boolean,
     onAlternarModoDepuracion: () -> Unit,
@@ -974,6 +1039,37 @@ private fun PantallaPrincipal(
                                     modifier = Modifier.weight(1f)
                                 )
                             }
+
+                            Spacer(modifier = Modifier.height(12.dp))
+                            HorizontalDivider(
+                                color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f)
+                            )
+                            Spacer(modifier = Modifier.height(8.dp))
+
+                            // Notas de voz: reproducir el audio de WhatsApp tras el anuncio.
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .clickable { onCambiarReproducirNotasVoz(!reproducirNotasVoz) },
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Column(modifier = Modifier.weight(1f)) {
+                                    Text(
+                                        text = stringResource(id = R.string.nota_voz_ajuste),
+                                        style = MaterialTheme.typography.bodyMedium,
+                                        fontWeight = FontWeight.Medium
+                                    )
+                                    Text(
+                                        text = stringResource(id = R.string.nota_voz_ajuste_desc),
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
+                                }
+                                Switch(
+                                    checked = reproducirNotasVoz,
+                                    onCheckedChange = onCambiarReproducirNotasVoz
+                                )
+                            }
                         }
                     }
                 }
@@ -1010,11 +1106,13 @@ private fun PantallaPrincipal(
                         permisoPostNotificaciones = permisoPostNotificaciones,
                         permisoMicrofono = permisoMicrofono,
                         permisoBluetooth = permisoBluetooth,
+                        permisoAudio = permisoAudio,
                         bateriaExcluida = bateriaExcluida,
                         onIrAjustesNotificaciones = onIrAjustesNotificaciones,
                         onSolicitarNotificacionesPost = onSolicitarNotificacionesPost,
                         onSolicitarMicrofono = onSolicitarMicrofono,
                         onSolicitarBluetooth = onSolicitarBluetooth,
+                        onSolicitarAudio = onSolicitarAudio,
                         onIrAjustesBateria = onIrAjustesBateria
                     )
 
@@ -1600,17 +1698,20 @@ private fun TarjetaPermisosSistema(
     permisoPostNotificaciones: Boolean,
     permisoMicrofono: Boolean,
     permisoBluetooth: Boolean,
+    permisoAudio: Boolean,
     bateriaExcluida: Boolean,
     onIrAjustesNotificaciones: () -> Unit,
     onSolicitarNotificacionesPost: () -> Unit,
     onSolicitarMicrofono: () -> Unit,
     onSolicitarBluetooth: () -> Unit,
+    onSolicitarAudio: () -> Unit,
     onIrAjustesBateria: () -> Unit
 ) {
     val totalPendientes = (if (permisoNotificaciones) 0 else 1) +
         (if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU && !permisoPostNotificaciones) 1 else 0) +
         (if (permisoMicrofono) 0 else 1) +
         (if (permisoBluetooth) 0 else 1) +
+        (if (permisoAudio) 0 else 1) +
         (if (bateriaExcluida) 0 else 1)
 
     val todosOk = totalPendientes == 0
@@ -1689,6 +1790,13 @@ private fun TarjetaPermisosSistema(
                         concedido = permisoBluetooth,
                         requiereAjustes = false,
                         onClick = onSolicitarBluetooth
+                    )
+                    FilaPermisoCompacta(
+                        emoji = "🔊",
+                        titulo = stringResource(id = R.string.permiso_notas_voz),
+                        concedido = permisoAudio,
+                        requiereAjustes = false,
+                        onClick = onSolicitarAudio
                     )
                     FilaPermisoCompacta(
                         emoji = "🔋",
@@ -2087,6 +2195,16 @@ private fun SeccionDepuracion(
             Text(stringResource(id = R.string.debug_simular))
         }
 
+        // Prueba del flujo de notas de voz: publica un aviso con el texto que usa
+        // WhatsApp para las notas de voz, de modo que el parser lo detecte y Walink
+        // localice y reproduzca el último .opus real del almacenamiento.
+        OutlinedButton(
+            onClick = { onSimularMensaje(remitente, "🎤 Audio (0:12)") },
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            Text(stringResource(id = R.string.debug_simular_nota_voz))
+        }
+
         Text(
             text = stringResource(id = R.string.debug_nota_respuesta),
             style = MaterialTheme.typography.bodySmall,
@@ -2257,6 +2375,7 @@ private fun PantallaPrincipalPreview() {
             permisoPostNotificaciones = true,
             permisoMicrofono = true,
             permisoBluetooth = true,
+            permisoAudio = true,
             bateriaExcluida = true,
             servicioActivado = true,
             idiomaActual = "es",
@@ -2269,6 +2388,8 @@ private fun PantallaPrincipalPreview() {
             onCambiarModoLectura = {},
             bajarVolumen = true,
             onCambiarAudioFondo = {},
+            reproducirNotasVoz = true,
+            onCambiarReproducirNotasVoz = {},
             dispositivosSeleccionados = setOf("00:11:22:33:44:55"),
             dispositivosEmparejados = listOf(
                 BluetoothCoche.Dispositivo("Mi Coche", "00:11:22:33:44:55")
@@ -2292,6 +2413,7 @@ private fun PantallaPrincipalPreview() {
             onIrAjustesBateria = {},
             onSolicitarMicrofono = {},
             onSolicitarBluetooth = {},
+            onSolicitarAudio = {},
             onSolicitarNotificacionesPost = {},
             modoDepuracion = false,
             onAlternarModoDepuracion = {},

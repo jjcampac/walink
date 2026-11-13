@@ -89,6 +89,10 @@
     <string name="audio_bajar_volumen_desc">La musica si abbassa un po\' (attenuazione di sistema)</string>
     <string name="audio_pausar">Metti in pausa la musica</string>
     <string name="audio_pausar_desc">Silenzia del tutto la musica mentre parla (più efficace)</string>
+
+    <!-- Notas de voz de WhatsApp -->
+    <string name="nota_voz_ajuste">Riproduci i messaggi vocali</string>
+    <string name="nota_voz_ajuste_desc">Riproduce il suono di WhatsApp dopo il messaggio annunciato</string>
     <string name="notif_leer_titulo">Leggere messaggio?</string>
     <string name="accion_leer">Leggi ora</string>
     <string name="accion_descartar">Ignora</string>
@@ -147,7 +151,10 @@
     <string name="filtro_modo_bloqueados">Blocca contatti specifici (blacklist)</string>
     <string name="filtro_contactos_hint">Nomi separati da virgole (es. Mamma, Juan, Lavoro)</string>
     <string name="filtro_contactos_guardar">Salva elenco</string>
-    <string name="nota_de_voz_detectada">Messaggio vocale WhatsApp (%1$s)</string>
+    <string name="nota_de_voz_detectada">un messaggio vocale</string>
+    <string name="nota_voz_no_reproducible">Impossibile riprodurre il messaggio vocale</string>
+    <string name="permiso_notas_voz">Messaggi vocali (audio)</string>
+    <string name="debug_simular_nota_voz">Simula messaggio vocale</string>
     <string name="seccion_coche_titulo">Auto e connettività</string>
     <string name="seccion_coche_desc">Comportamento in base al Bluetooth del tuo veicolo</string>
     <string name="seccion_voz_audio_titulo">Voce e audio</string>

@@ -89,6 +89,10 @@
     <string name="audio_bajar_volumen_desc">音楽が少し下がります（システムのダッキング）</string>
     <string name="audio_pausar">音楽を一時停止</string>
     <string name="audio_pausar_desc">話している間、音楽を完全に消します（より効果的）</string>
+
+    <!-- Notas de voz de WhatsApp -->
+    <string name="nota_voz_ajuste">ボイスメッセージを再生</string>
+    <string name="nota_voz_ajuste_desc">メッセージの読み上げ後にWhatsAppの音声を再生します</string>
     <string name="notif_leer_titulo">メッセージを読みますか？</string>
     <string name="accion_leer">今読む</string>
     <string name="accion_descartar">閉じる</string>
@@ -147,7 +151,10 @@
     <string name="filtro_modo_bloqueados">特定の連絡先をブロック（ブラックリスト）</string>
     <string name="filtro_contactos_hint">名前をカンマで区切る（例：ママ、フアン、仕事）</string>
     <string name="filtro_contactos_guardar">リストを保存</string>
-    <string name="nota_de_voz_detectada">WhatsApp音声メッセージ（%1$s）</string>
+    <string name="nota_de_voz_detectada">ボイスメッセージ</string>
+    <string name="nota_voz_no_reproducible">ボイスメッセージを再生できませんでした</string>
+    <string name="permiso_notas_voz">ボイスメッセージ（音声）</string>
+    <string name="debug_simular_nota_voz">ボイスメッセージをシミュレート</string>
     <string name="seccion_coche_titulo">車と接続</string>
     <string name="seccion_coche_desc">車両のBluetoothに応じた動作</string>
     <string name="seccion_voz_audio_titulo">声と音声</string>

@@ -107,6 +107,28 @@ Todo ello con una **privacidad estricta**: el procesamiento es 100 % local, sin 
 
 ---
 
+## 🚧 Fase 9 — Notas de voz: reproducir el audio de WhatsApp *(en desarrollo, rama `feature/notas-de-voz`)*
+
+La notificación de WhatsApp **no incluye el audio** de una nota de voz: solo el texto que la describe (`🎤 Audio (0:12)`). El archivo real está en el almacenamiento compartido y hay que localizarlo:
+
+```
+/storage/emulated/0/Android/media/com.whatsapp/WhatsApp/Media/WhatsApp Voice Notes/
+    202646/PTT-20261112-WA0000.opus
+```
+
+- **Comprobado en el móvil real (Nothing Phone (3a)):** carpetas por año+semana (`202645`, `202646`…), ficheros `PTT-AAAAMMDD-WA####.opus`, propietario `u0_a256:media_rw` y permisos `rw-rw----`. Es decir, **hacen falta permisos de audio**: `READ_MEDIA_AUDIO` en Android 13+ y `READ_EXTERNAL_STORAGE` (con `maxSdkVersion="32"`) en versiones anteriores.
+- ✅ **`notasvoz/NotasVoz`:** localiza el `.opus` cuyo `lastModified` está más cerca de la marca de tiempo del mensaje (ventana de 15 min), mirando las dos carpetas de semana más recientes de WhatsApp y WhatsApp Business. Se registra en el diagnóstico (`Nota de voz localizada: PTT-….opus (diferencia=… s)`) o el motivo del fallo (sin permiso, carpeta vacía, fuera de ventana).
+- ✅ **`notasvoz/ReproductorNotaVoz`:** `MediaPlayer` asíncrono con las reglas de audio del proyecto (foco `USAGE_ASSISTANCE_NAVIGATION_GUIDANCE`/`CONTENT_TYPE_SPEECH`, atenuar o pausar según ajuste, abandono del foco al terminar), retraso de Bluetooth y watchdog por duración para no dejar el flujo colgado.
+- ✅ **`notasvoz/LecturaNotaVoz`:** encadena locución → reproducción → continuación del flujo, en los tres puntos donde se lee un mensaje (lectura inmediata, tras confirmar en modo "preguntar" y lectura degradada sin micrófono). Si la nota no se encuentra, se avisa por voz y el flujo sigue.
+- ✅ **Anuncio más natural:** el TTS dice "una nota de voz" (`nota_de_voz_detectada`) en vez de repetir el texto de la notificación.
+- ✅ **Ajuste nuevo "Reproducir notas de voz"** (activo por defecto) en la tarjeta de audio, con traducciones en ES/EN/DE/FR/IT/JA.
+- ✅ **Permiso de audio en la app:** fila propia en la tarjeta de permisos y en la cascada del onboarding.
+- ✅ **Prueba sin WhatsApp:** botón "Simular nota de voz" en la tarjeta de depuración, que publica un aviso `🎤 Audio (0:12)` para que Walink reproduzca el último `.opus` real.
+- ✅ **Pruebas unitarias** (`NotasVozTest`): 5 casos sobre la selección del fichero (más cercano, posterior, fuera de ventana, vacío).
+- ⏳ **Pendiente:** validar en el móvil real (instalar release, conceder permiso de audio y probar con una nota de voz de verdad).
+
+---
+
 ## ✔️ Decisiones de arquitectura ya fijadas
 
 - **Respuestas:** se envían con la acción `RemoteInput` de la propia notificación de WhatsApp. No se usa accesibilidad ni APIs no oficiales.

@@ -24,6 +24,7 @@ private object WalinkKeys {
     const val BORRADOR_TEXTO = "borrador_texto"
     const val BORRADOR_TIMESTAMP = "borrador_timestamp"
     const val IDIOMA_APP = "idioma_app"
+    const val REPRODUCIR_NOTAS_VOZ = "reproducir_notas_voz"
 }
 
 /**
@@ -221,6 +222,17 @@ class WalinkDataStore private constructor(private val context: Context) {
 
     suspend fun setLeerSinCoche(leer: Boolean) {
         prefs.edit().putBoolean(WalinkKeys.LEER_SIN_COCHE, leer).apply()
+    }
+
+    // ---- NOTAS DE VOZ (reproducir el audio de WhatsApp al leer el mensaje) ----
+    // WhatsApp no incluye el audio en la notificación: Walink localiza el .opus en
+    // el almacenamiento y lo reproduce después de anunciar el mensaje. Activo por
+    // defecto; si el usuario lo desactiva, solo se anuncia ("una nota de voz").
+    val reproducirNotasVoz: Boolean
+        get() = prefs.getBoolean(WalinkKeys.REPRODUCIR_NOTAS_VOZ, true)
+
+    suspend fun setReproducirNotasVoz(reproducir: Boolean) {
+        prefs.edit().putBoolean(WalinkKeys.REPRODUCIR_NOTAS_VOZ, reproducir).apply()
     }
 
     // ---- MODO DEPURACIÓN (simulación de mensajes en release) ----

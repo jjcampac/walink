@@ -107,6 +107,10 @@
     <string name="audio_pausar">Pause the music</string>
     <string name="audio_pausar_desc">Silences the music completely while speaking (more effective)</string>
 
+    <!-- Notas de voz de WhatsApp -->
+    <string name="nota_voz_ajuste">Play voice messages</string>
+    <string name="nota_voz_ajuste_desc">Plays the WhatsApp audio after announcing the message</string>
+
     <!-- Responder por voz -->
     <string name="pregunta_responder">Do you want to reply to %1$s?</string>
     <string name="pregunta_responder_reintento">I did not hear you well. Say yes to reply, or no to cancel.</string>
@@ -141,7 +145,10 @@
     <string name="filtro_modo_bloqueados">Block specific contacts (blacklist)</string>
     <string name="filtro_contactos_hint">Names separated by commas (e.g. Mom, John, Work)</string>
     <string name="filtro_contactos_guardar">Save list</string>
-    <string name="nota_de_voz_detectada">WhatsApp voice message (%1$s)</string>
+    <string name="nota_de_voz_detectada">a voice message</string>
+    <string name="nota_voz_no_reproducible">The voice message could not be played</string>
+    <string name="permiso_notas_voz">Voice messages (audio)</string>
+    <string name="debug_simular_nota_voz">Simulate voice message</string>
 
     <!-- Rediseño UI -->
     <string name="seccion_coche_titulo">Car and Connectivity</string>

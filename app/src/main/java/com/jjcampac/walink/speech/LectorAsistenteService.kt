@@ -26,6 +26,8 @@ import com.jjcampac.walink.R
 import com.jjcampac.walink.data.WalinkDataStore
 import com.jjcampac.walink.diag.LogDiag
 import com.jjcampac.walink.idioma.IdiomaHelper
+import com.jjcampac.walink.notasvoz.LecturaNotaVoz
+import com.jjcampac.walink.notasvoz.ReproductorNotaVoz
 import com.jjcampac.walink.service.DatosRespuestaHelper
 import com.jjcampac.walink.service.MicrofonoPermanenteService
 import com.jjcampac.walink.service.WhatsAppNotificationListener
@@ -59,6 +61,9 @@ class LectorAsistenteService : Service(), RecognitionListener {
     private var intentos = 0
     private var ciclo = 0
     private var preguntaHablando = false
+    // Nota de voz: el mensaje no tiene texto útil, hay que reproducir el .opus.
+    private var esNotaDeVoz = false
+    private var marcaMensaje = 0L
     private var tareaWatchdogPregunta: Runnable? = null
     // Pico de nivel de audio (onRmsChanged) del reconocedor, para diagnóstico.
     private var nivelPicoRms = 0f
@@ -151,6 +156,12 @@ class LectorAsistenteService : Service(), RecognitionListener {
 
         remitente = intent.getStringExtra(EXTRA_REMITENTE) ?: ""
         textoParaLeer = intent.getStringExtra(EXTRA_TEXTO) ?: ""
+        esNotaDeVoz = intent.getBooleanExtra(EXTRA_ES_NOTA_VOZ, false)
+        marcaMensaje = intent.getLongExtra(EXTRA_MARCA_MENSAJE, 0L)
+        if (esNotaDeVoz) {
+            Log.d(TAG, "El mensaje es una nota de voz (marca=$marcaMensaje)")
+            LogDiag.d("ACTION_PREGUNTAR: nota de voz (marca=$marcaMensaje)")
+        }
         recibirDatosRespuesta(intent)
         intentos = 0
         etapaRespuesta = ETAPA_SI_NO_LEER
@@ -534,19 +545,13 @@ class LectorAsistenteService : Service(), RecognitionListener {
                         if (!lector.inicializado) {
                             Log.w(TAG, "onResults: TTS sin inicializar; esperando 800 ms")
                             lector.mainHandler.postDelayed({
-                                lector.hablar(textoParaLeer) {
-                                    Log.d(TAG, "Mensaje leído tras confirmar; ofreciendo responder")
-                                    lanzarOfrecerResponder()
-                                }
+                                leerMensajeYOfrecerResponder()
                             }, 800)
                         } else if (lector.apagado) {
                             Log.e(TAG, "onResults: lector.apagado, no se puede leer")
                         } else {
                             Log.d(TAG, "onResults: pidiendo lectura del mensaje")
-                            lector.hablar(textoParaLeer) {
-                                Log.d(TAG, "Mensaje leído tras confirmar; ofreciendo responder")
-                                lanzarOfrecerResponder()
-                            }
+                            leerMensajeYOfrecerResponder()
                         }
                     }
                     false -> {
@@ -911,7 +916,16 @@ private fun insertarComasSeguras(t: String): String {
         lector.hablar(getString(R.string.micro_no_disponible)) {
             if (degradarALeer) {
                 lector.hablar(textoParaLeer) {
-                    finalizar()
+                    // Aunque no haya micrófono, una nota de voz debe sonar: es el
+                    // mensaje completo y el usuario no puede leerlo de otra forma.
+                    LecturaNotaVoz.reproducirSiProcede(
+                        contexto = this,
+                        lector = lector,
+                        esNotaDeVoz = esNotaDeVoz,
+                        marcaTiempoMensaje = marcaMensaje
+                    ) {
+                        finalizar()
+                    }
                 }
             } else {
                 finalizar()
@@ -1001,6 +1015,28 @@ private fun insertarComasSeguras(t: String): String {
             // no descartar respuestas cortas como "sí"/"no" con un silencio breve.
             putExtra(RecognizerIntent.EXTRA_SPEECH_INPUT_COMPLETE_SILENCE_LENGTH_MILLIS, 1500L)
         }
+
+    /**
+     * Lee el mensaje y, después, ofrece responder.
+     *
+     * Si el mensaje es una nota de voz, entre la locución y la oferta de respuesta se
+     * reproduce el audio de WhatsApp ([LecturaNotaVoz]); el flujo continúa igual si la
+     * nota no se encuentra o la reproducción de notas está desactivada.
+     */
+    private fun leerMensajeYOfrecerResponder() {
+        lector.hablar(textoParaLeer) {
+            Log.d(TAG, "Mensaje leído tras confirmar; comprobando nota de voz")
+            LecturaNotaVoz.reproducirSiProcede(
+                contexto = this,
+                lector = lector,
+                esNotaDeVoz = esNotaDeVoz,
+                marcaTiempoMensaje = marcaMensaje
+            ) {
+                Log.d(TAG, "Lectura completa; ofreciendo responder")
+                lanzarOfrecerResponder()
+            }
+        }
+    }
 
     /** Lanza ACTION_RESPONDER para ofrecer responder tras leer un mensaje. */
     private fun lanzarOfrecerResponder() {
@@ -1197,6 +1233,9 @@ private fun insertarComasSeguras(t: String): String {
         liberarWakeLock()
         liberarPausaMusica()
         limpiarMicrofonoTelefono()
+        // Si el servicio muere mientras suena una nota de voz, se libera el
+        // reproductor (sin fugas de MediaPlayer ni del audio focus).
+        ReproductorNotaVoz.obtener(this).detener()
         Log.d(TAG, "LectorAsistenteService destruido")
         super.onDestroy()
     }
@@ -1212,6 +1251,8 @@ private fun insertarComasSeguras(t: String): String {
         const val EXTRA_PENDING_INTENT_RESPONDER = "pending_intent_responder"
         const val EXTRA_CLAVES_REMOTE_INPUT = "claves_remote_input"
         const val EXTRA_CLAVE_NOTIFICACION = "clave_notificacion"
+        const val EXTRA_ES_NOTA_VOZ = "es_nota_de_voz"
+        const val EXTRA_MARCA_MENSAJE = "marca_tiempo_mensaje"
 
         // Etapas del flujo de voz (leer / responder / dictar / enviar-o-corregir)
         private const val ETAPA_IDLE = 0
