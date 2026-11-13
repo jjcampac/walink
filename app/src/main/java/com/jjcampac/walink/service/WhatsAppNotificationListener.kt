@@ -38,23 +38,36 @@ class WhatsAppNotificationListener : NotificationListenerService() {
 
     companion object {
         private const val TAG = "WalinkListener"
-        // Ventana de seguridad: ignoramos re-posts de la misma clave que ocurren
-        // en menos de este tiempo (evita ráfagas de reenvíos).
-        private const val DEDUP_WINDOW_MS = 30_000L
         // Tamaño máximo del caché de claves gestionadas (evita crecimiento infinito).
         private const val DEDUP_MAX_SIZE = 64
         // Ventana para descartar el mismo mensaje publicado dos veces con avisos
         // distintos (clave/tag diferente). Los duplicados observados llegan en 40-70 ms,
         // así que una ventana corta basta y no oculta mensajes repetidos legítimos.
         private const val DEDUP_HUELLA_MS = 2_500L
-    }
 
-    /** Caché de claves de notificación procesadas recientemente (timestamp de llegada). */
-    private val notificacionesRecientes = LinkedHashMap<String, Long>(
-        /* initialCapacity */ 16,
-        /* loadFactor */ 0.75f,
-        /* accessOrder */ false
-    )
+        /** Instancia conectada del listener.
+         *
+         *  Es la única forma fiable de consultar `activeNotifications` de **otros**
+         *  paquetes: `NotificationManager.getActiveNotifications()` solo devuelve las
+         *  de la propia app cuando se llama desde un servicio normal. */
+        @Volatile
+        private var instancia: WhatsAppNotificationListener? = null
+
+        /**
+         * Devuelve la notificación activa con esa clave, sea del paquete que sea.
+         * Null si el listener no está conectado o la notificación ya no existe.
+         */
+        fun notificacionActiva(clave: String?): StatusBarNotification? {
+            if (clave.isNullOrBlank()) return null
+            val servicio = instancia ?: return null
+            return try {
+                servicio.activeNotifications?.firstOrNull { it.key == clave }
+            } catch (t: Throwable) {
+                Log.d(TAG, "No se pudo consultar la notificación activa: ${t.javaClass.simpleName}")
+                null
+            }
+        }
+    }
 
     /** Clave de notificación -> postTime de última notificación que gestionamos
      *  (leímos o preguntamos). Si WhatsApp vuelve a publicar el mismo aviso con un
@@ -69,6 +82,30 @@ class WhatsAppNotificationListener : NotificationListenerService() {
     private fun yaGestionada(clave: String, postTime: Long): Boolean {
         val previo = notificacionesGestionadas[clave]
         return previo != null && postTime <= previo
+    }
+
+    /** Clave del chat -> marca de tiempo del último mensaje que gestionamos.
+     *
+     *  WhatsApp republica la notificación con un postTime nuevo pero con el mismo
+     *  mensaje dentro (p. ej. justo después de enviar una respuesta). Sin esta
+     *  comprobación se volvía a leer o preguntar por un mensaje ya atendido. */
+    private val mensajesGestionados = LinkedHashMap<String, Long>(
+        /* initialCapacity */ 16,
+        /* loadFactor */ 0.75f,
+        /* accessOrder */ false
+    )
+
+    private fun mensajeYaGestionado(clave: String, marcaTiempo: Long): Boolean {
+        if (marcaTiempo <= 0L) return false
+        return mensajesGestionados[clave] == marcaTiempo
+    }
+
+    private fun marcarMensajeGestionado(clave: String, marcaTiempo: Long) {
+        if (marcaTiempo <= 0L) return
+        if (mensajesGestionados.size >= DEDUP_MAX_SIZE) {
+            mensajesGestionados.remove(mensajesGestionados.keys.first())
+        }
+        mensajesGestionados[clave] = marcaTiempo
     }
 
     /** Huella de contenido (paquete + remitente + texto) -> instante en que se gestionó.
@@ -102,8 +139,21 @@ class WhatsAppNotificationListener : NotificationListenerService() {
     }
 
     override fun onDestroy() {
+        if (instancia === this) instancia = null
         Log.d(TAG, "Servicio de notificaciones destruido")
         super.onDestroy()
+    }
+
+    override fun onListenerConnected() {
+        super.onListenerConnected()
+        instancia = this
+        Log.d(TAG, "Listener conectado: notificaciones activas disponibles")
+    }
+
+    override fun onListenerDisconnected() {
+        if (instancia === this) instancia = null
+        Log.d(TAG, "Listener desconectado")
+        super.onListenerDisconnected()
     }
 
     override fun onNotificationPosted(sbn: StatusBarNotification) {
@@ -116,21 +166,20 @@ class WhatsAppNotificationListener : NotificationListenerService() {
             val clave = sbn.key
             val postTime = sbn.postTime
 
-            // 1. Re-post demasiado rápido de la misma clave (ventana de seguridad).
-            val ultimaVez = notificacionesRecientes[clave]
-            if (ultimaVez != null && ahora - ultimaVez < DEDUP_WINDOW_MS) {
-                Log.d(TAG, "Notificación duplicada (ventana) ignorada (clave=$clave, hace ${ahora - ultimaVez} ms)")
-                return
-            }
-
-            // 2. Ya gestionamos este aviso con un postTime igual o posterior ->
+            // 1. Ya gestionamos este aviso con un postTime igual o posterior ->
             //    no es un mensaje nuevo, es un re-post del mismo aviso.
+            //
+            //    IMPORTANTE: no se puede filtrar con una ventana temporal por clave.
+            //    WhatsApp reutiliza la misma clave (id + tag del chat) para TODOS los
+            //    mensajes de una conversación, así que una ventana de segundos
+            //    descartaba mensajes legítimos que llegaban poco después del anterior
+            //    (síntoma: "el mensaje se recibe pero no se informa de su recepción").
+            //    El postTime sí cambia con cada mensaje nuevo.
             if (yaGestionada(clave, postTime)) {
                 Log.d(TAG, "Notificación ya gestionada, ignorada (clave=$clave, postTime=$postTime)")
                 return
             }
 
-            notificacionesRecientes[clave] = ahora
             marcarGestionada(clave, postTime)
 
             val mensaje = NotificationParser.parsear(
@@ -147,11 +196,23 @@ class WhatsAppNotificationListener : NotificationListenerService() {
             val notif = sbn.notification
             LogDiag.d(
                 "Notif: pkg=${sbn.packageName} id=${sbn.id} tag=${sbn.tag} postTime=$postTime " +
+                    "marcaMensaje=${mensaje.marcaTiempoMensaje} " +
                     "grupo=${sbn.isGroup()} groupKey=${sbn.groupKey} " +
                     "flags=0x${Integer.toHexString(notif?.flags ?: 0)} " +
                     "cat=${notif?.category} canal=${notif?.channelId} " +
                     "longitudTexto=${mensaje.texto.length}"
             )
+
+            // 2. Republicación del mismo mensaje: WhatsApp vuelve a publicar la
+            //    notificación (p. ej. al enviar una respuesta) con un postTime nuevo pero
+            //    con el mismo mensaje dentro. Se compara la marca de tiempo del propio
+            //    mensaje, que no cambia para un mensaje ya atendido.
+            if (mensajeYaGestionado(clave, mensaje.marcaTiempoMensaje)) {
+                LogDiag.d("Mensaje ya atendido republicado por WhatsApp; se ignora")
+                Log.d(TAG, "Mensaje ya atendido republicado (clave=$clave, marca=${mensaje.marcaTiempoMensaje})")
+                return
+            }
+            marcarMensajeGestionado(clave, mensaje.marcaTiempoMensaje)
 
             // Foto del estado del teléfono en el momento exacto de recibir un mensaje
             // real (pantalla, no-molestar, batería y Bluetooth). Se guarda en logcat y
@@ -264,7 +325,11 @@ class WhatsAppNotificationListener : NotificationListenerService() {
             // Los datos de respuesta (PendingIntent + claves del RemoteInput) se extraen
             // de la notificación original y se pasan al servicio para poder enviar la
             // respuesta dictada por la acción de respuesta de la propia notificación.
-            val (pendingResponder, clavesRemoteInput) = extraerDatosRespuesta(sbn)
+            // Se incluye también la clave de la notificación para poder refrescar esos
+            // datos justo antes de enviar (WhatsApp la reemplaza con cada mensaje).
+            val datosRespuesta = DatosRespuestaHelper.extraer(sbn)
+            val pendingResponder = datosRespuesta.pendingIntent
+            val clavesRemoteInput = datosRespuesta.claves
             Log.d(TAG, "Datos de respuesta: pendingIntent=${pendingResponder != null}, claves=$clavesRemoteInput")
 
             if (esInmediato) {
@@ -293,6 +358,10 @@ class WhatsAppNotificationListener : NotificationListenerService() {
                             LectorAsistenteService.EXTRA_PENDING_INTENT_RESPONDER,
                             pendingResponder as? android.os.Parcelable
                         )
+                        .putExtra(
+                            LectorAsistenteService.EXTRA_CLAVE_NOTIFICACION,
+                            sbn.key
+                        )
                         .putStringArrayListExtra(
                             LectorAsistenteService.EXTRA_CLAVES_REMOTE_INPUT,
                             ArrayList(clavesRemoteInput)
@@ -310,6 +379,10 @@ class WhatsAppNotificationListener : NotificationListenerService() {
                         LectorAsistenteService.EXTRA_PENDING_INTENT_RESPONDER,
                         pendingResponder as? android.os.Parcelable
                     )
+                    .putExtra(
+                        LectorAsistenteService.EXTRA_CLAVE_NOTIFICACION,
+                        sbn.key
+                    )
                     .putStringArrayListExtra(
                         LectorAsistenteService.EXTRA_CLAVES_REMOTE_INPUT,
                         ArrayList(clavesRemoteInput)
@@ -324,25 +397,6 @@ class WhatsAppNotificationListener : NotificationListenerService() {
 
     override fun onNotificationRemoved(sbn: StatusBarNotification) {
         super.onNotificationRemoved(sbn)
-    }
-
-    /**
-     * Extrae de la notificación la acción de respuesta con RemoteInput:
-     * el PendingIntent que hay que lanzar para responder y las claves de los
-     * RemoteInput (necesarias para rellenar el resultado con el texto dictado).
-     *
-     * Devuelve null cuando la notificación no trae acción de respuesta (p. ej.
-     * un aviso sin la acción "Responder"), en cuyo caso no se podrá enviar.
-     */
-    private fun extraerDatosRespuesta(sbn: StatusBarNotification): Pair<android.os.Parcelable?, List<String>> {
-        val accionRespuesta: Notification.Action? = sbn.notification.actions
-            ?.firstOrNull { !it.remoteInputs.isNullOrEmpty() }
-        val pendingIntent = accionRespuesta?.actionIntent
-        val claves = accionRespuesta?.remoteInputs
-            ?.map { it.resultKey }
-            ?.filter { it.isNotBlank() }
-            ?: emptyList()
-        return pendingIntent to claves
     }
 
     }

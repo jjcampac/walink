@@ -7,6 +7,7 @@ import android.service.notification.StatusBarNotification
 import android.util.Log
 import androidx.core.app.NotificationCompat
 import com.jjcampac.walink.debug.DebugSimulator
+import com.jjcampac.walink.diag.LogDiag
 
 /**
  * Resultado del parseo de una notificación de WhatsApp.
@@ -16,6 +17,9 @@ import com.jjcampac.walink.debug.DebugSimulator
  * @param texto Cuerpo del mensaje.
  * @param esGrupo true si la notificación proviene de un grupo de WhatsApp.
  * @param paqueteOrigen com.whatsapp o com.whatsapp.w4b (o el paquete propio en debug).
+ * @param marcaTiempoMensaje marca de tiempo del propio mensaje según la notificación
+ * (0 si no la expone). No cambia cuando WhatsApp republica la notificación del mismo
+ * mensaje, así que sirve para no leerlo ni preguntarlo dos veces.
  *
  * @author jjcampac
  * @author cline
@@ -25,7 +29,8 @@ data class MensajeWhatsApp(
     val texto: String,
     val esGrupo: Boolean,
     val paqueteOrigen: String,
-    val esNotaDeVoz: Boolean = false
+    val esNotaDeVoz: Boolean = false,
+    val marcaTiempoMensaje: Long = 0L
 )
 
 /**
@@ -41,6 +46,9 @@ data class MensajeWhatsApp(
  *
  * Se ignoran:
  *   - Notificaciones de resumen ("3 mensajes nuevos", "Varios contactos").
+ *   - La notificación resumen del grupo de WhatsApp (FLAG_GROUP_SUMMARY), que repite
+ *     el último mensaje con otro remitente.
+ *   - El eco de los mensajes propios ("Tú"), que WhatsApp publica al responder.
  *   - Notificaciones de llamadas.
  *   - Notificaciones sin texto usable.
  *
@@ -55,6 +63,19 @@ object NotificationParser {
 
     // Longitud máxima razonable para un nombre de usuario en un chat de grupo.
     private const val MAX_LONGITUD_NOMBRE = 25
+
+    /**
+     * Nombres con los que WhatsApp identifica al propio usuario como autor de un mensaje
+     * ("Tú" en español). Aparecen cuando la notificación se actualiza tras enviar una
+     * respuesta (desde Walink por RemoteInput o desde el propio móvil) y hay que
+     * ignorarlos para no leer ni preguntar por nuestros propios mensajes.
+     *
+     * Se cubren los idiomas soportados por la app (es, en, de, fr, it, ja, pt).
+     */
+    private val AUTORREFERENCIAS = setOf(
+        "tú", "tu", "yo", "you", "me", "du", "ich", "vous", "moi", "io",
+        "あなた", "自分", "私", "você", "voce", "eu"
+    )
 
     /**
      * Intenta extraer un [MensajeWhatsApp] de una [StatusBarNotification].
@@ -94,16 +115,29 @@ object NotificationParser {
         val notification = notificacion.notification ?: return null
         val extras = notification.extras ?: return null
 
+        // 0) Ignorar la notificación "resumen" del grupo de WhatsApp
+        // (FLAG_GROUP_SUMMARY). Además del aviso de cada mensaje, WhatsApp publica una
+        // notificación resumen (mismo id, tag=null, categoría "msg") que repite el
+        // último mensaje con otro remitente; sin este filtro el mismo mensaje se leía
+        // dos veces y con un remitente equivocado.
+        if ((notification.flags and Notification.FLAG_GROUP_SUMMARY) != 0) {
+            return descartar("es el resumen del grupo de notificaciones")
+        }
+
         // 1) Ignorar notificaciones de llamada.
-        if (esNotificacionDeLlamada(extras, notification)) return null
+        if (esNotificacionDeLlamada(extras, notification)) {
+            return descartar("parece una llamada")
+        }
 
         // 2) Ignorar resumen de varios mensajes ("3 mensajes nuevos", etc.).
-        if (esNotificacionResumen(extras)) return null
+        if (esNotificacionResumen(extras)) {
+            return descartar("resumen de varios mensajes")
+        }
 
         // 3) Ignorar avisos de WhatsApp que no son mensajes (progreso, servicio,
         // copia de seguridad, sistema…). Sin este filtro se leían como si fueran
         // mensajes de un contacto: p. ej. "Eliminando chat seleccionado…".
-        if (esNotificacionDeSistema(notification)) return null
+        motivoNoEsMensaje(notification)?.let { motivo -> return descartar(motivo) }
 
         // 4) Intentar extraer de MessagingStyle (si WhatsApp lo expone).
         val estilo = NotificationCompat.MessagingStyle.extractMessagingStyleFromNotification(notification)
@@ -130,10 +164,8 @@ object NotificationParser {
         // usuario (p. ej. "Tú" en WhatsApp en español). Esto se produce cuando
         // WhatsApp actualiza la notificación tras un envío por RemoteInput y la
         // notificación no expone MessagingStyle (caso raro en versiones modernas).
-        val autoreferencias = setOf("tú", "you", "du", "tu", "ti", "ich")
-        if (remitente.lowercase().trim() in autoreferencias) {
-            Log.d(TAG, "Remitente es autoreferencia ('$remitente'), se ignora")
-            return null
+        if (remitente.lowercase().trim() in AUTORREFERENCIAS) {
+            return descartar("mensaje propio (remitente '$remitente')")
         }
 
         val esAudio = esMensajeDeVoz(textoLimpio.lowercase())
@@ -164,23 +196,20 @@ object NotificationParser {
         val texto = ultimoMensaje.text?.toString() ?: return null
         if (texto.isBlank()) return null
 
-        // IMPORTANTE: si el último mensaje fue enviado por el propio usuario
-        // (sender es null o vacío), significa que la notificación se ha actualizado
-        // tras responder desde Walink (RemoteInput) o desde la propia WhatsApp.
-        // Ignoramos estas notificaciones para evitar leer mensajes propios y
-        // el bucle "Tú" descrito en el fallo diagnosticado.
+        // IMPORTANTE: si el último mensaje lo envió el propio usuario (sin autor, o con
+        // el nombre con el que aparece en su WhatsApp: "Tú"), la notificación se ha
+        // actualizado tras responder desde Walink (RemoteInput) o desde el móvil.
+        // Se ignora para no leer ni preguntar por nuestros propios mensajes.
+        @Suppress("DEPRECATION")
         val sender = ultimoMensaje.sender
-        val esMensajePropio = sender == null || sender.isEmpty()
-        if (esMensajePropio) {
-            Log.d(TAG, "Último mensaje es propio (sender=${ultimoMensaje.sender}), se ignora")
-            return null
+        if (esAutorPropio(estilo, sender)) {
+            return descartar("mensaje propio (autor '${sender ?: "sin autor"}')")
         }
 
         // El autor puede ser null en WhatsApp Business / algunas versiones.
         // sender está deprecado en la API de MessagingStyle pero es la única
         // forma accesible de obtener el remitente sin usar APIs internas.
-        @Suppress("DEPRECATION")
-        val autor = ultimoMensaje.sender?.toString()?.trim() ?: ""
+        val autor = sender?.toString()?.trim() ?: ""
         val tituloConversacion = estilo.conversationTitle?.toString()?.trim()
 
         // MessagingStyle solo indica grupo si existe ConversationTitle.
@@ -206,7 +235,8 @@ object NotificationParser {
             texto = texto,
             esGrupo = esGrupo,
             paqueteOrigen = paquete,
-            esNotaDeVoz = esAudio
+            esNotaDeVoz = esAudio,
+            marcaTiempoMensaje = ultimoMensaje.timestamp
         )
     }
 
@@ -286,9 +316,9 @@ object NotificationParser {
     }
 
     /**
-     * Descarta las notificaciones de WhatsApp que **no son mensajes**: avisos de
-     * progreso (p. ej. "Eliminando chat seleccionado…"), copias de seguridad,
-     * "WhatsApp Web conectado", avisos de servicio, etc.
+     * Devuelve el motivo por el que una notificación de WhatsApp **no es un mensaje**
+     * (avisos de progreso como "Eliminando chat seleccionado…", copias de seguridad,
+     * "WhatsApp Web conectado", avisos de servicio…), o null si puede serlo.
      *
      * WhatsApp publica estos avisos en su mismo paquete y, sin este filtro, se
      * trataban como si fueran mensajes de un contacto: se leía en voz alta un
@@ -298,7 +328,7 @@ object NotificationParser {
      * notificación "en curso" o no descartable sin MessagingStyle); un mensaje real
      * de WhatsApp es descartable (FLAG_AUTO_CANCEL) y trae cuerpo de texto.
      */
-    private fun esNotificacionDeSistema(notification: Notification): Boolean {
+    private fun motivoNoEsMensaje(notification: Notification): String? {
         val categoriasNoMensaje = setOf(
             Notification.CATEGORY_PROGRESS,
             Notification.CATEGORY_SERVICE,
@@ -315,25 +345,58 @@ object NotificationParser {
         )
         val categoria = notification.category ?: ""
         if (categoria in categoriasNoMensaje) {
-            Log.d(TAG, "Notificación descartada: categoría de sistema '$categoria'")
-            return true
+            return "categoría de sistema '$categoria'"
         }
 
         // Un mensaje nunca es una notificación "en curso" (progreso que no termina).
         if ((notification.flags and Notification.FLAG_ONGOING_EVENT) != 0) {
-            Log.d(TAG, "Notificación descartada: es un evento en curso (FLAG_ONGOING_EVENT)")
-            return true
+            return "evento en curso (FLAG_ONGOING_EVENT)"
         }
 
         // Avisos que no se pueden descartar y que no traen conversación: son de sistema.
         val tieneEstilo =
             NotificationCompat.MessagingStyle.extractMessagingStyleFromNotification(notification) != null
         if (!tieneEstilo && (notification.flags and Notification.FLAG_NO_CLEAR) != 0) {
-            Log.d(TAG, "Notificación descartada: no descartable y sin MessagingStyle")
+            return "no descartable y sin MessagingStyle"
+        }
+
+        return null
+    }
+
+    /**
+     * Indica si el autor del último mensaje es el propio usuario.
+     *
+     * WhatsApp actualiza la notificación al enviar un mensaje (desde Walink por
+     * RemoteInput o desde el propio móvil) y lo firma con el nombre con el que el
+     * usuario aparece en su WhatsApp ("Tú" en español, "You" en inglés…). Leerlo daría
+     * lugar a "Mensaje de Tú. ¿Lo leo?" justo después de responder.
+     *
+     * @param autor nombre del autor del último mensaje (o null si no lo expone).
+     */
+    private fun esAutorPropio(estilo: NotificationCompat.MessagingStyle, autor: CharSequence?): Boolean {
+        // Sin autor no hay forma de saberlo: se mantiene el comportamiento anterior
+        // (se ignora, porque WhatsApp lo omite en el eco de los mensajes propios).
+        val nombre = autor?.toString()?.trim() ?: return true
+        if (nombre.isEmpty()) return true
+
+        // Si WhatsApp expone el perfil del usuario, comparamos con su nombre.
+        @Suppress("DEPRECATION")
+        val nombreUsuario = estilo.user?.name?.toString()?.trim()
+        if (!nombreUsuario.isNullOrBlank() && nombreUsuario.equals(nombre, ignoreCase = true)) {
             return true
         }
 
-        return false
+        return nombre.lowercase() in AUTORREFERENCIAS
+    }
+
+    /**
+     * Registra en el diagnóstico el motivo por el que se descarta una notificación y
+     * devuelve null, para poder usarlo como `return descartar("…")`.
+     */
+    private fun descartar(motivo: String): MensajeWhatsApp? {
+        Log.d(TAG, "Notificación descartada: $motivo")
+        LogDiag.d("Notificación descartada ($motivo)")
+        return null
     }
 
     private fun esNotificacionDeLlamada(extras: Bundle, notification: Notification): Boolean {

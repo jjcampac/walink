@@ -26,7 +26,9 @@ import com.jjcampac.walink.R
 import com.jjcampac.walink.data.WalinkDataStore
 import com.jjcampac.walink.diag.LogDiag
 import com.jjcampac.walink.idioma.IdiomaHelper
+import com.jjcampac.walink.service.DatosRespuestaHelper
 import com.jjcampac.walink.service.MicrofonoPermanenteService
+import com.jjcampac.walink.service.WhatsAppNotificationListener
 import androidx.core.app.NotificationCompat
 
 /**
@@ -66,6 +68,10 @@ class LectorAsistenteService : Service(), RecognitionListener {
     private var etapaRespuesta = 0
     private var pendingIntentResponder: PendingIntent? = null
     private var clavesRemoteInput: List<String> = emptyList()
+    // Clave de la notificación de la que se extrajeron los datos de respuesta: permite
+    // volver a leerlos justo antes de enviar (WhatsApp reemplaza la notificación del
+    // chat con cada mensaje y el PendingIntent anterior deja de entregar el texto).
+    private var claveNotificacion: String? = null
     // true cuando el FGS ya está en marcha como tipo "microphone" (con el permiso
     // while-in-use del micrófono activo). Evita volver a "specialUse" al reaccionar
     // (lo que repetiría el fallo de captar solo el primer buffer con pantalla apagada).
@@ -1018,6 +1024,28 @@ private fun insertarComasSeguras(t: String): String {
         intent.getStringArrayListExtra(EXTRA_CLAVES_REMOTE_INPUT)
             ?.takeIf { it.isNotEmpty() }
             ?.let { clavesRemoteInput = it }
+        intent.getStringExtra(EXTRA_CLAVE_NOTIFICACION)
+            ?.takeIf { it.isNotBlank() }
+            ?.let { claveNotificacion = it }
+    }
+
+    /**
+     * Vuelve a leer el PendingIntent y las claves del RemoteInput de la notificación
+     * vigente del chat.
+     *
+     * WhatsApp reemplaza la notificación con cada mensaje nuevo y el PendingIntent de la
+     * versión anterior deja de entregar el texto **sin devolver error**: el envío parece
+     * correcto pero WhatsApp lo descarta (síntoma: "lo ha informado como enviado pero no
+     * se ha enviado"). Si no se puede refrescar, se conservan los datos originales.
+     */
+    private fun refrescarDatosRespuesta() {
+        val datos = DatosRespuestaHelper.extraerVigente(this, claveNotificacion)
+        if (datos == null) {
+            Log.d(TAG, "Se conservan los datos de respuesta de la notificación original")
+            return
+        }
+        pendingIntentResponder = datos.pendingIntent
+        clavesRemoteInput = datos.claves
     }
 
     /** Pregunta por voz si quiere enviar la respuesta ya redactada o corregirla. */
@@ -1055,6 +1083,10 @@ private fun insertarComasSeguras(t: String): String {
     /** Envía la respuesta guardada mediante el RemoteInput de la notificación original. */
     private fun enviarRespuesta() {
         val texto = dataStore.borradorTexto ?: ""
+        // Antes de enviar, usar los datos de respuesta de la notificación vigente del
+        // chat: si ha llegado otro mensaje mientras hablábamos, WhatsApp ha reemplazado
+        // la notificación y el PendingIntent antiguo ya no entrega el texto.
+        refrescarDatosRespuesta()
         val pi = pendingIntentResponder
         if (pi == null || texto.isBlank() || clavesRemoteInput.isEmpty()) {
             Log.e(TAG, "No se puede enviar: pendingIntent=${pi != null} texto='$texto' claves=$clavesRemoteInput")
@@ -1077,9 +1109,15 @@ private fun insertarComasSeguras(t: String): String {
                 android.app.RemoteInput.addResultsToIntent(remoteInputs, intentEnvio, resultados)
                 pi.send(this, 0, intentEnvio)
                 dataStore.borrarBorradorRespuesta()
-                Log.d(TAG, "Respuesta enviada por RemoteInput")
-                lector.hablar(getString(R.string.respuesta_enviada, remitente)) {
-                    finalizar()
+                Log.d(TAG, "Respuesta entregada a WhatsApp; verificando que se ha insertado")
+                verificarEnvio(texto) { confirmado ->
+                    val aviso = if (confirmado) {
+                        getString(R.string.respuesta_enviada, remitente)
+                    } else {
+                        Log.e(TAG, "El envío no se ha podido confirmar: WhatsApp no muestra el mensaje")
+                        getString(R.string.aviso_no_enviado)
+                    }
+                    lector.hablar(aviso) { finalizar() }
                 }
             } catch (e: Exception) {
                 Log.e(TAG, "Error enviando respuesta", e)
@@ -1088,6 +1126,22 @@ private fun insertarComasSeguras(t: String): String {
                 }
             }
         }
+    }
+
+    /**
+     * Comprueba, poco después de enviar, que WhatsApp ha insertado el texto en la
+     * conversación: la notificación vigente del chat debe tenerlo como último mensaje.
+     *
+     * `PendingIntent.send()` no devuelve error aunque WhatsApp descarte el resultado, así
+     * que esta comprobación evita anunciar un envío que no se ha producido.
+     */
+    private fun verificarEnvio(texto: String, alTerminar: (Boolean) -> Unit) {
+        lector.mainHandler.postDelayed({
+            val vigente = WhatsAppNotificationListener.notificacionActiva(claveNotificacion)
+            val confirmado = vigente != null && DatosRespuestaHelper.contieneMensajePropio(vigente, texto)
+            Log.d(TAG, "Verificación del envío: confirmado=$confirmado (notificación=${vigente != null})")
+            alTerminar(confirmado)
+        }, ESPERA_VERIFICACION_ENVIO_MS)
     }
 
     /** Vuelve a escuchar el dictado para corregir la respuesta ya redactada. */
@@ -1157,6 +1211,7 @@ private fun insertarComasSeguras(t: String): String {
         const val EXTRA_TEXTO = "texto"
         const val EXTRA_PENDING_INTENT_RESPONDER = "pending_intent_responder"
         const val EXTRA_CLAVES_REMOTE_INPUT = "claves_remote_input"
+        const val EXTRA_CLAVE_NOTIFICACION = "clave_notificacion"
 
         // Etapas del flujo de voz (leer / responder / dictar / enviar-o-corregir)
         private const val ETAPA_IDLE = 0
@@ -1177,7 +1232,9 @@ private fun insertarComasSeguras(t: String): String {
         // Tiempo máximo para que la pregunta hablada termine; si no, se activa el
         // micrófono igualmente (evita ciclos congelados por un onDone TTS perdido).
         private const val WATCHDOG_PREGUNTA_MS = 6000L
-
+        // Espera antes de comprobar que WhatsApp ha insertado la respuesta enviada
+        // (el eco de la notificación llega en ~100 ms; se deja margen por si hay retardo).
+        private const val ESPERA_VERIFICACION_ENVIO_MS = 2_500L
         // Las palabras aceptadas como respuesta (sí/no, enviar/corregir/cancelar) se
         // leen de recursos localizados por idioma (arrays `palabras_*`).
         // Interrogativos con los que una frase dictada suele ser una pregunta. Se usa
