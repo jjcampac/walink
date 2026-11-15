@@ -255,4 +255,14 @@
         <item>取り消し</item>
         <item>やめとく</item>
     </string-array>
+    <string name="nota_voz_sin_carpeta">ボイスメッセージを再生するには、Walinkの設定でWhatsAppのフォルダーを選択してください</string>
+    <string name="nota_voz_carpeta_elegir">ボイスメッセージのフォルダーを選択</string>
+    <string name="nota_voz_carpeta_desc">「WhatsApp Voice Notes」フォルダーを選択すると音声を再生できます。</string>
+    <string name="nota_voz_carpeta_ok_estado">ボイスメッセージのフォルダーの準備完了</string>
+    <string name="nota_voz_carpeta_ok">フォルダーを保存しました。ボイスメッセージを再生できます</string>
+    <string name="nota_voz_carpeta_error">フォルダーへのアクセスを保存できませんでした</string>
+    <string name="nota_voz_acceso_total">代替: すべてのファイルへのアクセス</string>
+    <string name="respuesta_corta_enviando">%1$s。送信中。</string>
+    <string name="ajuste_envio_rapido">短い返信を確認なしで送信</string>
+    <string name="ajuste_envio_rapido_desc">「はい」「わかりました」などをディクテーションすると、そのまま送信されます。</string>
 </resources>

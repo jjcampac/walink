@@ -116,7 +116,10 @@ La notificación de WhatsApp **no incluye el audio** de una nota de voz: solo el
     202646/PTT-20261112-WA0000.opus
 ```
 
-- **Comprobado en el móvil real (Nothing Phone (3a)):** carpetas por año+semana (`202645`, `202646`…), ficheros `PTT-AAAAMMDD-WA####.opus`, propietario `u0_a256:media_rw` y permisos `rw-rw----`. Es decir, **hacen falta permisos de audio**: `READ_MEDIA_AUDIO` en Android 13+ y `READ_EXTERNAL_STORAGE` (con `maxSdkVersion="32"`) en versiones anteriores.
+- **Comprobado en el móvil real (Nothing Phone (3a)):** carpetas por año+semana (`202645`, `202646`…), ficheros `PTT-AAAAMMDD-WA####.opus`, propietario `u0_a256:media_rw` y permisos `rw-rw----`.
+- ⚠️ **El permiso de audio NO basta** (comprobado en el dispositivo): con `READ_MEDIA_AUDIO` concedido, el sistema **deniega** el acceso a `Android/media/com.whatsapp` (el log de *appops* mostraba `MANAGE_EXTERNAL_STORAGE: rejectTime=…` al intentar listar) y esos `.opus` **no aparecen en MediaStore** (`content query` → *No result found*). Dos caminos válidos:
+  1. **SAF (recomendado):** el usuario elige una vez la carpeta `WhatsApp Voice Notes` con el selector de carpetas; el permiso queda persistente entre reinicios y no se concede acceso global. Implementado con `ACTION_OPEN_DOCUMENT_TREE` + `DocumentsContract` (sin dependencias nuevas).
+  2. **"Acceso a todos los archivos"** (`MANAGE_EXTERNAL_STORAGE`): alternativa si el selector no deja elegir esa carpeta; entonces se lee con el sistema de ficheros clásico. Hay un enlace en la tarjeta de permisos.
 - ✅ **`notasvoz/NotasVoz`:** localiza el `.opus` cuyo `lastModified` está más cerca de la marca de tiempo del mensaje (ventana de 15 min), mirando las dos carpetas de semana más recientes de WhatsApp y WhatsApp Business. Se registra en el diagnóstico (`Nota de voz localizada: PTT-….opus (diferencia=… s)`) o el motivo del fallo (sin permiso, carpeta vacía, fuera de ventana).
 - ✅ **`notasvoz/ReproductorNotaVoz`:** `MediaPlayer` asíncrono con las reglas de audio del proyecto (foco `USAGE_ASSISTANCE_NAVIGATION_GUIDANCE`/`CONTENT_TYPE_SPEECH`, atenuar o pausar según ajuste, abandono del foco al terminar), retraso de Bluetooth y watchdog por duración para no dejar el flujo colgado.
 - ✅ **`notasvoz/LecturaNotaVoz`:** encadena locución → reproducción → continuación del flujo, en los tres puntos donde se lee un mensaje (lectura inmediata, tras confirmar en modo "preguntar" y lectura degradada sin micrófono). Si la nota no se encuentra, se avisa por voz y el flujo sigue.
@@ -125,7 +128,16 @@ La notificación de WhatsApp **no incluye el audio** de una nota de voz: solo el
 - ✅ **Permiso de audio en la app:** fila propia en la tarjeta de permisos y en la cascada del onboarding.
 - ✅ **Prueba sin WhatsApp:** botón "Simular nota de voz" en la tarjeta de depuración, que publica un aviso `🎤 Audio (0:12)` para que Walink reproduzca el último `.opus` real.
 - ✅ **Pruebas unitarias** (`NotasVozTest`): 5 casos sobre la selección del fichero (más cercano, posterior, fuera de ventana, vacío).
-- ⏳ **Pendiente:** validar en el móvil real (instalar release, conceder permiso de audio y probar con una nota de voz de verdad).
+
+### Envío rápido de respuestas cortas
+
+Conducir y tener que confirmar cada respuesta supone dos interacciones extra; para un simple "vale" es desproporcionado. Con el ajuste **"Enviar respuestas cortas sin confirmar"** (activo por defecto):
+
+- Si el dictado está en la **lista blanca** de `speech/RespuestaCorta` ("vale", "ok", "de acuerdo", "gracias", "ahora te llamo"…, hasta 4 palabras y en los seis idiomas de la app), se envía directamente: suena "… Enviando." y después el aviso de envío verificado.
+- Cualquier otra frase sigue el flujo seguro de siempre: se repite, se pide confirmación y se espera "enviar / corregir / cancelar".
+
+Se ignora acentuación, mayúsculas y puntuación al comparar, y **nunca** se envía sin confirmar algo que no esté reconocido en esa lista, para que una transcripción dudosa no salga sola. Cubierto con 8 pruebas unitarias (`RespuestaCortaTest`).
+- ⏳ **Pendiente:** validar en el móvil real (instalar release, elegir la carpeta con SAF y probar con una nota de voz de verdad).
 
 ---
 

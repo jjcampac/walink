@@ -290,4 +290,14 @@
         <item>dismiss</item>
         <item>scrap it</item>
     </string-array>
+    <string name="nota_voz_sin_carpeta">To hear voice notes, choose the WhatsApp folder in Walink settings</string>
+    <string name="nota_voz_carpeta_elegir">Choose voice notes folder</string>
+    <string name="nota_voz_carpeta_desc">Choose the «WhatsApp Voice Notes» folder so the audio can be played.</string>
+    <string name="nota_voz_carpeta_ok_estado">Voice notes folder ready</string>
+    <string name="nota_voz_carpeta_ok">Folder saved: voice notes can now be played</string>
+    <string name="nota_voz_carpeta_error">The folder access could not be saved</string>
+    <string name="nota_voz_acceso_total">Alternative: all files access</string>
+    <string name="respuesta_corta_enviando">%1$s. Sending.</string>
+    <string name="ajuste_envio_rapido">Send short replies without confirming</string>
+    <string name="ajuste_envio_rapido_desc">If you dictate «ok», «sure» and similar, they are sent straight away.</string>
 </resources>

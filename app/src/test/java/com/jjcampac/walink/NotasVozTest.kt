@@ -1,9 +1,9 @@
 package com.jjcampac.walink
 
 import com.jjcampac.walink.notasvoz.NotasVoz
-import java.io.File
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
+import org.junit.Assert.assertSame
 import org.junit.Test
 
 /**
@@ -22,7 +22,7 @@ class NotasVozTest {
     private val ventana = 15 * 60 * 1000L
 
     private fun candidato(nombre: String, modificado: Long) =
-        NotasVoz.Candidato(File("/almacenamiento/$nombre"), modificado)
+        NotasVoz.Archivo(nombre = nombre, modificado = modificado, ruta = "/almacenamiento/$nombre")
 
     @Test
     fun `elige el fichero mas cercano a la marca del mensaje`() {
@@ -36,7 +36,7 @@ class NotasVozTest {
             referencia,
             ventana
         )
-        assertEquals("PTT-2.opus", elegido?.archivo?.name)
+        assertEquals("PTT-2.opus", elegido?.nombre)
     }
 
     @Test
@@ -50,7 +50,7 @@ class NotasVozTest {
             referencia,
             ventana
         )
-        assertEquals("PTT-despues.opus", elegido?.archivo?.name)
+        assertEquals("PTT-despues.opus", elegido?.nombre)
     }
 
     @Test
@@ -80,6 +80,24 @@ class NotasVozTest {
             referencia,
             ventana
         )
-        assertEquals("PTT-justo.opus", elegido?.archivo?.name)
+        assertEquals("PTT-justo.opus", elegido?.nombre)
+    }
+
+    @Test
+    fun `el archivo elegido conserva su origen y nombre`() {
+        val referencia = 3_000_000L
+        val conRuta = NotasVoz.Archivo(
+            nombre = "PTT-origen.opus",
+            modificado = referencia + 1_000L,
+            ruta = "/almacenamiento/PTT-origen.opus"
+        )
+        val elegido = NotasVoz.seleccionar(
+            listOf(conRuta, candidato("PTT-ruta.opus", referencia - 20_000L)),
+            referencia,
+            ventana
+        )
+        assertSame(conRuta, elegido)
+        assertEquals("/almacenamiento/PTT-origen.opus", elegido?.ruta)
+        assertEquals("PTT-origen.opus", elegido?.nombre)
     }
 }

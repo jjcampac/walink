@@ -593,6 +593,19 @@ class LectorAsistenteService : Service(), RecognitionListener {
                 }
                 etapaRespuesta = ETAPA_CONFIRMAR_ENVIO
                 dataStore.guardarBorradorRespuesta(remitente, textoDictado)
+
+                // Envío rápido: si es una confirmación inequívoca ("vale", "de acuerdo"…)
+                // y el usuario lo tiene activado, se envía sin repetirla ni preguntar.
+                // Sigue siendo una lista blanca: nada que no esté reconocido se envía solo.
+                if (dataStore.envioRapidoRespuestasCortas && RespuestaCorta.esCorta(textoDictado)) {
+                    Log.d(TAG, "Dictado corto inequívoco ('$textoDictado'): envío directo")
+                    LogDiag.d("Respuesta corta '$textoDictado': envío directo sin confirmar")
+                    lector.hablar(getString(R.string.respuesta_corta_enviando, textoDictado)) {
+                        enviarRespuesta(decirEnviando = false)
+                    }
+                    return
+                }
+
                 lector.hablar(getString(R.string.borrador_guardado, remitente, textoDictado)) {
                     Log.d(TAG, "Borrador dictado guardado, preguntando enviar o corregir")
                     preguntarEnviarOCorregir()
@@ -1116,8 +1129,13 @@ private fun insertarComasSeguras(t: String): String {
         }
     }
 
-    /** Envía la respuesta guardada mediante el RemoteInput de la notificación original. */
-    private fun enviarRespuesta() {
+    /**
+     * Envía la respuesta guardada mediante el RemoteInput de la notificación original.
+     *
+     * @param decirEnviando false cuando ya se ha avisado por voz justo antes (envío
+     * rápido de respuestas cortas), para no repetir "Enviando respuesta".
+     */
+    private fun enviarRespuesta(decirEnviando: Boolean = true) {
         val texto = dataStore.borradorTexto ?: ""
         // Antes de enviar, usar los datos de respuesta de la notificación vigente del
         // chat: si ha llegado otro mensaje mientras hablábamos, WhatsApp ha reemplazado
@@ -1132,7 +1150,7 @@ private fun insertarComasSeguras(t: String): String {
             return
         }
         Log.d(TAG, "Enviando respuesta a '${remitente}': '$texto'")
-        lector.hablar(getString(R.string.enviando_respuesta)) {
+        val enviar = {
             try {
                 val intentEnvio = Intent()
                 val resultados = Bundle()
@@ -1161,6 +1179,13 @@ private fun insertarComasSeguras(t: String): String {
                     finalizar()
                 }
             }
+        }
+        // En el envío rápido ya se ha dicho el texto justo antes ("Vale. Enviando."),
+        // así que no se repite el aviso genérico de envío.
+        if (decirEnviando) {
+            lector.hablar(getString(R.string.enviando_respuesta)) { enviar() }
+        } else {
+            enviar()
         }
     }
 

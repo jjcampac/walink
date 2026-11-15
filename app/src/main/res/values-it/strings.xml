@@ -258,4 +258,14 @@
         <item>lascia stare</item>
         <item>lascia perdere</item>
     </string-array>
+    <string name="nota_voz_sin_carpeta">Per ascoltare i messaggi vocali, scegli la cartella di WhatsApp nelle impostazioni di Walink</string>
+    <string name="nota_voz_carpeta_elegir">Scegli cartella dei messaggi vocali</string>
+    <string name="nota_voz_carpeta_desc">Scegli la cartella «WhatsApp Voice Notes» per riprodurre l’audio.</string>
+    <string name="nota_voz_carpeta_ok_estado">Cartella dei messaggi vocali pronta</string>
+    <string name="nota_voz_carpeta_ok">Cartella salvata: ora è possibile riprodurre i messaggi vocali</string>
+    <string name="nota_voz_carpeta_error">Non è stato possibile salvare l’accesso alla cartella</string>
+    <string name="nota_voz_acceso_total">Alternativa: accesso a tutti i file</string>
+    <string name="respuesta_corta_enviando">%1$s. Invio in corso.</string>
+    <string name="ajuste_envio_rapido">Invia risposte brevi senza conferma</string>
+    <string name="ajuste_envio_rapido_desc">Se detti «ok», «va bene» e simili, vengono inviati subito.</string>
 </resources>

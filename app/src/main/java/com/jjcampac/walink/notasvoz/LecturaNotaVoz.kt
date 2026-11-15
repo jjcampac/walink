@@ -18,7 +18,8 @@ import com.jjcampac.walink.speech.SpeechReader
  *  2. Si el usuario desactivó la reproducción de notas de voz, se continúa sin más
  *     (el TTS ya ha dicho "una nota de voz").
  *  3. Si no se localiza el archivo, se avisa por voz y se continúa: el mensaje nunca
- *     se pierde y la sesión de respuesta sigue su curso.
+ *     se pierde y la sesión de respuesta sigue su curso. Si además falta configurar
+ *     el acceso a la carpeta (SAF o "todos los archivos"), el aviso lo explica.
  *  4. Si se localiza, se reproduce y al terminar se continúa.
  *
  * @author jjcampac
@@ -61,13 +62,20 @@ object LecturaNotaVoz {
         if (archivo == null) {
             Log.w(TAG, "No se pudo localizar la nota de voz: ${resultado.motivo}")
             LogDiag.e("Nota de voz no localizada (${resultado.motivo})")
-            lector.hablar(contexto.getString(R.string.nota_voz_no_reproducible)) {
+            // Si ni siquiera hay acceso configurado (carpeta sin elegir), el aviso
+            // explica qué hacer; si es otro fallo, se avisa sin más.
+            val aviso = if (resultado.faltaAcceso) {
+                R.string.nota_voz_sin_carpeta
+            } else {
+                R.string.nota_voz_no_reproducible
+            }
+            lector.hablar(contexto.getString(aviso)) {
                 alTerminar()
             }
             return
         }
 
-        Log.d(TAG, "Reproduciendo nota de voz: ${archivo.name}")
+        Log.d(TAG, "Reproduciendo nota de voz: ${archivo.nombre}")
         ReproductorNotaVoz.obtener(contexto).reproducir(archivo) {
             Log.d(TAG, "Nota de voz terminada; continúa el flujo de voz")
             alTerminar()

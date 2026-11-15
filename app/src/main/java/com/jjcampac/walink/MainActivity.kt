@@ -23,6 +23,7 @@ import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts.RequestMultiplePermissions
 import androidx.activity.result.contract.ActivityResultContracts.RequestPermission
+import androidx.activity.result.contract.ActivityResultContracts.StartActivityForResult
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -161,11 +162,35 @@ class MainActivity : ComponentActivity() {
         }
 
     // Permiso de audio (READ_MEDIA_AUDIO en Android 13+, READ_EXTERNAL_STORAGE antes).
-    // Es lo que permite leer los .opus de las notas de voz de WhatsApp.
+    // Por sí solo no da acceso a la carpeta de WhatsApp en Android 11+, pero se sigue
+    // pidiendo porque en versiones antiguas y otros dispositivos sí ayuda.
     private val solicitarAudio =
         registerForActivityResult(RequestMultiplePermissions()) { concedidos ->
             permisoAudio = concedidos.values.contains(true)
             avanzarOnboarding()
+        }
+
+    // Carpeta de notas de voz elegida con SAF. Es la vía recomendada para leer los
+    // .opus de WhatsApp: no requiere permisos globales y el permiso es persistente.
+    private val elegirCarpetaNotasVoz =
+        registerForActivityResult(StartActivityForResult()) { resultado ->
+            val uri = resultado.data?.data
+            if (resultado.resultCode == android.app.Activity.RESULT_OK && uri != null) {
+                val persistido = NotasVoz.guardarCarpeta(this, uri)
+                carpetaNotasVoz = NotasVoz.carpetaElegida(this)
+                accesoNotasVoz = NotasVoz.hayAcceso(this)
+                LogDiag.d(
+                    "Notas de voz: carpeta elegida (${NotasVoz.nombreCarpeta(uri)}, " +
+                        "persistente=$persistido)"
+                )
+                Toast.makeText(
+                    this,
+                    if (persistido) R.string.nota_voz_carpeta_ok else R.string.nota_voz_carpeta_error,
+                    Toast.LENGTH_LONG
+                ).show()
+                // Se comprueba en el acto que la carpeta se puede leer.
+                diagnosticoNotasVoz()
+            }
         }
 
     // ---- Estados de la UI ----
@@ -194,6 +219,11 @@ class MainActivity : ComponentActivity() {
 
     // ---- Notas de voz: reproducir el audio de WhatsApp (activo por defecto) ----
     private var reproducirNotasVoz by mutableStateOf(true)
+    private var carpetaNotasVoz by mutableStateOf<Uri?>(null)   // carpeta elegida con SAF
+    private var accesoNotasVoz by mutableStateOf(false)         // SAF o "todos los archivos"
+
+    // ---- Envío rápido: respuestas cortas inequívocas sin repetir ni confirmar ----
+    private var envioRapidoCortas by mutableStateOf(true)
 
     // ---- Dispositivos Bluetooth del coche (Fase 2) ----
     // Uno o varios dispositivos. Walink solo actúa cuando ALGUNO de ellos
@@ -305,18 +335,58 @@ class MainActivity : ComponentActivity() {
      */
     private fun diagnosticoNotasVoz() {
         lifecycleScope.launch(Dispatchers.IO) {
-            val conPermiso = NotasVoz.permisoConcedido(applicationContext)
-            val resultado = NotasVoz.localizar(applicationContext, System.currentTimeMillis())
+            val contexto = applicationContext
+            val carpeta = NotasVoz.carpetaElegida(contexto)
+            val accesoTotal = NotasVoz.accesoTotal(contexto)
+            val resultado = NotasVoz.localizar(contexto, System.currentTimeMillis())
             val archivo = resultado.archivo
             val detalle = if (archivo != null) {
-                "último=${archivo.name} (hace ${resultado.edadMs / 1000} s)"
+                "último=${archivo.nombre} (hace ${resultado.edadMs / 1000} s, origen=" +
+                    (if (archivo.uri != null) "SAF" else "ficheros") + ")"
             } else {
                 resultado.motivo
             }
             LogDiag.d(
-                "Notas de voz: permiso=" + (if (conPermiso) "OK" else "NO concedido") +
+                "Notas de voz: carpeta=" +
+                    (if (carpeta != null) NotasVoz.nombreCarpeta(carpeta) else "sin elegir") +
+                    ", accesoTotal=" + (if (accesoTotal) "sí" else "no") +
                     " · " + detalle
             )
+        }
+    }
+
+    /** Abre el selector de carpetas (SAF) en la carpeta de notas de voz de WhatsApp. */
+    private fun pedirCarpetaNotasVoz() {
+        try {
+            elegirCarpetaNotasVoz.launch(NotasVoz.intentElegirCarpeta())
+        } catch (e: Exception) {
+            // Sin selector de carpetas (raro): se ofrece la alternativa de acceso total.
+            Log.e("WalinkDebug", "No se pudo abrir el selector de carpetas", e)
+            abrirAjustesAccesoTotal()
+        }
+    }
+
+    /**
+     * Abre los ajustes del permiso de "todos los archivos", alternativa a SAF cuando el
+     * selector no deja elegir la carpeta de WhatsApp.
+     */
+    private fun abrirAjustesAccesoTotal() {
+        val detalle = Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS).apply {
+            data = Uri.parse("package:$packageName")
+        }
+        val intent = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+            Intent(
+                Settings.ACTION_MANAGE_APP_ALL_FILES_ACCESS_PERMISSION,
+                Uri.parse("package:$packageName")
+            )
+        } else {
+            detalle
+        }
+        try {
+            startActivity(intent)
+        } catch (e: Exception) {
+            Log.e("WalinkDebug", "No se pudo abrir el acceso a todos los archivos", e)
+            startActivity(detalle)
         }
     }
 
@@ -464,6 +534,8 @@ class MainActivity : ComponentActivity() {
         permisoBluetooth = checkSelfPermission(Manifest.permission.BLUETOOTH_CONNECT) == PackageManager.PERMISSION_GRANTED &&
             checkSelfPermission(Manifest.permission.BLUETOOTH_SCAN) == PackageManager.PERMISSION_GRANTED
         permisoAudio = NotasVoz.permisoConcedido(this)
+        carpetaNotasVoz = NotasVoz.carpetaElegida(this)
+        accesoNotasVoz = NotasVoz.hayAcceso(this)
 
         servicioActivado = dataStore.estaActivado
         mostrarOnboarding = !dataStore.onboardingCompletado
@@ -472,6 +544,7 @@ class MainActivity : ComponentActivity() {
         leerTrasPreguntar = dataStore.leerTrasPreguntar
         audioBajaVolumen = dataStore.bajarVolumenEnLugarDePausar
         reproducirNotasVoz = dataStore.reproducirNotasVoz
+        envioRapidoCortas = dataStore.envioRapidoRespuestasCortas
         dispositivosSeleccionados = dataStore.dispositivosBluetooth
         leerSinCoche = dataStore.leerSinCoche
 
@@ -565,7 +638,7 @@ class MainActivity : ComponentActivity() {
                         permisoPostNotificaciones = permisoPostNotificaciones,
                         permisoMicrofono = permisoMicrofono,
                         permisoBluetooth = permisoBluetooth,
-                        permisoAudio = permisoAudio,
+                        accesoNotasVoz = accesoNotasVoz,
                         bateriaExcluida = bateriaExcluida,
                         servicioActivado = servicioActivado,
                         idiomaActual = idiomaActual,
@@ -597,6 +670,13 @@ class MainActivity : ComponentActivity() {
                             lifecycleScope.launch {
                                 dataStore.setReproducirNotasVoz(reproducir)
                                 reproducirNotasVoz = reproducir
+                            }
+                        },
+                        envioRapidoCortas = envioRapidoCortas,
+                        onCambiarEnvioRapidoCortas = { rapido ->
+                            lifecycleScope.launch {
+                                dataStore.setEnvioRapidoRespuestasCortas(rapido)
+                                envioRapidoCortas = rapido
                             }
                         },
                         dispositivosSeleccionados = dispositivosSeleccionados,
@@ -703,9 +783,8 @@ class MainActivity : ComponentActivity() {
                             Manifest.permission.BLUETOOTH_CONNECT,
                             Manifest.permission.BLUETOOTH_SCAN
                         )) },
-                        onSolicitarAudio = {
-                            solicitarAudio.launch(arrayOf(NotasVoz.permisoRequerido()))
-                        },
+                        onElegirCarpetaNotasVoz = ::pedirCarpetaNotasVoz,
+                        onAbrirAccesoTotal = ::abrirAjustesAccesoTotal,
                         onSolicitarNotificacionesPost = {
                             solicitarNotificacionesPost.launch(
                                 arrayOf(Manifest.permission.POST_NOTIFICATIONS)
@@ -768,11 +847,14 @@ class MainActivity : ComponentActivity() {
         permisoBluetooth = checkSelfPermission(Manifest.permission.BLUETOOTH_CONNECT) == PackageManager.PERMISSION_GRANTED &&
             checkSelfPermission(Manifest.permission.BLUETOOTH_SCAN) == PackageManager.PERMISSION_GRANTED
         permisoAudio = NotasVoz.permisoConcedido(this)
+        carpetaNotasVoz = NotasVoz.carpetaElegida(this)
+        accesoNotasVoz = NotasVoz.hayAcceso(this)
         bateriaExcluida = estaExcluidoDeBateria()
         servicioActivado = dataStore.estaActivado
         leerTrasPreguntar = dataStore.leerTrasPreguntar
         audioBajaVolumen = dataStore.bajarVolumenEnLugarDePausar
         reproducirNotasVoz = dataStore.reproducirNotasVoz
+        envioRapidoCortas = dataStore.envioRapidoRespuestasCortas
         dispositivosSeleccionados = dataStore.dispositivosBluetooth
         refrescarDispositivosBluetooth()
         // Mantener el servicio de micro permanente alineado con la activación: se
@@ -863,7 +945,7 @@ private fun PantallaPrincipal(
     permisoPostNotificaciones: Boolean,
     permisoMicrofono: Boolean,
     permisoBluetooth: Boolean,
-    permisoAudio: Boolean,
+    accesoNotasVoz: Boolean,
     bateriaExcluida: Boolean,
     servicioActivado: Boolean,
     idiomaActual: String,
@@ -878,6 +960,8 @@ private fun PantallaPrincipal(
     onCambiarAudioFondo: (Boolean) -> Unit,
     reproducirNotasVoz: Boolean,
     onCambiarReproducirNotasVoz: (Boolean) -> Unit,
+    envioRapidoCortas: Boolean,
+    onCambiarEnvioRapidoCortas: (Boolean) -> Unit,
     dispositivosSeleccionados: Set<String>,
     dispositivosEmparejados: List<BluetoothCoche.Dispositivo>,
     dispositivosConectados: Set<String>,
@@ -899,7 +983,8 @@ private fun PantallaPrincipal(
     onIrAjustesBateria: () -> Unit,
     onSolicitarMicrofono: () -> Unit,
     onSolicitarBluetooth: () -> Unit,
-    onSolicitarAudio: () -> Unit,
+    onElegirCarpetaNotasVoz: () -> Unit,
+    onAbrirAccesoTotal: () -> Unit,
     onSolicitarNotificacionesPost: () -> Unit,
     modoDepuracion: Boolean,
     onAlternarModoDepuracion: () -> Unit,
@@ -1070,6 +1155,60 @@ private fun PantallaPrincipal(
                                     onCheckedChange = onCambiarReproducirNotasVoz
                                 )
                             }
+
+                            // Estado del acceso a la carpeta de notas de voz, con el botón
+                            // para elegirla (SAF). Sin este acceso solo se anuncia la nota.
+                            if (reproducirNotasVoz) {
+                                Spacer(modifier = Modifier.height(6.dp))
+                                Text(
+                                    text = if (accesoNotasVoz) {
+                                        stringResource(id = R.string.nota_voz_carpeta_ok_estado)
+                                    } else {
+                                        stringResource(id = R.string.nota_voz_carpeta_desc)
+                                    },
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = if (accesoNotasVoz) {
+                                        MaterialTheme.colorScheme.primary
+                                    } else {
+                                        MaterialTheme.colorScheme.onSurfaceVariant
+                                    }
+                                )
+                                TextButton(onClick = onElegirCarpetaNotasVoz) {
+                                    Text(stringResource(id = R.string.nota_voz_carpeta_elegir))
+                                }
+                            }
+
+                            Spacer(modifier = Modifier.height(12.dp))
+                            HorizontalDivider(
+                                color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f)
+                            )
+                            Spacer(modifier = Modifier.height(8.dp))
+
+                            // Envío rápido: las confirmaciones inequívocas ("vale", "de
+                            // acuerdo"…) se envían sin repetir ni preguntar.
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .clickable { onCambiarEnvioRapidoCortas(!envioRapidoCortas) },
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Column(modifier = Modifier.weight(1f)) {
+                                    Text(
+                                        text = stringResource(id = R.string.ajuste_envio_rapido),
+                                        style = MaterialTheme.typography.bodyMedium,
+                                        fontWeight = FontWeight.Medium
+                                    )
+                                    Text(
+                                        text = stringResource(id = R.string.ajuste_envio_rapido_desc),
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
+                                }
+                                Switch(
+                                    checked = envioRapidoCortas,
+                                    onCheckedChange = onCambiarEnvioRapidoCortas
+                                )
+                            }
                         }
                     }
                 }
@@ -1106,13 +1245,14 @@ private fun PantallaPrincipal(
                         permisoPostNotificaciones = permisoPostNotificaciones,
                         permisoMicrofono = permisoMicrofono,
                         permisoBluetooth = permisoBluetooth,
-                        permisoAudio = permisoAudio,
+                        accesoNotasVoz = accesoNotasVoz,
                         bateriaExcluida = bateriaExcluida,
                         onIrAjustesNotificaciones = onIrAjustesNotificaciones,
                         onSolicitarNotificacionesPost = onSolicitarNotificacionesPost,
                         onSolicitarMicrofono = onSolicitarMicrofono,
                         onSolicitarBluetooth = onSolicitarBluetooth,
-                        onSolicitarAudio = onSolicitarAudio,
+                        onElegirCarpetaNotasVoz = onElegirCarpetaNotasVoz,
+                        onAbrirAccesoTotal = onAbrirAccesoTotal,
                         onIrAjustesBateria = onIrAjustesBateria
                     )
 
@@ -1698,20 +1838,21 @@ private fun TarjetaPermisosSistema(
     permisoPostNotificaciones: Boolean,
     permisoMicrofono: Boolean,
     permisoBluetooth: Boolean,
-    permisoAudio: Boolean,
+    accesoNotasVoz: Boolean,
     bateriaExcluida: Boolean,
     onIrAjustesNotificaciones: () -> Unit,
     onSolicitarNotificacionesPost: () -> Unit,
     onSolicitarMicrofono: () -> Unit,
     onSolicitarBluetooth: () -> Unit,
-    onSolicitarAudio: () -> Unit,
+    onElegirCarpetaNotasVoz: () -> Unit,
+    onAbrirAccesoTotal: () -> Unit,
     onIrAjustesBateria: () -> Unit
 ) {
     val totalPendientes = (if (permisoNotificaciones) 0 else 1) +
         (if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU && !permisoPostNotificaciones) 1 else 0) +
         (if (permisoMicrofono) 0 else 1) +
         (if (permisoBluetooth) 0 else 1) +
-        (if (permisoAudio) 0 else 1) +
+        (if (accesoNotasVoz) 0 else 1) +
         (if (bateriaExcluida) 0 else 1)
 
     val todosOk = totalPendientes == 0
@@ -1794,10 +1935,24 @@ private fun TarjetaPermisosSistema(
                     FilaPermisoCompacta(
                         emoji = "🔊",
                         titulo = stringResource(id = R.string.permiso_notas_voz),
-                        concedido = permisoAudio,
+                        concedido = accesoNotasVoz,
                         requiereAjustes = false,
-                        onClick = onSolicitarAudio
+                        textoBoton = stringResource(id = R.string.nota_voz_carpeta_elegir),
+                        onClick = onElegirCarpetaNotasVoz
                     )
+                    // Alternativa por si el selector de carpetas no deja elegir la de
+                    // WhatsApp: permiso de "todos los archivos" (más intrusivo).
+                    if (!accesoNotasVoz) {
+                        TextButton(
+                            onClick = onAbrirAccesoTotal,
+                            modifier = Modifier.padding(start = 10.dp)
+                        ) {
+                            Text(
+                                text = stringResource(id = R.string.nota_voz_acceso_total),
+                                style = MaterialTheme.typography.labelMedium
+                            )
+                        }
+                    }
                     FilaPermisoCompacta(
                         emoji = "🔋",
                         titulo = "Optimización de batería",
@@ -2375,7 +2530,7 @@ private fun PantallaPrincipalPreview() {
             permisoPostNotificaciones = true,
             permisoMicrofono = true,
             permisoBluetooth = true,
-            permisoAudio = true,
+            accesoNotasVoz = true,
             bateriaExcluida = true,
             servicioActivado = true,
             idiomaActual = "es",
@@ -2390,6 +2545,8 @@ private fun PantallaPrincipalPreview() {
             onCambiarAudioFondo = {},
             reproducirNotasVoz = true,
             onCambiarReproducirNotasVoz = {},
+            envioRapidoCortas = true,
+            onCambiarEnvioRapidoCortas = {},
             dispositivosSeleccionados = setOf("00:11:22:33:44:55"),
             dispositivosEmparejados = listOf(
                 BluetoothCoche.Dispositivo("Mi Coche", "00:11:22:33:44:55")
@@ -2413,7 +2570,8 @@ private fun PantallaPrincipalPreview() {
             onIrAjustesBateria = {},
             onSolicitarMicrofono = {},
             onSolicitarBluetooth = {},
-            onSolicitarAudio = {},
+            onElegirCarpetaNotasVoz = {},
+            onAbrirAccesoTotal = {},
             onSolicitarNotificacionesPost = {},
             modoDepuracion = false,
             onAlternarModoDepuracion = {},

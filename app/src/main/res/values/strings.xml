@@ -289,4 +289,14 @@
         <item>no envíes</item>
         <item>quítalo</item>
     </string-array>
+    <string name="nota_voz_sin_carpeta">Para oír las notas de voz, elige la carpeta de WhatsApp en los ajustes de Walink</string>
+    <string name="nota_voz_carpeta_elegir">Elegir carpeta de notas de voz</string>
+    <string name="nota_voz_carpeta_desc">Elige la carpeta «WhatsApp Voice Notes» para poder reproducir el audio.</string>
+    <string name="nota_voz_carpeta_ok_estado">Carpeta de notas de voz lista</string>
+    <string name="nota_voz_carpeta_ok">Carpeta guardada: ya se pueden reproducir las notas de voz</string>
+    <string name="nota_voz_carpeta_error">No se ha podido guardar el acceso a la carpeta</string>
+    <string name="nota_voz_acceso_total">Alternativa: acceso a todos los archivos</string>
+    <string name="respuesta_corta_enviando">%1$s. Enviando.</string>
+    <string name="ajuste_envio_rapido">Enviar respuestas cortas sin confirmar</string>
+    <string name="ajuste_envio_rapido_desc">Si dictas «vale», «de acuerdo» y similares, se envían directamente.</string>
 </resources>

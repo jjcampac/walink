@@ -263,4 +263,14 @@
         <item>lass es</item>
         <item>lass es sein</item>
     </string-array>
+    <string name="nota_voz_sin_carpeta">Um Sprachnachrichten zu hören, wähle den WhatsApp-Ordner in den Walink-Einstellungen</string>
+    <string name="nota_voz_carpeta_elegir">Sprachnachrichten-Ordner wählen</string>
+    <string name="nota_voz_carpeta_desc">Wähle den Ordner „WhatsApp Voice Notes“, damit die Audiodatei abgespielt werden kann.</string>
+    <string name="nota_voz_carpeta_ok_estado">Sprachnachrichten-Ordner bereit</string>
+    <string name="nota_voz_carpeta_ok">Ordner gespeichert: Sprachnachrichten können jetzt abgespielt werden</string>
+    <string name="nota_voz_carpeta_error">Der Ordnerzugriff konnte nicht gespeichert werden</string>
+    <string name="nota_voz_acceso_total">Alternative: Zugriff auf alle Dateien</string>
+    <string name="respuesta_corta_enviando">%1$s. Wird gesendet.</string>
+    <string name="ajuste_envio_rapido">Kurze Antworten ohne Bestätigung senden</string>
+    <string name="ajuste_envio_rapido_desc">Diktierst du „ok“, „in Ordnung“ und Ähnliches, wird es sofort gesendet.</string>
 </resources>

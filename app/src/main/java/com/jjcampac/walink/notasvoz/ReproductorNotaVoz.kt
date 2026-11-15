@@ -68,12 +68,16 @@ class ReproductorNotaVoz private constructor(private val contexto: Context) {
      * Reproduce [archivo] y llama a [alTerminar] cuando acaba, falla o se detiene.
      * [alTerminar] se invoca **siempre** (también en los errores) para que el flujo
      * de voz no se quede colgado esperando.
+     *
+     * El audio puede venir de una ruta del sistema de ficheros (permiso de "todos los
+     * archivos") o de una `content://` Uri de la carpeta elegida con SAF.
      */
-    fun reproducir(archivo: File, alTerminar: () -> Unit) {
+    fun reproducir(archivo: NotasVoz.Archivo, alTerminar: () -> Unit) {
         detener()
 
-        if (!archivo.isFile) {
-            LogDiag.e("Nota de voz: el archivo no existe (${archivo.name})")
+        val ruta = archivo.ruta
+        if (ruta != null && !File(ruta).isFile) {
+            LogDiag.e("Nota de voz: el archivo no existe (${archivo.nombre})")
             alTerminar()
             return
         }
@@ -90,10 +94,15 @@ class ReproductorNotaVoz private constructor(private val contexto: Context) {
                     .setContentType(AudioAttributes.CONTENT_TYPE_SPEECH)
                     .build()
             )
-            mp.setDataSource(archivo.absolutePath)
+            val origen = archivo.uri
+            when {
+                origen != null -> mp.setDataSource(contexto, origen)
+                ruta != null -> mp.setDataSource(ruta)
+                else -> throw IllegalStateException("el audio no tiene ni ruta ni URI")
+            }
             mp.setOnPreparedListener { jugador ->
                 val retraso = if (salidaEsBluetooth()) dataStore.retrasoBluetoothMs else 0
-                Log.d(TAG, "Nota de voz preparada: ${archivo.name} (retraso BT=$retraso ms)")
+                Log.d(TAG, "Nota de voz preparada: ${archivo.nombre} (retraso BT=$retraso ms)")
                 if (retraso > 0) {
                     val inicio = Runnable { arrancar(jugador) }
                     tareaInicio = inicio
@@ -111,8 +120,8 @@ class ReproductorNotaVoz private constructor(private val contexto: Context) {
         } catch (e: Exception) {
             // SecurityException si falta el permiso de audio, IOException si el
             // archivo se ha borrado o no se puede abrir.
-            Log.e(TAG, "No se pudo preparar '${archivo.name}'", e)
-            LogDiag.e("Nota de voz: no se pudo abrir ${archivo.name} (${e.javaClass.simpleName})")
+            Log.e(TAG, "No se pudo preparar '${archivo.nombre}'", e)
+            LogDiag.e("Nota de voz: no se pudo abrir ${archivo.nombre} (${e.javaClass.simpleName})")
             terminar("no se pudo abrir el archivo")
         }
     }

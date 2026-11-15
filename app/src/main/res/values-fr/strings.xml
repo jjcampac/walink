@@ -257,4 +257,14 @@
         <item>efface</item>
         <item>annule ça</item>
     </string-array>
+    <string name="nota_voz_sin_carpeta">Pour écouter les messages vocaux, choisis le dossier WhatsApp dans les réglages de Walink</string>
+    <string name="nota_voz_carpeta_elegir">Choisir le dossier des messages vocaux</string>
+    <string name="nota_voz_carpeta_desc">Choisis le dossier « WhatsApp Voice Notes » pour pouvoir lire l’audio.</string>
+    <string name="nota_voz_carpeta_ok_estado">Dossier des messages vocaux prêt</string>
+    <string name="nota_voz_carpeta_ok">Dossier enregistré : les messages vocaux peuvent être lus</string>
+    <string name="nota_voz_carpeta_error">Impossible d’enregistrer l’accès au dossier</string>
+    <string name="nota_voz_acceso_total">Alternative : accès à tous les fichiers</string>
+    <string name="respuesta_corta_enviando">%1$s. Envoi en cours.</string>
+    <string name="ajuste_envio_rapido">Envoyer les réponses courtes sans confirmation</string>
+    <string name="ajuste_envio_rapido_desc">Si tu dictes « ok », « d’accord » et similaires, ils sont envoyés directement.</string>
 </resources>

@@ -2,10 +2,13 @@ package com.jjcampac.walink.service
 
 import android.app.NotificationManager
 import android.app.PendingIntent
+import android.app.RemoteInput
 import android.content.Context
+import android.os.Build
 import android.service.notification.StatusBarNotification
 import android.util.Log
 import androidx.core.app.NotificationCompat
+import com.jjcampac.walink.diag.LogDiag
 
 /**
  * Datos necesarios para responder a un mensaje con la acción de respuesta
@@ -42,12 +45,36 @@ object DatosRespuestaHelper {
     fun extraer(sbn: StatusBarNotification): DatosRespuesta {
         val accionRespuesta = sbn.notification?.actions
             ?.firstOrNull { !it.remoteInputs.isNullOrEmpty() }
+        registrarFormatos(accionRespuesta?.remoteInputs)
         val pendingIntent = accionRespuesta?.actionIntent
         val claves = accionRespuesta?.remoteInputs
             ?.map { it.resultKey }
             ?.filter { it.isNotBlank() }
             ?: emptyList()
         return DatosRespuesta(pendingIntent, claves)
+    }
+
+    /**
+     * Deja en el diagnóstico qué admite el `RemoteInput` de WhatsApp: texto libre y tipos
+     * de datos alternativos.
+     *
+     * Sirve para saber si una respuesta podría enviarse como algo distinto de texto (por
+     * ejemplo, una nota de voz): si la lista de tipos viene vacía, `RemoteInput` solo
+     * acepta texto, que es lo que ocurre con WhatsApp.
+     */
+    private fun registrarFormatos(entradas: Array<RemoteInput>?) {
+        if (entradas.isNullOrEmpty()) return
+        for (entrada in entradas) {
+            val tipos = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                entrada.allowedDataTypes?.joinToString(",")?.ifEmpty { "ninguno" } ?: "ninguno"
+            } else {
+                "no aplica"
+            }
+            LogDiag.d(
+                "Respuesta: resultKey=${entrada.resultKey}, " +
+                    "textoLibre=${entrada.allowFreeFormInput}, datos=[$tipos]"
+            )
+        }
     }
 
     /**

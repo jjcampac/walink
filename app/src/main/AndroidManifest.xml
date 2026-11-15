@@ -16,6 +16,14 @@
     <uses-permission
         android:name="android.permission.READ_EXTERNAL_STORAGE"
         android:maxSdkVersion="32" />
+    <!-- Alternativa para las notas de voz: la vía normal es que el usuario elija la
+         carpeta de WhatsApp con el selector de carpetas (SAF). Si el selector no deja
+         elegirla, este permiso ("todos los archivos") permite leer esos .opus.
+         Comprobado en el Nothing Phone (3a): con solo READ_MEDIA_AUDIO el sistema
+         deniega el acceso a Android/media/com.whatsapp. -->
+    <uses-permission
+        android:name="android.permission.MANAGE_EXTERNAL_STORAGE"
+        tools:ignore="ScopedStorage" />
     <!-- Servicios en primer plano para el asistente de voz (preguntar antes de leer / responder). -->
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MICROPHONE" />

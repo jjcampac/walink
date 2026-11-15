@@ -25,6 +25,7 @@ private object WalinkKeys {
     const val BORRADOR_TIMESTAMP = "borrador_timestamp"
     const val IDIOMA_APP = "idioma_app"
     const val REPRODUCIR_NOTAS_VOZ = "reproducir_notas_voz"
+    const val ENVIO_RAPIDO_CORTAS = "envio_rapido_respuestas_cortas"
 }
 
 /**
@@ -233,6 +234,18 @@ class WalinkDataStore private constructor(private val context: Context) {
 
     suspend fun setReproducirNotasVoz(reproducir: Boolean) {
         prefs.edit().putBoolean(WalinkKeys.REPRODUCIR_NOTAS_VOZ, reproducir).apply()
+    }
+
+    // ---- ENVÍO RÁPIDO DE RESPUESTAS CORTAS ----
+    // Si la respuesta dictada es una confirmación inequívoca ("vale", "de acuerdo"...),
+    // se envía directamente sin repetirla y pedir confirmación. Activo por defecto:
+    // ahorra dos interacciones al conducir. Solo aplica a la lista blanca de
+    // [com.jjcampac.walink.speech.RespuestaCorta]; el resto se confirma como siempre.
+    val envioRapidoRespuestasCortas: Boolean
+        get() = prefs.getBoolean(WalinkKeys.ENVIO_RAPIDO_CORTAS, true)
+
+    suspend fun setEnvioRapidoRespuestasCortas(rapido: Boolean) {
+        prefs.edit().putBoolean(WalinkKeys.ENVIO_RAPIDO_CORTAS, rapido).apply()
     }
 
     // ---- MODO DEPURACIÓN (simulación de mensajes en release) ----
