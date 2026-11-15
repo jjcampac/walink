@@ -143,8 +143,15 @@ object NotasVoz {
      *
      * @param marcaTiempoMensaje marca de tiempo del mensaje según la notificación
      * (0 si WhatsApp no la expone: en ese caso se usa la hora actual).
+     * @param sinVentana true para el **modo de pruebas**: se acepta el `.opus` más
+     * cercano aunque sea antiguo. Sirve para el botón "Simular nota de voz", que no
+     * tiene un audio recién recibido y de otro modo siempre fallaría.
      */
-    fun localizar(contexto: Context, marcaTiempoMensaje: Long): Resultado {
+    fun localizar(
+        contexto: Context,
+        marcaTiempoMensaje: Long,
+        sinVentana: Boolean = false
+    ): Resultado {
         val referencia =
             if (marcaTiempoMensaje > 0L) marcaTiempoMensaje else System.currentTimeMillis()
 
@@ -187,11 +194,18 @@ object NotasVoz {
             return Resultado(null, "la carpeta de notas de voz está vacía [$detalle]")
         }
 
-        val elegido = seleccionar(candidatos, referencia, VENTANA_MS)
+        // En modo de pruebas se acepta cualquier fecha (el mensaje simulado no tiene un
+        // .opus recién descargado); en uso real, solo dentro de la ventana de seguridad.
+        val ventana = if (sinVentana) Long.MAX_VALUE else VENTANA_MS
+        val elegido = seleccionar(candidatos, referencia, ventana)
             ?: return Resultado(
                 null,
-                "ningún .opus dentro de la ventana de ${VENTANA_MS / 1000} s " +
-                    "(${candidatos.size} ficheros revisados)",
+                if (sinVentana) {
+                    "ningún .opus utilizable (${candidatos.size} ficheros revisados)"
+                } else {
+                    "ningún .opus dentro de la ventana de ${VENTANA_MS / 1000} s " +
+                        "(${candidatos.size} ficheros revisados)"
+                },
                 candidatos.size
             )
 

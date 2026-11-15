@@ -126,7 +126,7 @@ La notificación de WhatsApp **no incluye el audio** de una nota de voz: solo el
 - ✅ **Anuncio más natural:** el TTS dice "una nota de voz" (`nota_de_voz_detectada`) en vez de repetir el texto de la notificación.
 - ✅ **Ajuste nuevo "Reproducir notas de voz"** (activo por defecto) en la tarjeta de audio, con traducciones en ES/EN/DE/FR/IT/JA.
 - ✅ **Permiso de audio en la app:** fila propia en la tarjeta de permisos y en la cascada del onboarding.
-- ✅ **Prueba sin WhatsApp:** botón "Simular nota de voz" en la tarjeta de depuración, que publica un aviso `🎤 Audio (0:12)` para que Walink reproduzca el último `.opus` real.
+- ✅ **Prueba sin WhatsApp:** botón "Simular nota de voz" en la tarjeta de depuración, que publica un aviso `🎤 Audio (0:12)` para que Walink reproduzca el último `.opus` real. En pruebas se acepta el audio **más reciente aunque sea antiguo** (`sinVentana`): el mensaje simulado no tiene un fichero recién descargado, así que con la ventana normal de 15 min la prueba siempre fallaría.
 - ✅ **Pruebas unitarias** (`NotasVozTest`): 5 casos sobre la selección del fichero (más cercano, posterior, fuera de ventana, vacío).
 
 ### Envío rápido de respuestas cortas

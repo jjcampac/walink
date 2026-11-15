@@ -359,7 +359,8 @@ class WhatsAppNotificationListener : NotificationListenerService() {
                         contexto = this,
                         lector = speechReader,
                         esNotaDeVoz = mensaje.esNotaDeVoz,
-                        marcaTiempoMensaje = mensaje.marcaTiempoMensaje
+                        marcaTiempoMensaje = mensaje.marcaTiempoMensaje,
+                        sinVentana = sbn.packageName == packageName
                     ) {
                         // Tras terminar la lectura, ofrecer responder por voz.
                         // El servicio ya verificará el permiso de micrófono internamente.
@@ -367,6 +368,10 @@ class WhatsAppNotificationListener : NotificationListenerService() {
                             .setAction(LectorAsistenteService.ACTION_RESPONDER)
                             .putExtra(LectorAsistenteService.EXTRA_REMITENTE, mensaje.remitente)
                             .putExtra(LectorAsistenteService.EXTRA_TEXTO, textoParaLeer)
+                            .putExtra(
+                                LectorAsistenteService.EXTRA_SIMULADO,
+                                sbn.packageName == packageName
+                            )
                             .putExtra(
                                 LectorAsistenteService.EXTRA_PENDING_INTENT_RESPONDER,
                                 pendingResponder as? android.os.Parcelable
@@ -390,6 +395,10 @@ class WhatsAppNotificationListener : NotificationListenerService() {
                     .putExtra(LectorAsistenteService.EXTRA_REMITENTE, mensaje.remitente)
                     .putExtra(LectorAsistenteService.EXTRA_TEXTO, textoParaLeer)
                     .putExtra(LectorAsistenteService.EXTRA_ES_NOTA_VOZ, mensaje.esNotaDeVoz)
+                    .putExtra(
+                        LectorAsistenteService.EXTRA_SIMULADO,
+                        sbn.packageName == packageName
+                    )
                     .putExtra(
                         LectorAsistenteService.EXTRA_MARCA_MENSAJE,
                         mensaje.marcaTiempoMensaje

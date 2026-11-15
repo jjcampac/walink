@@ -64,6 +64,10 @@ class LectorAsistenteService : Service(), RecognitionListener {
     // Nota de voz: el mensaje no tiene texto útil, hay que reproducir el .opus.
     private var esNotaDeVoz = false
     private var marcaMensaje = 0L
+
+    // true si el mensaje viene del simulador (modo de pruebas): la nota de voz se busca
+    // sin ventana de tiempo, porque no hay un audio recién descargado.
+    private var mensajeSimulado = false
     private var tareaWatchdogPregunta: Runnable? = null
     // Pico de nivel de audio (onRmsChanged) del reconocedor, para diagnóstico.
     private var nivelPicoRms = 0f
@@ -158,9 +162,12 @@ class LectorAsistenteService : Service(), RecognitionListener {
         textoParaLeer = intent.getStringExtra(EXTRA_TEXTO) ?: ""
         esNotaDeVoz = intent.getBooleanExtra(EXTRA_ES_NOTA_VOZ, false)
         marcaMensaje = intent.getLongExtra(EXTRA_MARCA_MENSAJE, 0L)
+        mensajeSimulado = intent.getBooleanExtra(EXTRA_SIMULADO, false)
         if (esNotaDeVoz) {
-            Log.d(TAG, "El mensaje es una nota de voz (marca=$marcaMensaje)")
-            LogDiag.d("ACTION_PREGUNTAR: nota de voz (marca=$marcaMensaje)")
+            Log.d(TAG, "El mensaje es una nota de voz (marca=$marcaMensaje, simulado=$mensajeSimulado)")
+            LogDiag.d(
+                "ACTION_PREGUNTAR: nota de voz (marca=$marcaMensaje, simulado=$mensajeSimulado)"
+            )
         }
         recibirDatosRespuesta(intent)
         intentos = 0
@@ -881,6 +888,7 @@ private fun insertarComasSeguras(t: String): String {
 
         remitente = intent.getStringExtra(EXTRA_REMITENTE) ?: ""
         textoParaLeer = intent.getStringExtra(EXTRA_TEXTO) ?: ""
+        mensajeSimulado = intent.getBooleanExtra(EXTRA_SIMULADO, false)
         recibirDatosRespuesta(intent)
         intentos = 0
         Log.d(TAG, "ACTION_RESPONDER (ciclo=$ciclo): remitente='$remitente' pendingIntent=${pendingIntentResponder != null}")
@@ -935,7 +943,8 @@ private fun insertarComasSeguras(t: String): String {
                         contexto = this,
                         lector = lector,
                         esNotaDeVoz = esNotaDeVoz,
-                        marcaTiempoMensaje = marcaMensaje
+                        marcaTiempoMensaje = marcaMensaje,
+                        sinVentana = mensajeSimulado
                     ) {
                         finalizar()
                     }
@@ -1043,7 +1052,8 @@ private fun insertarComasSeguras(t: String): String {
                 contexto = this,
                 lector = lector,
                 esNotaDeVoz = esNotaDeVoz,
-                marcaTiempoMensaje = marcaMensaje
+                marcaTiempoMensaje = marcaMensaje,
+                sinVentana = mensajeSimulado
             ) {
                 Log.d(TAG, "Lectura completa; ofreciendo responder")
                 lanzarOfrecerResponder()
@@ -1278,6 +1288,7 @@ private fun insertarComasSeguras(t: String): String {
         const val EXTRA_CLAVE_NOTIFICACION = "clave_notificacion"
         const val EXTRA_ES_NOTA_VOZ = "es_nota_de_voz"
         const val EXTRA_MARCA_MENSAJE = "marca_tiempo_mensaje"
+        const val EXTRA_SIMULADO = "mensaje_simulado_para_pruebas"
 
         // Etapas del flujo de voz (leer / responder / dictar / enviar-o-corregir)
         private const val ETAPA_IDLE = 0

@@ -35,6 +35,8 @@ object LecturaNotaVoz {
      * @param lector lector TTS compartido, para poder avisar de un fallo por voz.
      * @param esNotaDeVoz true si el parser detectó una nota de voz.
      * @param marcaTiempoMensaje marca de tiempo del mensaje (para localizar el .opus).
+     * @param sinVentana true en el modo de pruebas (mensaje simulado): acepta el `.opus`
+     * más cercano aunque sea de días atrás.
      * @param alTerminar continuación del flujo de voz (se llama siempre, una vez).
      */
     fun reproducirSiProcede(
@@ -42,6 +44,7 @@ object LecturaNotaVoz {
         lector: SpeechReader,
         esNotaDeVoz: Boolean,
         marcaTiempoMensaje: Long,
+        sinVentana: Boolean = false,
         alTerminar: () -> Unit
     ) {
         if (!esNotaDeVoz) {
@@ -57,7 +60,7 @@ object LecturaNotaVoz {
             return
         }
 
-        val resultado = NotasVoz.localizar(contexto, marcaTiempoMensaje)
+        val resultado = NotasVoz.localizar(contexto, marcaTiempoMensaje, sinVentana)
         val archivo = resultado.archivo
         if (archivo == null) {
             Log.w(TAG, "No se pudo localizar la nota de voz: ${resultado.motivo}")
