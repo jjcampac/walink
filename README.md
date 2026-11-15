@@ -107,7 +107,7 @@ Todo ello con una **privacidad estricta**: el procesamiento es 100 % local, sin 
 
 ---
 
-## 🚧 Fase 9 — Notas de voz: reproducir el audio de WhatsApp *(en desarrollo, rama `feature/notas-de-voz`)*
+## ✔️ Fase 9 — Notas de voz: reproducir el audio de WhatsApp
 
 La notificación de WhatsApp **no incluye el audio** de una nota de voz: solo el texto que la describe (`🎤 Audio (0:12)`). El archivo real está en el almacenamiento compartido y hay que localizarlo:
 
