@@ -267,4 +267,5 @@
     <string name="respuesta_corta_enviando">%1$s. Envoi en cours.</string>
     <string name="ajuste_envio_rapido">Envoyer les réponses courtes sans confirmation</string>
     <string name="ajuste_envio_rapido_desc">Si tu dictes « ok », « d’accord » et similaires, ils sont envoyés directement.</string>
+    <string name="mensaje_en_cola">Message de %1$s en attente, je le lirai plus tard.</string>
 </resources>

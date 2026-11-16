@@ -273,4 +273,5 @@
     <string name="respuesta_corta_enviando">%1$s. Wird gesendet.</string>
     <string name="ajuste_envio_rapido">Kurze Antworten ohne Bestätigung senden</string>
     <string name="ajuste_envio_rapido_desc">Diktierst du „ok“, „in Ordnung“ und Ähnliches, wird es sofort gesendet.</string>
+    <string name="mensaje_en_cola">Nachricht von %1$s wartet, ich lese sie später vor.</string>
 </resources>

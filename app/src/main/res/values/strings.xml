@@ -299,4 +299,5 @@
     <string name="respuesta_corta_enviando">%1$s. Enviando.</string>
     <string name="ajuste_envio_rapido">Enviar respuestas cortas sin confirmar</string>
     <string name="ajuste_envio_rapido_desc">Si dictas «vale», «de acuerdo» y similares, se envían directamente.</string>
+    <string name="mensaje_en_cola">Mensaje de %1$s en espera, lo leeré después.</string>
 </resources>

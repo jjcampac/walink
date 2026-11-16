@@ -265,4 +265,5 @@
     <string name="respuesta_corta_enviando">%1$s。送信中。</string>
     <string name="ajuste_envio_rapido">短い返信を確認なしで送信</string>
     <string name="ajuste_envio_rapido_desc">「はい」「わかりました」などをディクテーションすると、そのまま送信されます。</string>
+    <string name="mensaje_en_cola">%1$s からのメッセージを後で読み上げます。</string>
 </resources>

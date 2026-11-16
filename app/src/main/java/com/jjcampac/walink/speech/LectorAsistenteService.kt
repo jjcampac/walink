@@ -19,6 +19,7 @@ import android.os.IBinder
 import android.os.PowerManager
 import android.speech.RecognitionListener
 import androidx.core.content.ContextCompat
+import java.util.ArrayDeque
 import android.speech.RecognizerIntent
 import android.speech.SpeechRecognizer
 import android.util.Log
@@ -79,7 +80,29 @@ class LectorAsistenteService : Service(), RecognitionListener {
     private var clavesRemoteInput: List<String> = emptyList()
     // Clave de la notificación de la que se extrajeron los datos de respuesta: permite
     // volver a leerlos justo antes de enviar (WhatsApp reemplaza la notificación del
-    // chat con cada mensaje y el PendingIntent anterior deja de entregar el texto).
+    // chat con cada mensaje y el PendingIntent anterior deja de entregar el t
+
+    // ---- Cola de mensajes pendientes ----
+    // Cuando llega un nuevo mensaje mientras el servicio está ocupado (preguntando
+    // o leyendo otro), en lugar de sobrescribir las variables del ciclo actual se
+    // encola aquí. Al terminar cada ciclo se saca el siguiente y se procesa, así
+    // ningún mensaje se pierde por llegar "demasiado pronto".
+    private data class MensajePendiente(
+        val remitente: String,
+        val texto: String,
+        val esNotaDeVoz: Boolean,
+        val marcaMensaje: Long,
+        val claveNotificacion: String?,
+        val pendingIntent: PendingIntent?,
+        val clavesRemoteInput: List<String>,
+        val simulado: Boolean,
+        val recibidaEn: Long = System.currentTimeMillis()
+    )
+    private val colaPendientes = ArrayDeque<MensajePendiente>()
+    // Número de mensajes de esta sesión que se han leído, ignorado o quedan pendientes.
+    // Se registra en el diagnóstico para saber qué se ha leído y qué no.
+    private var mensajesLeidos = 0
+    private var mensajesIgnorados = 0
     private var claveNotificacion: String? = null
     // true cuando el FGS ya está en marcha como tipo "microphone" (con el permiso
     // while-in-use del micrófono activo). Evita volver a "specialUse" al reaccionar
@@ -158,11 +181,40 @@ class LectorAsistenteService : Service(), RecognitionListener {
         recognizer?.destroy()
         recognizer = null
 
-        remitente = intent.getStringExtra(EXTRA_REMITENTE) ?: ""
-        textoParaLeer = intent.getStringExtra(EXTRA_TEXTO) ?: ""
-        esNotaDeVoz = intent.getBooleanExtra(EXTRA_ES_NOTA_VOZ, false)
-        marcaMensaje = intent.getLongExtra(EXTRA_MARCA_MENSAJE, 0L)
-        mensajeSimulado = intent.getBooleanExtra(EXTRA_SIMULADO, false)
+        // Extraer los datos del intent en variables locales. Si el servicio ya está
+        // ocupado (etapa != IDLE), encolamos en lugar de sobrescribir las variables
+        // del ciclo actual: así ningún mensaje se pierde por llegar demasiado pronto.
+        val remitenteNuevo = intent.getStringExtra(EXTRA_REMITENTE) ?: ""
+        val textoNuevo = intent.getStringExtra(EXTRA_TEXTO) ?: ""
+        val esNotaVoz = intent.getBooleanExtra(EXTRA_ES_NOTA_VOZ, false)
+        val marcaNueva = intent.getLongExtra(EXTRA_MARCA_MENSAJE, 0L)
+        val simulado = intent.getBooleanExtra(EXTRA_SIMULADO, false)
+
+        if (etapaRespuesta != ETAPA_IDLE) {
+            colaPendientes.add(MensajePendiente(
+                remitente = remitenteNuevo,
+                texto = textoNuevo,
+                esNotaDeVoz = esNotaVoz,
+                marcaMensaje = marcaNueva,
+                claveNotificacion = intent.getStringExtra(EXTRA_CLAVE_NOTIFICACION),
+                pendingIntent = intent.getParcelableExtra<PendingIntent>(EXTRA_PENDING_INTENT_RESPONDER),
+                clavesRemoteInput = intent.getStringArrayListExtra(EXTRA_CLAVES_REMOTE_INPUT)?.toList() ?: emptyList(),
+                simulado = simulado
+            ))
+            Log.d(TAG, "Servicio ocupado (etapa=$etapaRespuesta): mensaje de '$remitenteNuevo' encolado (${colaPendientes.size} pendientes)")
+            LogDiag.d("Mensaje encolado: '$remitenteNuevo' (pendientes=${colaPendientes.size})")
+            // Avisar por voz brevemente y terminar este ciclo para no bloquear el siguiente.
+            lector.hablar(getString(R.string.mensaje_en_cola, remitenteNuevo)) {
+                finalizar()
+            }
+            return
+        }
+
+        remitente = remitenteNuevo
+        textoParaLeer = textoNuevo
+        esNotaDeVoz = esNotaVoz
+        marcaMensaje = marcaNueva
+        mensajeSimulado = simulado
         if (esNotaDeVoz) {
             Log.d(TAG, "El mensaje es una nota de voz (marca=$marcaMensaje, simulado=$mensajeSimulado)")
             LogDiag.d(
@@ -548,7 +600,9 @@ class LectorAsistenteService : Service(), RecognitionListener {
             ETAPA_SI_NO_LEER -> {
                 when (decidir(respuesta)) {
                     true -> {
+                        mensajesLeidos++
                         Log.d(TAG, "onResults: usuario quiere LEER")
+                        LogDiag.d("Mensaje leído: '$remitente' (leidos=$mensajesLeidos, ignorados=$mensajesIgnorados, pendientes=${colaPendientes.size})")
                         if (!lector.inicializado) {
                             Log.w(TAG, "onResults: TTS sin inicializar; esperando 800 ms")
                             lector.mainHandler.postDelayed({
@@ -562,7 +616,9 @@ class LectorAsistenteService : Service(), RecognitionListener {
                         }
                     }
                     false -> {
+                        mensajesIgnorados++
                         Log.d(TAG, "onResults: respuesta NO -> no se lee")
+                        LogDiag.d("Mensaje ignorado: '$remitente' (leidos=$mensajesLeidos, ignorados=$mensajesIgnorados, pendientes=${colaPendientes.size})")
                         lector.hablar(getString(R.string.pregunta_voz_no)) {
                             finalizar()
                         }
@@ -869,7 +925,49 @@ private fun insertarComasSeguras(t: String): String {
         liberarPausaMusica()
         limpiarMicrofonoTelefono()
         stopForeground(STOP_FOREGROUND_REMOVE)
-        stopSelf()
+        fgMicActivo = false
+
+        // Si hay mensajes pendientes en cola (llegaron mientras estábamos
+        // ocupados preguntando o leyendo otro), procesar el siguiente en
+        // lugar de detener el servicio. Así ningún mensaje se pierde.
+        if (colaPendientes.isNotEmpty()) {
+            Log.d(TAG, "Finalizando ciclo: hay ${colaPendientes.size} mensaje(s) pendiente(s) en cola")
+            LogDiag.d("Pendientes en cola: ${colaPendientes.size}; procesando el siguiente")
+            procesarSiguientePendiente()
+        } else {
+            LogDiag.d("Sesión de voz terminada: leidos=$mensajesLeidos, ignorados=$mensajesIgnorados, pendientes=${colaPendientes.size}")
+            stopSelf()
+        }
+    }
+
+    /** Saca el siguiente mensaje de la cola de pendientes y lo procesa como si acabara de llegar. */
+    private fun procesarSiguientePendiente() {
+        val pendiente = colaPendientes.removeFirst()
+        Log.d(TAG, "Procesando pendiente: '${pendiente.remitente}' (quedan ${colaPendientes.size})")
+        LogDiag.d("Procesando pendiente: '${pendiente.remitente}' (quedan ${colaPendientes.size})")
+
+        ciclo++
+        etapaRespuesta = ETAPA_SI_NO_LEER
+        intentos = 0
+
+        remitente = pendiente.remitente
+        textoParaLeer = pendiente.texto
+        esNotaDeVoz = pendiente.esNotaDeVoz
+        marcaMensaje = pendiente.marcaMensaje
+        mensajeSimulado = pendiente.simulado
+        pendingIntentResponder = pendiente.pendingIntent
+        clavesRemoteInput = pendiente.clavesRemoteInput
+        claveNotificacion = pendiente.claveNotificacion
+
+        Log.d(TAG, "Pendiente (ciclo=$ciclo): remitente='$remitente' texto='${textoParaLeer.take(40)}'")
+
+        entrarEnForeground()
+        adquirirWakeLock()
+        if (!activarFgMicrofono()) {
+            manejarMicroNoDisponible()
+            return
+        }
+        hacerPregunta()
     }
 
     // ==== Flujo de responder tras leer ====

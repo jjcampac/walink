@@ -268,4 +268,5 @@
     <string name="respuesta_corta_enviando">%1$s. Invio in corso.</string>
     <string name="ajuste_envio_rapido">Invia risposte brevi senza conferma</string>
     <string name="ajuste_envio_rapido_desc">Se detti «ok», «va bene» e simili, vengono inviati subito.</string>
+    <string name="mensaje_en_cola">Messaggio da %1$s in attesa, lo leggerò dopo.</string>
 </resources>
