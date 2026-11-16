@@ -300,5 +300,5 @@
     <string name="respuesta_corta_enviando">%1$s. Sending.</string>
     <string name="ajuste_envio_rapido">Send short replies without confirming</string>
     <string name="ajuste_envio_rapido_desc">If you dictate «ok», «sure» and similar, they are sent straight away.</string>
-    <string name="mensaje_en_cola">Message from %1$s on hold, I'll read it later.</string>
+    <string name="mensaje_en_cola">Message from %1$s on hold, I\'ll read it later.</string>
 </resources>
