@@ -432,41 +432,56 @@ class LectorAsistenteService : Service(), RecognitionListener {
     }
 
     /**
-     * Fuerza el micrófono del teléfono (builtin) como dispositivo de entrada
-     * preferido del reconocedor. Cuando hay auriculares Bluetooth conectados el
-     * sistema puede enrutar la captura de forma intermitente a los micrófonos del
-     * auricular (perfil HFP/SCO); si su micro está en espera, el SpeechRecognizer
-     * casi no capta nada (ERROR_NO_MATCH/silencio) y se interpreta como "no
-     * escuchado". Forzar el builtin hace el reconocimiento independiente de esa ruta.
+     * Selecciona el mejor dispositivo de entrada de audio para el SpeechRecognizer.
+     *
+     * Prioridad:
+     *  1. Cualquier dispositivo de entrada Bluetooth (auriculares, micrófono del coche
+     *     vía HFP/SCO, etc.) — útil cuando el teléfono está en el bolsillo y el micrófono
+     *     builtin está amortiguado, o cuando el coche tiene su propio micrófono.
+     *  2. Micrófono builtin del teléfono (auricular o altavoz) como fallback.
+     *
+     * Si no se encuentra ninguno adecuado, se deja la ruta por defecto del sistema.
      */
     private fun configurarMicrofonoTelefono() {
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.S) return
         try {
-            // Elegimos un dispositivo de comunicación del propio teléfono (altavoz o
-            // auricular) en lugar del Bluetooth: así la captura de voz del
-            // SpeechRecognizer vuelve al micrófono del teléfono y deja de depender de
-            // si el sistema enrutó la entrada al micrófono de los auriculares.
-            val comunicacionTelefono = audioManagerPausa
-                .getAvailableCommunicationDevices()
-                .firstOrNull { d ->
-                    d.type == AudioDeviceInfo.TYPE_BUILTIN_SPEAKER ||
-                        d.type == AudioDeviceInfo.TYPE_BUILTIN_EARPIECE
-                }
-            if (comunicacionTelefono != null) {
-                val ok = audioManagerPausa.setCommunicationDevice(comunicacionTelefono)
-                LogDiag.d("Mic de voz forzado al teléfono (builtin '${comunicacionTelefono.productName}' type=${comunicacionTelefono.type}): res=$ok")
+            val dispositivos = audioManagerPausa.getAvailableCommunicationDevices()
+
+            // 1. Primero probamos con un dispositivo Bluetooth de entrada
+            //    (auriculares, manos libres del coche, etc.). El perfil clásico
+            //    HFP/SCO se identifica como TYPE_BLUETOOTH_SCO (los Pixel Buds y
+            //    los kits de coche lo usan). Los auriculares LE Audio modernos se
+            //    exponen como TYPE_BLE_HEADSET (API 33+).
+            val dispositivoBluetooth = dispositivos.firstOrNull { d ->
+                d.type == AudioDeviceInfo.TYPE_BLUETOOTH_SCO ||
+                    (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
+                        d.type == AudioDeviceInfo.TYPE_BLE_HEADSET)
+            }
+
+            // 2. Fallback: micrófono builtin del teléfono.
+            val dispositivoBuiltin = dispositivos.firstOrNull { d ->
+                d.type == AudioDeviceInfo.TYPE_BUILTIN_SPEAKER ||
+                    d.type == AudioDeviceInfo.TYPE_BUILTIN_EARPIECE
+            }
+
+            val dispositivoSeleccionado = dispositivoBluetooth ?: dispositivoBuiltin
+
+            if (dispositivoSeleccionado != null) {
+                val ok = audioManagerPausa.setCommunicationDevice(dispositivoSeleccionado)
+                val origen = if (dispositivoSeleccionado == dispositivoBluetooth) "Bluetooth" else "builtin"
+                LogDiag.d("Mic de voz seleccionado ($origen '${dispositivoSeleccionado.productName}' type=${dispositivoSeleccionado.type}): res=$ok")
                 Log.d(
                     TAG,
-                    "Comunicación forzada al teléfono (micro builtin, res=$ok): '${comunicacionTelefono.productName}' (type=${comunicacionTelefono.type})"
+                    "Comunicación forzada a $origen (res=$ok): '${dispositivoSeleccionado.productName}' (type=${dispositivoSeleccionado.type})"
                 )
                 if (!ok) {
-                    Log.w(TAG, "No se pudo forzar la comunicación al teléfono; se deja la ruta por defecto")
+                    Log.w(TAG, "No se pudo forzar la comunicación a $origen; se deja la ruta por defecto")
                 }
             } else {
-                Log.w(TAG, "No hay dispositivo de comunicación del teléfono disponible; se deja la ruta por defecto")
+                Log.w(TAG, "No hay dispositivo de comunicación disponible; se deja la ruta por defecto")
             }
         } catch (e: Exception) {
-            Log.w(TAG, "Error forzando el micro del teléfono", e)
+            Log.w(TAG, "Error seleccionando el dispositivo de audio de entrada", e)
         }
     }
 

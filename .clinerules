@@ -42,7 +42,8 @@ Dispositivo de pruebas: Nothing Phone (3a).
 
 ## Estado actual (actualizar al terminar cada fase)
 
-- **Versión: 1.1.1 (versionCode 8)**, todo fusionado en `main` (la rama `feature/notas-de-voz` ya está eliminada).
+- **Versión: 1.1.3 (versionCode 10)**, todo fusionado en `main` (la rama `feature/notas-de-voz` ya está eliminada).
+- **1.1.3 (selección del micrófono de entrada)**: al escuchar la respuesta se prioriza cualquier dispositivo Bluetooth de entrada (`TYPE_BLUETOOTH_SCO` para HFP/auriculares y manos libres del coche; `TYPE_BLE_HEADSET` en API 33+) y solo se usa el micrófono builtin del teléfono si no hay Bluetooth. Corrige los `ERROR_NO_MATCH` con el teléfono en el bolsillo y auriculares puestos (el micro builtin quedaba amortiguado). El diagnóstico registra `Mic de voz seleccionado (Bluetooth|builtin '…' type=N): res=…` justo antes de escuchar.
 - Fase 1 (listener de notificaciones) y Fase 2 (lectura por TTS, detección del coche por Bluetooth ACL + estado reactivo por dispositivo, foreground service): implementadas.
 - Fase 3 (preguntar antes, dictado, confirmación "enviar/corregir/cancelar" y respuesta por RemoteInput) y Fase 4 (ajustes, filtros/grupos, velocidad de voz, modo pruebas, i18n ES/EN/DE/IT/FR/JA): implementadas.
 - **RESUELTO (rama `fix/microfono` pending de merge)**: el micrófono con pantalla apagada no captaba en el `SpeechRecognizer` (solo el primer buffer y luego `ERROR_NO_MATCH`). Causa: el FGS corría con tipo `specialUse`, que no mantiene el micrófono "while-in-use". Solución: arrancar como `specialUse` (requisito para iniciar en segundo plano en Android 14+) y conmutar el FGS a tipo `microphone` justo antes de `startListening`; se piden 3 resultados con margen de silencio para respuestas cortas. Confirmado funcionando por el usuario.
