@@ -681,7 +681,10 @@ class LectorAsistenteService : Service(), RecognitionListener {
         }
         val tarea = Runnable {
             tareaTono = null
-            if (escuchaActiva) avisarEscuchando()
+            if (escuchaActiva) {
+                LogDiag.d("Tono de escucha emitido (Bluetooth, ${RETRASO_TONO_BT_MS} ms tras abrir el micro)")
+                avisarEscuchando()
+            }
         }
         tareaTono = tarea
         lector.mainHandler.postDelayed(tarea, RETRASO_TONO_BT_MS)
@@ -1815,13 +1818,14 @@ private fun insertarComasSeguras(t: String): String {
         private const val ESPERA_RUTA_BT_MS = 3500L
         private const val INTERVALO_RUTA_BT_MS = 100L
         // Margen tras aplicar la ruta Bluetooth: el auricular abre su micrófono unos
-        // milisegundos después de conmutar y se perderían las primeras sílabas.
-        private const val MARGEN_POST_RUTA_BT_MS = 500L
-        // Retraso del tono de "puedes hablar" cuando se escucha por Bluetooth. Medido
-        // con los Pixel Buds: el primer buffer audible del SCO llega ~1,3 s después de
-        // onReadyForSpeech. El tono se emite al final de esa espera, de modo que quien
-        // habla al oírlo ya entra en el reconocedor desde la primera sílaba.
-        private const val RETRASO_TONO_BT_MS = 1400L
+        // milisegundos después de conmutar y se perderían las primeras sílabas. No hace
+        // falta más porque el tono ya espera a que el SCO entregue voz inteligible.
+        private const val MARGEN_POST_RUTA_BT_MS = 250L
+        // Retraso del tono de "puedes hablar" cuando se escucha por Bluetooth. Medido con
+        // los Pixel Buds: el SCO entrega voz inteligible ~2,8 s después de
+        // onReadyForSpeech (antes hay ~1 s de ruido de AGC que el motor no transcribe).
+        // El tono se emite al final de esa espera: quien habla al oírlo entra completo.
+        private const val RETRASO_TONO_BT_MS = 3000L
         // Máximo de retención del wake lock para no dejar la CPU activa si algo se atasca.
         private const val WAKE_LOCK_TIMEOUT_MS = 90_000L
         // Tiempo máximo para que la pregunta hablada termine; si no, se activa el
