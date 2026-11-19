@@ -77,6 +77,11 @@ class SpeechReader private constructor(private val contexto: Context) : TextToSp
     private var audioFocusRequest: AudioFocusRequest? = null
     private var conAudioFocus = false
     private var alTerminarPendiente: (() -> Unit)? = null
+    // Locución actualmente válida. Los onDone/onError atrasados de una locución
+    // anterior se ignoran: antes podían consumir el callback de la locución siguiente
+    // (p. ej. tras leer el mensaje, el onDone atrasado lanzaba la escucha de
+    // "¿quieres responder?" mientras el TTS aún hablaba, y el micro captaba su eco).
+    private var idLocucionActual: String? = null
     private var tareaEmitir: Runnable? = null
     private var contadorUtterance = 0L
 
@@ -261,35 +266,49 @@ class SpeechReader private constructor(private val contexto: Context) : TextToSp
         tareaEmitir?.let { mainHandler.removeCallbacks(it) }
         tareaEmitir = null
         alTerminarPendiente = null
+        // Los onDone/onError de lo descartado ya no deben afectar a la próxima locución.
+        idLocucionActual = null
     }
 
     private fun registrarProgreso(utteranceIdActual: String) {
+        idLocucionActual = utteranceIdActual
         tts?.setOnUtteranceProgressListener(object : UtteranceProgressListener() {
             override fun onStart(utteranceId: String?) {}
 
             override fun onDone(utteranceId: String?) {
                 // Solo finalizamos cuando termina la locución REAL, no el silencio.
                 if (utteranceId == utteranceIdActual) {
-                    mainHandler.post { terminarLocucion() }
+                    mainHandler.post { terminarLocucion(utteranceId) }
                 }
             }
 
             override fun onError(utteranceId: String?) {
                 if (utteranceId == utteranceIdActual) {
-                    mainHandler.post { terminarLocucion() }
+                    mainHandler.post { terminarLocucion(utteranceId) }
                 }
             }
 
             @Deprecated("Deprecado en API 21")
             override fun onError(utteranceId: String?, errorCode: Int) {
                 if (utteranceId == utteranceIdActual) {
-                    mainHandler.post { terminarLocucion() }
+                    mainHandler.post { terminarLocucion(utteranceId) }
                 }
             }
         })
     }
 
-    private fun terminarLocucion() {
+    /**
+     * Cierra la locución [utteranceId] y ejecuta su callback, solo si sigue siendo la
+     * locución vigente. El post diferido desde onDone puede llegar después de haber
+     * empezado otra locución; en ese caso se ignora (si no, se adelantaba el fin de
+     * la nueva y se abría el micro con el TTS todavía sonando).
+     */
+    private fun terminarLocucion(utteranceId: String?) {
+        if (utteranceId == null || utteranceId != idLocucionActual) {
+            Log.d(TAG, "onDone atrasado de '$utteranceId' (actual='$idLocucionActual'); se ignora")
+            return
+        }
+        idLocucionActual = null
         liberarAudioFocus()
         val cb = alTerminarPendiente
         alTerminarPendiente = null
