@@ -1079,13 +1079,13 @@ private fun PantallaPrincipal(
                                 FilterChip(
                                     selected = !leerTrasPreguntar,
                                     onClick = { onCambiarModoLectura(false) },
-                                    label = { Text(stringResource(id = R.string.chip_inmediato)) },
+                                    label = { Text(text = stringResource(id = R.string.chip_inmediato), fontSize = 12.sp, maxLines = 1) },
                                     modifier = Modifier.weight(1f)
                                 )
                                 FilterChip(
                                     selected = leerTrasPreguntar,
                                     onClick = { onCambiarModoLectura(true) },
-                                    label = { Text(stringResource(id = R.string.chip_preguntar)) },
+                                    label = { Text(text = stringResource(id = R.string.chip_preguntar), fontSize = 12.sp, maxLines = 1) },
                                     modifier = Modifier.weight(1f)
                                 )
                             }
@@ -1114,13 +1114,13 @@ private fun PantallaPrincipal(
                                 FilterChip(
                                     selected = bajarVolumen,
                                     onClick = { onCambiarAudioFondo(true) },
-                                    label = { Text(stringResource(id = R.string.chip_bajar_volumen)) },
+                                    label = { Text(text = stringResource(id = R.string.chip_bajar_volumen), fontSize = 12.sp, maxLines = 1) },
                                     modifier = Modifier.weight(1f)
                                 )
                                 FilterChip(
                                     selected = !bajarVolumen,
                                     onClick = { onCambiarAudioFondo(false) },
-                                    label = { Text(stringResource(id = R.string.chip_pausar_musica)) },
+                                    label = { Text(text = stringResource(id = R.string.chip_pausar_musica), fontSize = 12.sp, maxLines = 1) },
                                     modifier = Modifier.weight(1f)
                                 )
                             }
@@ -1739,19 +1739,19 @@ private fun TarjetaLecturaPrivacidad(
                 FilterChip(
                     selected = modoFiltro == 0,
                     onClick = { onCambiarModoFiltro(0) },
-                    label = { Text(stringResource(id = R.string.chip_filtro_todos)) },
+                    label = { Text(text = stringResource(id = R.string.chip_filtro_todos), fontSize = 12.sp, maxLines = 1) },
                     modifier = Modifier.weight(1f)
                 )
                 FilterChip(
                     selected = modoFiltro == 1,
                     onClick = { onCambiarModoFiltro(1) },
-                    label = { Text(stringResource(id = R.string.chip_filtro_permitidos)) },
+                    label = { Text(text = stringResource(id = R.string.chip_filtro_permitidos), fontSize = 12.sp, maxLines = 1) },
                     modifier = Modifier.weight(1f)
                 )
                 FilterChip(
                     selected = modoFiltro == 2,
                     onClick = { onCambiarModoFiltro(2) },
-                    label = { Text(stringResource(id = R.string.chip_filtro_bloqueados)) },
+                    label = { Text(text = stringResource(id = R.string.chip_filtro_bloqueados), fontSize = 12.sp, maxLines = 1) },
                     modifier = Modifier.weight(1f)
                 )
             }
@@ -1873,7 +1873,7 @@ private fun TarjetaPermisosSistema(
 
                     FilaPermisoCompacta(
                         emoji = "📖",
-                        titulo = "Acceso a notificaciones",
+                        titulo = stringResource(id = R.string.fila_permiso_notificaciones),
                         concedido = permisoNotificaciones,
                         requiereAjustes = true,
                         onClick = onIrAjustesNotificaciones
@@ -1881,7 +1881,7 @@ private fun TarjetaPermisosSistema(
                     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU && !permisoPostNotificaciones) {
                         FilaPermisoCompacta(
                             emoji = "🔔",
-                            titulo = "Notificaciones",
+                            titulo = stringResource(id = R.string.fila_permiso_notificaciones_post),
                             concedido = false,
                             requiereAjustes = false,
                             onClick = onSolicitarNotificacionesPost
@@ -1889,14 +1889,14 @@ private fun TarjetaPermisosSistema(
                     }
                     FilaPermisoCompacta(
                         emoji = "🎤",
-                        titulo = "Micrófono (dictado)",
+                        titulo = stringResource(id = R.string.fila_permiso_microfono),
                         concedido = permisoMicrofono,
                         requiereAjustes = false,
                         onClick = onSolicitarMicrofono
                     )
                     FilaPermisoCompacta(
                         emoji = "🔗",
-                        titulo = "Bluetooth (coche)",
+                        titulo = stringResource(id = R.string.fila_permiso_bluetooth),
                         concedido = permisoBluetooth,
                         requiereAjustes = false,
                         onClick = onSolicitarBluetooth
@@ -1924,7 +1924,7 @@ private fun TarjetaPermisosSistema(
                     }
                     FilaPermisoCompacta(
                         emoji = "🔋",
-                        titulo = "Optimización de batería",
+                        titulo = stringResource(id = R.string.fila_permiso_bateria),
                         concedido = bateriaExcluida,
                         requiereAjustes = true,
                         textoBoton = stringResource(id = R.string.bt_excluir_bateria),
@@ -1943,7 +1943,7 @@ private fun FilaPermisoCompacta(
     titulo: String,
     concedido: Boolean,
     requiereAjustes: Boolean,
-    textoBoton: String = "Conceder",
+    textoBoton: String = stringResource(id = R.string.btn_conceder),
     onClick: () -> Unit
 ) {
     Row(

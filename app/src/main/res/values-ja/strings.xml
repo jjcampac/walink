@@ -180,6 +180,13 @@
     <string name="chip_filtro_permitidos">✅ 許可</string>
     <string name="chip_filtro_bloqueados">🚫 ブロック</string>
     <string name="estado_concedido">✓ 許可済み</string>
+    <!-- Títulos de las filas de permiso (antes hardcodeados en español) -->
+    <string name="fila_permiso_notificaciones">通知アクセス</string>
+    <string name="fila_permiso_notificaciones_post">通知</string>
+    <string name="fila_permiso_microfono">マイク（ディクテーション）</string>
+    <string name="fila_permiso_bluetooth">Bluetooth（車）</string>
+    <string name="fila_permiso_bateria">バッテリー最適化</string>
+    <string name="btn_conceder">許可</string>
     <string name="onboarding_paso1">1. 基本権限</string>
     <string name="onboarding_paso2">2. バックグラウンド設定</string>
     <string name="bt_configurar">設定</string>

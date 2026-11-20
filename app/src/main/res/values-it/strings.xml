@@ -180,6 +180,13 @@
     <string name="chip_filtro_permitidos">✅ Consentiti</string>
     <string name="chip_filtro_bloqueados">🚫 Bloccati</string>
     <string name="estado_concedido">✓ Concesso</string>
+    <!-- Títulos de las filas de permiso (antes hardcodeados en español) -->
+    <string name="fila_permiso_notificaciones">Accesso alle notifiche</string>
+    <string name="fila_permiso_notificaciones_post">Notifiche</string>
+    <string name="fila_permiso_microfono">Microfono (dettato)</string>
+    <string name="fila_permiso_bluetooth">Bluetooth (auto)</string>
+    <string name="fila_permiso_bateria">Ottimizzazione batteria</string>
+    <string name="btn_conceder">Consenti</string>
     <string name="onboarding_paso1">1. Permessi di base</string>
     <string name="onboarding_paso2">2. Configurazione in background</string>
     <string name="bt_configurar">Configura</string>
