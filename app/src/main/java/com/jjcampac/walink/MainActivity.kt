@@ -1349,13 +1349,13 @@ private fun CabeceraWalink(
                 Brush.verticalGradient(listOf(WalinkVerdeOscuro, WalinkVerde))
             )
             .statusBarsPadding()
-            .padding(horizontal = 24.dp, vertical = 28.dp),
+            .padding(horizontal = 20.dp, vertical = 16.dp),
         contentAlignment = Alignment.Center
     ) {
         Column(horizontalAlignment = Alignment.CenterHorizontally) {
             Text(
                 text = "🔊  Walink",
-                style = MaterialTheme.typography.headlineMedium,
+                style = MaterialTheme.typography.titleLarge,
                 fontWeight = FontWeight.Bold,
                 color = Color.White
             )
@@ -1372,7 +1372,7 @@ private fun CabeceraWalink(
                 color = Color.White.copy(alpha = 0.6f),
                 textAlign = TextAlign.Center,
                 modifier = Modifier
-                    .padding(top = 6.dp)
+                    .padding(top = 4.dp)
                     .clickable {
                         contadorTaps++
                         if (contadorTaps >= 7) {
@@ -1382,45 +1382,14 @@ private fun CabeceraWalink(
                     }
             )
 
-            // Tarjeta "¿Cómo activar Walink?": integrada en la cabecera verde
-            Surface(
-                color = Color.White.copy(alpha = 0.14f),
-                shape = RoundedCornerShape(14.dp),
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(top = 14.dp)
-            ) {
-                Row(
-                    modifier = Modifier.padding(horizontal = 14.dp, vertical = 10.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Text(text = "📲", fontSize = 22.sp)
-                    Spacer(modifier = Modifier.width(12.dp))
-                    Column(modifier = Modifier.weight(1f)) {
-                        Text(
-                            text = stringResource(id = R.string.tile_como_activar_titulo),
-                            style = MaterialTheme.typography.titleSmall,
-                            fontWeight = FontWeight.SemiBold,
-                            color = Color.White
-                        )
-                        Text(
-                            text = stringResource(id = R.string.tile_como_activar_desc),
-                            style = MaterialTheme.typography.bodySmall,
-                            color = Color.White.copy(alpha = 0.9f),
-                            modifier = Modifier.padding(top = 2.dp)
-                        )
-                    }
-                }
-            }
-
             // Estado de la aplicación (Activo / Inactivo)
             Surface(
                 color = Color.White.copy(alpha = 0.16f),
                 shape = RoundedCornerShape(50),
-                modifier = Modifier.padding(top = 14.dp)
+                modifier = Modifier.padding(top = 10.dp)
             ) {
                 Row(
-                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 7.dp),
+                    modifier = Modifier.padding(horizontal = 14.dp, vertical = 6.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Box(
