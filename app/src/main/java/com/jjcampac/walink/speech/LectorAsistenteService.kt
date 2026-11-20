@@ -12,7 +12,7 @@ import android.media.AudioAttributes
 import android.media.AudioDeviceInfo
 import android.media.AudioFocusRequest
 import android.media.AudioManager
-import android.media.ToneGenerator
+import android.media.MediaRecorder
 import android.os.Build
 import android.os.Bundle
 import android.app.PendingIntent
@@ -86,18 +86,13 @@ class LectorAsistenteService : Service(), RecognitionListener {
     // true mientras hay una escucha en curso: descarta callbacks tardíos
     // (onResults/onError repetidos) que cortarían el turno siguiente.
     private var escuchaActiva = false
-    // Tono breve que avisa de que el micrófono ya está abierto.
-    private var tonoEscucha: ToneGenerator? = null
     // Identificador de la escucha en curso: invalida preparaciones de ruta que lleguen
     // tarde (p. ej. si la sesión se finaliza o se encola otro mensaje mientras se
     // esperaba al SCO).
     private var generacionEscucha = 0
-    // Tono de aviso de que se puede hablar. En Bluetooth se retrasa hasta que el SCO
-    // entrega audio de verdad: medido con los Pixel Buds en el Nothing Phone (3a), el
-    // primer buffer audible llega ~1,3 s después de onReadyForSpeech. Si el tono suena
-    // antes, el usuario habla mientras el micro aún no capta y se pierde el principio
-    // de la frase (dictados cortados: "vale, quedo a las cinco" -> "a las cinco").
-    private var tareaTono: Runnable? = null
+    // Ruta de entrada de la escucha en curso (para saber si hay que forzar el modo de
+    // comunicación cuando el reconocedor ya ha creado su grabación).
+    private var rutaActual: RutaMicro? = null
     // true mientras el AudioManager está en MODE_IN_COMMUNICATION para el SCO. Sin ese
     // modo el framework aplica el dispositivo de comunicación pero el SCO tarda en
     // entregar audio (los logs mostraban modo=0 durante toda la escucha).
@@ -287,6 +282,9 @@ class LectorAsistenteService : Service(), RecognitionListener {
             manejarMicroNoDisponible()
             return
         }
+        // Calienta el SCO durante la pregunta: cuando termine, el auricular ya lleva
+        // varios segundos entregando audio y el "sí" se capta desde el principio.
+        calentarRutaVoz()
         hacerPregunta()
     }
 
@@ -502,6 +500,16 @@ class LectorAsistenteService : Service(), RecognitionListener {
      * entonces se escucha. Si el SCO no llega en [ESPERA_RUTA_BT_MS], se usa el
      * micrófono del teléfono para no dejar el turno sin oír nada.
      */
+    /**
+     * Prepara el SCO antes de una locución para que esté estabilizado cuando llegue la
+     * escucha. Sin esto, el AGC del auricular arranca de cero al abrir el micro y el
+     * reconocedor descarta el principio de la frase. El callback no hace nada: solo se
+     * usa el efecto de calentar la ruta.
+     */
+    private fun calentarRutaVoz() {
+        prepararMicrofonoVoz { /* ruta caliente; la escucha llega después */ }
+    }
+
     private fun prepararMicrofonoVoz(alListo: (RutaMicro) -> Unit) {
         // Si ya hay una preparación en marcha (dos escuchas seguidas), nos
         // enganchamos a ella en lugar de reiniciar la espera del SCO: reiniciarla
@@ -649,53 +657,7 @@ class LectorAsistenteService : Service(), RecognitionListener {
         callbacksRuta.clear()
     }
 
-    /**
-     * Emite un tono breve justo antes de abrir el micrófono. Con Bluetooth hay que
-     * esperar ~1,5 s a que el SCO esté aplicado; sin esta señal el usuario no sabe
-     * cuándo puede hablar y su respuesta se pierde por decirla demasiado pronto.
-     */
-    private fun avisarEscuchando() {
-        try {
-            val generador = tonoEscucha
-                ?: ToneGenerator(AudioManager.STREAM_MUSIC, 70).also { tonoEscucha = it }
-            generador.startTone(ToneGenerator.TONE_PROP_ACK, 120)
-        } catch (e: Exception) {
-            Log.w(TAG, "No se pudo emitir el tono de escucha", e)
-        }
-    }
-
-    /**
-     * Programa el tono de "puedes hablar".
-     *
-     * Sin Bluetooth suena de inmediato: la ruta del teléfono ya entrega audio. Con
-     * Bluetooth se retrasa [RETRASO_TONO_BT_MS] porque el SCO tarda ~1,3 s en entregar
-     * el primer buffer audible (comprobado con los Pixel Buds). Así, cuando el usuario
-     * oye el tono y empieza a hablar, el reconocedor ya está captando de verdad y no se
-     * pierde el principio de la frase.
-     */
-    private fun programarTonoEscucha(esBluetooth: Boolean) {
-        cancelarTonoEscucha()
-        if (!esBluetooth) {
-            avisarEscuchando()
-            return
-        }
-        val tarea = Runnable {
-            tareaTono = null
-            if (escuchaActiva) {
-                LogDiag.d("Tono de escucha emitido (Bluetooth, ${RETRASO_TONO_BT_MS} ms tras abrir el micro)")
-                avisarEscuchando()
-            }
-        }
-        tareaTono = tarea
-        lector.mainHandler.postDelayed(tarea, RETRASO_TONO_BT_MS)
-    }
-
-    private fun cancelarTonoEscucha() {
-        tareaTono?.let { lector.mainHandler.removeCallbacks(it) }
-        tareaTono = null
-    }
-
-    /** Revierte la comunicación forzada durante la escucha. */
+    /** Revierte la comunicación forzada al terminar la sesión de voz. */
     private fun limpiarMicrofonoTelefono() {
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.S) return
         try {
@@ -709,12 +671,19 @@ class LectorAsistenteService : Service(), RecognitionListener {
     /** Pone el audio en modo comunicación (como una llamada) para que el SCO sea estable. */
     private fun activarModoComunicacion() {
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.S) return
-        if (modoComunicacionActivo) return
         try {
-            audioManagerPausa.mode = AudioManager.MODE_IN_COMMUNICATION
+            // Se reaplica aunque ya estuviera activo: el SpeechRecognizer crea su
+            // AudioRecord y devuelve el AudioManager a MODE_NORMAL, así que hay que
+            // volver a forzarlo en onReadyForSpeech (los logs mostraban modo=0 al
+            // escuchar aunque se hubiera activado antes).
+            if (audioManagerPausa.mode != AudioManager.MODE_IN_COMMUNICATION) {
+                audioManagerPausa.mode = AudioManager.MODE_IN_COMMUNICATION
+                Log.d(TAG, "Modo de audio de comunicación aplicado para el SCO")
+            }
+            if (!modoComunicacionActivo) {
+                LogDiag.d("Modo de audio: MODE_IN_COMMUNICATION (SCO estable)")
+            }
             modoComunicacionActivo = true
-            LogDiag.d("Modo de audio: MODE_IN_COMMUNICATION (SCO estable)")
-            Log.d(TAG, "Modo de audio de comunicación activado para el SCO")
         } catch (e: Exception) {
             Log.w(TAG, "No se pudo activar el modo de comunicación", e)
         }
@@ -892,15 +861,11 @@ class LectorAsistenteService : Service(), RecognitionListener {
             sr.cancel()
             escuchaActiva = false
         }
-        // Deja limpio cualquier temporizador o tono de una escucha anterior antes de
-        // programar los de este turno (cancelarTiempoEscucha también cancela el tono).
+        // Deja limpio cualquier temporizador de una escucha anterior antes de programar
+        // el de este turno.
         cancelarTiempoEscucha()
         logRutasAudio(etiqueta, ruta)
-        // Aviso acústico de que ya puede hablar. En Bluetooth no suena aquí sino cuando
-        // el SCO ya entrega audio (ver [programarTonoEscucha]); si sonara ahora, el
-        // usuario hablaría ~1,3 s antes de que el micro capture y se perdería el
-        // principio de la frase.
-        programarTonoEscucha(ruta.bluetooth)
+        rutaActual = ruta
         escuchaActiva = true
         ultimoResultadoParcial = null
 
@@ -931,10 +896,9 @@ class LectorAsistenteService : Service(), RecognitionListener {
             return
         }
         escuchaActiva = false
-        // El reconocedor ya terminó: restauramos la ruta de comunicación (vuelve el
-        // Bluetooth) antes de que hable el siguiente TTS. La instancia NO se destruye:
-        // se reutiliza en el siguiente turno (ver [obtenerRecognizer]).
-        limpiarMicrofonoTelefono()
+        // El SCO y el modo comunicación se MANTIENEN entre turnos de la misma sesión:
+        // así el AGC del auricular no arranca de cero en cada escucha y el dictado y la
+        // confirmación captan desde la primera sílaba. Se liberan en finalizar/onDestroy.
         cancelarTiempoEscucha()
 
         val frases = results
@@ -1078,8 +1042,7 @@ class LectorAsistenteService : Service(), RecognitionListener {
         }
         escuchaActiva = false
         cancelarTiempoEscucha()
-        // Al terminar (con error) también restauramos la ruta de comunicación.
-        limpiarMicrofonoTelefono()
+        // El SCO se mantiene para el siguiente turno de la misma sesión (ver onResults).
         logRutasAudio("onError")
         LogDiag.e("Error de reconocimiento: ${nombreError(error)} ($error) picoRMS=${nivelPicoRms}")
         Log.w(TAG, "Error de reconocimiento: ${nombreError(error)} ($error), pico RMS=${"%.0f".format(nivelPicoRms)}")
@@ -1099,6 +1062,10 @@ class LectorAsistenteService : Service(), RecognitionListener {
 
     override fun onReadyForSpeech(params: Bundle?) {
         nivelPicoRms = 0f
+        // El reconocedor ya ha creado su AudioRecord y, al hacerlo, devuelve el
+        // AudioManager a MODE_NORMAL. Si escuchamos por Bluetooth se vuelve a forzar el
+        // modo de comunicación aquí para que el SCO entregue audio de llamada estable.
+        if (rutaActual?.bluetooth == true) activarModoComunicacion()
         logRutasAudio("onReadyForSpeech")
         logGrabacionesActivas("onReadyForSpeech")
         LogDiag.d("onReadyForSpeech: reconocedor LISTO, escuchando...")
@@ -1306,9 +1273,6 @@ private fun insertarComasSeguras(t: String): String {
     private fun cancelarTiempoEscucha() {
         tiempoEscucha?.let { lector.mainHandler.removeCallbacks(it) }
         tiempoEscucha = null
-        // El tono de "puedes hablar" solo tiene sentido mientras la escucha sigue viva:
-        // si ya llegó el resultado o se canceló, no debe sonar a destiempo.
-        cancelarTonoEscucha()
     }
 
     private fun finalizar() {
@@ -1366,6 +1330,8 @@ private fun insertarComasSeguras(t: String): String {
             manejarMicroNoDisponible()
             return
         }
+        // También al sacar un mensaje de la cola: el SCO ya debería estar caliente.
+        calentarRutaVoz()
         hacerPregunta()
     }
 
@@ -1412,6 +1378,8 @@ private fun insertarComasSeguras(t: String): String {
             manejarMicroNoDisponible()
             return
         }
+        // El SCO suele venir ya caliente de la lectura; esto lo reafirma si se liberó.
+        calentarRutaVoz()
         preguntarSiResponder()
     }
 
@@ -1520,6 +1488,15 @@ private fun insertarComasSeguras(t: String): String {
             // el parcial ya contenía la palabra clave, se recupera en onError.
             putExtra(RecognizerIntent.EXTRA_PARTIAL_RESULTS, true)
             putExtra("android.speech.extra.MAX_RESULTS", 3)
+            // Extra no oficial (el servicio puede ignorarlo): pedir el micrófono de
+            // comunicación en lugar del de reconocimiento. Con un SCO Bluetooth, el
+            // source de reconocimiento entrega audio con AGC muy agresivo y el motor
+            // descarta el principio de la frase.
+            putExtra(
+                "android.speech.extra.AUDIO_SOURCE",
+                MediaRecorder.AudioSource.VOICE_COMMUNICATION
+            )
+            putExtra("android.speech.extra.AUDIO_SOURCE_UNPROCESSED", false)
             // Margen de silencio (ms) antes de dar por terminado el habla, para que
             // no descartar respuestas cortas como "sí"/"no" con un silencio breve.
             putExtra(RecognizerIntent.EXTRA_SPEECH_INPUT_COMPLETE_SILENCE_LENGTH_MILLIS, 1500L)
@@ -1771,8 +1748,6 @@ private fun insertarComasSeguras(t: String): String {
         liberarWakeLock()
         liberarPausaMusica()
         limpiarMicrofonoTelefono()
-        tonoEscucha?.release()
-        tonoEscucha = null
         // Si el servicio muere mientras suena una nota de voz, se libera el
         // reproductor (sin fugas de MediaPlayer ni del audio focus).
         ReproductorNotaVoz.obtener(this).detener()
@@ -1818,14 +1793,9 @@ private fun insertarComasSeguras(t: String): String {
         private const val ESPERA_RUTA_BT_MS = 3500L
         private const val INTERVALO_RUTA_BT_MS = 100L
         // Margen tras aplicar la ruta Bluetooth: el auricular abre su micrófono unos
-        // milisegundos después de conmutar y se perderían las primeras sílabas. No hace
-        // falta más porque el tono ya espera a que el SCO entregue voz inteligible.
+        // milisegundos después de conmutar y se perderían las primeras sílabas. Solo se
+        // aplica la primera vez de la sesión; después el SCO se mantiene abierto.
         private const val MARGEN_POST_RUTA_BT_MS = 250L
-        // Retraso del tono de "puedes hablar" cuando se escucha por Bluetooth. Medido con
-        // los Pixel Buds: el SCO entrega voz inteligible ~2,8 s después de
-        // onReadyForSpeech (antes hay ~1 s de ruido de AGC que el motor no transcribe).
-        // El tono se emite al final de esa espera: quien habla al oírlo entra completo.
-        private const val RETRASO_TONO_BT_MS = 3000L
         // Máximo de retención del wake lock para no dejar la CPU activa si algo se atasca.
         private const val WAKE_LOCK_TIMEOUT_MS = 90_000L
         // Tiempo máximo para que la pregunta hablada termine; si no, se activa el
