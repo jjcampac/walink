@@ -176,9 +176,9 @@
     <string name="vel_lenta">0.5x (Lenta)</string>
     <string name="vel_normal">1.0x (Normale)</string>
     <string name="vel_rapida">2.0x (Rapida)</string>
-    <string name="chip_filtro_todos">🌐 Tutti</string>
-    <string name="chip_filtro_permitidos">✅ Consentiti</string>
-    <string name="chip_filtro_bloqueados">🚫 Bloccati</string>
+    <string name="chip_filtro_todos">Tutti</string>
+    <string name="chip_filtro_permitidos">Consentiti</string>
+    <string name="chip_filtro_bloqueados">Bloccati</string>
     <string name="estado_concedido">✓ Concesso</string>
     <!-- Títulos de las filas de permiso (antes hardcodeados en español) -->
     <string name="fila_permiso_notificaciones">Accesso alle notifiche</string>

@@ -176,9 +176,9 @@
     <string name="vel_lenta">0.5x（遅い）</string>
     <string name="vel_normal">1.0x（標準）</string>
     <string name="vel_rapida">2.0x（速い）</string>
-    <string name="chip_filtro_todos">🌐 すべて</string>
-    <string name="chip_filtro_permitidos">✅ 許可</string>
-    <string name="chip_filtro_bloqueados">🚫 ブロック</string>
+    <string name="chip_filtro_todos">すべて</string>
+    <string name="chip_filtro_permitidos">許可</string>
+    <string name="chip_filtro_bloqueados">ブロック</string>
     <string name="estado_concedido">✓ 許可済み</string>
     <!-- Títulos de las filas de permiso (antes hardcodeados en español) -->
     <string name="fila_permiso_notificaciones">通知アクセス</string>
