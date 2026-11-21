@@ -208,10 +208,17 @@
     <string name="vel_lenta">0.5x (Lenta)</string>
     <string name="vel_normal">1.0x (Normal)</string>
     <string name="vel_rapida">2.0x (Rápida)</string>
-    <string name="chip_filtro_todos">🌐 Todos</string>
-    <string name="chip_filtro_permitidos">✅ Permitidos</string>
-    <string name="chip_filtro_bloqueados">🚫 Bloqueados</string>
+    <string name="chip_filtro_todos">Todos</string>
+    <string name="chip_filtro_permitidos">Permitidos</string>
+    <string name="chip_filtro_bloqueados">Bloqueados</string>
     <string name="estado_concedido">✓ Concedido</string>
+    <!-- Títulos de las filas de permiso (antes hardcodeados en español) -->
+    <string name="fila_permiso_notificaciones">Acceso a notificaciones</string>
+    <string name="fila_permiso_notificaciones_post">Notificaciones</string>
+    <string name="fila_permiso_microfono">Micrófono (dictado)</string>
+    <string name="fila_permiso_bluetooth">Bluetooth (coche)</string>
+    <string name="fila_permiso_bateria">Optimización de batería</string>
+    <string name="btn_conceder">Conceder</string>
     <string name="onboarding_paso1">1. Permisos básicos</string>
     <string name="onboarding_paso2">2. Configuración en segundo plano</string>
     <string name="bt_configurar">Configurar</string>
