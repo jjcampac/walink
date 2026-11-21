@@ -38,8 +38,8 @@ android {
         applicationId = "com.jjcampac.walink"
         minSdk = 29
         targetSdk = 37
-        versionCode = 11
-        versionName = "1.1.4"
+        versionCode = 12
+        versionName = "1.1.5"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
