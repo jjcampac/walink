@@ -1739,20 +1739,17 @@ private fun TarjetaLecturaPrivacidad(
                 FilterChip(
                     selected = modoFiltro == 0,
                     onClick = { onCambiarModoFiltro(0) },
-                    label = { Text(text = stringResource(id = R.string.chip_filtro_todos), fontSize = 12.sp, maxLines = 1) },
-                    modifier = Modifier.weight(1f)
+                    label = { Text(text = stringResource(id = R.string.chip_filtro_todos), fontSize = 12.sp) }
                 )
                 FilterChip(
                     selected = modoFiltro == 1,
                     onClick = { onCambiarModoFiltro(1) },
-                    label = { Text(text = stringResource(id = R.string.chip_filtro_permitidos), fontSize = 12.sp, maxLines = 1) },
-                    modifier = Modifier.weight(1f)
+                    label = { Text(text = stringResource(id = R.string.chip_filtro_permitidos), fontSize = 12.sp) }
                 )
                 FilterChip(
                     selected = modoFiltro == 2,
                     onClick = { onCambiarModoFiltro(2) },
-                    label = { Text(text = stringResource(id = R.string.chip_filtro_bloqueados), fontSize = 12.sp, maxLines = 1) },
-                    modifier = Modifier.weight(1f)
+                    label = { Text(text = stringResource(id = R.string.chip_filtro_bloqueados), fontSize = 12.sp) }
                 )
             }
 
