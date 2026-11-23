@@ -167,6 +167,7 @@ class LectorAsistenteService : Service(), RecognitionListener {
         when (intent?.action) {
             ACTION_PREPARAR_VOZ -> manejarPrepararVoz()
             ACTION_PREGUNTAR -> manejarPreguntar(intent)
+            ACTION_LEER_DIRECTO -> manejarLeerDirecto(intent)
             ACTION_RESPONDER -> manejarResponder(intent)
             else -> Log.w(TAG, "Acción desconocida: ${intent?.action}")
         }
@@ -193,6 +194,46 @@ class LectorAsistenteService : Service(), RecognitionListener {
         activarFgMicrofono()
         // Este servicio permanece en primer plano (tipo micrófono) a la espera de la
         // acción RESPONDER que llega al terminar la lectura del mensaje.
+    }
+
+    /** Modo "leer inmediato": prepara la ruta de voz (esperando a SCO si hay BT) y lee directamente. */
+    private fun manejarLeerDirecto(intent: Intent) {
+        ciclo++
+        LogDiag.d("ACTION_LEER_DIRECTO (ciclo=$ciclo) recibido: remitente='$remitente'")
+        Log.d(TAG, "ACTION_LEER_DIRECTO (ciclo=$ciclo) recibido")
+
+        lector.descartarLocucionPendiente()
+        cancelarTiempoEscucha()
+        cancelarWatchdogPregunta()
+        recognizer?.cancel()
+        escuchaActiva = false
+        cancelarEsperaRuta()
+        generacionEscucha++
+
+        remitente = intent.getStringExtra(EXTRA_REMITENTE) ?: ""
+        textoParaLeer = intent.getStringExtra(EXTRA_TEXTO) ?: ""
+        esNotaDeVoz = intent.getBooleanExtra(EXTRA_ES_NOTA_VOZ, false)
+        marcaMensaje = intent.getLongExtra(EXTRA_MARCA_MENSAJE, 0L)
+        mensajeSimulado = intent.getBooleanExtra(EXTRA_SIMULADO, false)
+        recibirDatosRespuesta(intent)
+        intentos = 0
+        etapaRespuesta = ETAPA_IDLE
+
+        entrarEnForeground()
+        adquirirWakeLock()
+        if (!activarFgMicrofono()) {
+            manejarMicroNoDisponible()
+            return
+        }
+
+        val generacion = ++generacionEscucha
+        prepararMicrofonoVoz { _ ->
+            if (generacion != generacionEscucha) {
+                Log.d(TAG, "ACTION_LEER_DIRECTO: la ruta se preparó tarde; escucha cancelada")
+                return@prepararMicrofonoVoz
+            }
+            leerMensajeYOfrecerResponder()
+        }
     }
 
     /** Modo "preguntar antes de leer": pregunta por voz y escucha sí/no. */
@@ -282,10 +323,17 @@ class LectorAsistenteService : Service(), RecognitionListener {
             manejarMicroNoDisponible()
             return
         }
-        // Calienta el SCO durante la pregunta: cuando termine, el auricular ya lleva
-        // varios segundos entregando audio y el "sí" se capta desde el principio.
-        calentarRutaVoz()
-        hacerPregunta()
+        // Espera a que la ruta Bluetooth SCO (si está conectada) quede totalmente
+        // aplicada antes de lanzar la pregunta por voz. De este modo la locución no se
+        // emite mientras el audio del coche conmuta y se evita que suene en silencio.
+        val generacion = ++generacionEscucha
+        prepararMicrofonoVoz { _ ->
+            if (generacion != generacionEscucha) {
+                Log.d(TAG, "ACTION_PREGUNTAR: la ruta se preparó tarde; escucha cancelada")
+                return@prepararMicrofonoVoz
+            }
+            hacerPregunta()
+        }
     }
 
     /**
@@ -500,15 +548,7 @@ class LectorAsistenteService : Service(), RecognitionListener {
      * entonces se escucha. Si el SCO no llega en [ESPERA_RUTA_BT_MS], se usa el
      * micrófono del teléfono para no dejar el turno sin oír nada.
      */
-    /**
-     * Prepara el SCO antes de una locución para que esté estabilizado cuando llegue la
-     * escucha. Sin esto, el AGC del auricular arranca de cero al abrir el micro y el
-     * reconocedor descarta el principio de la frase. El callback no hace nada: solo se
-     * usa el efecto de calentar la ruta.
-     */
-    private fun calentarRutaVoz() {
-        prepararMicrofonoVoz { /* ruta caliente; la escucha llega después */ }
-    }
+
 
     private fun prepararMicrofonoVoz(alListo: (RutaMicro) -> Unit) {
         // Si ya hay una preparación en marcha (dos escuchas seguidas), nos
@@ -1330,9 +1370,14 @@ private fun insertarComasSeguras(t: String): String {
             manejarMicroNoDisponible()
             return
         }
-        // También al sacar un mensaje de la cola: el SCO ya debería estar caliente.
-        calentarRutaVoz()
-        hacerPregunta()
+        val generacion = ++generacionEscucha
+        prepararMicrofonoVoz { _ ->
+            if (generacion != generacionEscucha) {
+                Log.d(TAG, "procesarSiguientePendiente: la ruta se preparó tarde; escucha cancelada")
+                return@prepararMicrofonoVoz
+            }
+            hacerPregunta()
+        }
     }
 
     // ==== Flujo de responder tras leer ====
@@ -1378,9 +1423,14 @@ private fun insertarComasSeguras(t: String): String {
             manejarMicroNoDisponible()
             return
         }
-        // El SCO suele venir ya caliente de la lectura; esto lo reafirma si se liberó.
-        calentarRutaVoz()
-        preguntarSiResponder()
+        val generacion = ++generacionEscucha
+        prepararMicrofonoVoz { _ ->
+            if (generacion != generacionEscucha) {
+                Log.d(TAG, "ACTION_RESPONDER: la ruta se preparó tarde; escucha cancelada")
+                return@prepararMicrofonoVoz
+            }
+            preguntarSiResponder()
+        }
     }
 
     /**
@@ -1760,6 +1810,7 @@ private fun insertarComasSeguras(t: String): String {
 
         const val ACTION_PREPARAR_VOZ = "com.jjcampac.walink.action.PREPARAR_VOZ"
         const val ACTION_PREGUNTAR = "com.jjcampac.walink.action.PREGUNTAR_LECTURA"
+        const val ACTION_LEER_DIRECTO = "com.jjcampac.walink.action.LEER_DIRECTO"
         const val ACTION_RESPONDER = "com.jjcampac.walink.action.RESPONDER"
         const val EXTRA_REMITENTE = "remitente"
         const val EXTRA_TEXTO = "texto"

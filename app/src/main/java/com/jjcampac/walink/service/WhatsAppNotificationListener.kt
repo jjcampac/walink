@@ -337,56 +337,34 @@ class WhatsAppNotificationListener : NotificationListenerService() {
             Log.d(TAG, "Datos de respuesta: pendingIntent=${pendingResponder != null}, claves=$clavesRemoteInput")
 
             if (esInmediato) {
-                // Modo "leer inmediatamente": leemos el mensaje aquí (en el listener),
-                // pero CALENTAMOS ya el LectorAsistenteService conmutándolo a tipo
-                // "microphone" en esta ventana de notificación, que es donde la app aún
-                // es elegible para acceder al permiso foreground-only RECORD_AUDIO.
-                // Sin este calentamiento, al terminar la lectura el arranque en frío
-                // desde segundo plano no podía conmutar el FGS a "microphone"
-                // (SecurityException) y la escucha de "¿quieres responder?" se quedaba
-                // sin audio con la pantalla apagada (solo el primer buffer).
-                ContextCompat.startForegroundService(
-                    this,
-                    Intent(this, LectorAsistenteService::class.java)
-                        .setAction(LectorAsistenteService.ACTION_PREPARAR_VOZ)
-                )
-                Log.d(TAG, "Mensaje de '${mensaje.remitente}' (grupo=${mensaje.esGrupo}) -> leyendo ahora (mic precalentado)")
-                speechReader.hablar(textoParaLeer) {
-                    // Si es una nota de voz, se reproduce el audio de WhatsApp antes de
-                    // ofrecer la respuesta. reproducirSiProcede llama al bloque final
-                    // siempre (también si no hay nota o falla la reproducción).
-                    LecturaNotaVoz.reproducirSiProcede(
-                        contexto = this,
-                        lector = speechReader,
-                        esNotaDeVoz = mensaje.esNotaDeVoz,
-                        marcaTiempoMensaje = mensaje.marcaTiempoMensaje,
-                        sinVentana = sbn.packageName == packageName
-                    ) {
-                        // Tras terminar la lectura, ofrecer responder por voz.
-                        // El servicio ya verificará el permiso de micrófono internamente.
-                        val intent = Intent(this, LectorAsistenteService::class.java)
-                            .setAction(LectorAsistenteService.ACTION_RESPONDER)
-                            .putExtra(LectorAsistenteService.EXTRA_REMITENTE, mensaje.remitente)
-                            .putExtra(LectorAsistenteService.EXTRA_TEXTO, textoParaLeer)
-                            .putExtra(
-                                LectorAsistenteService.EXTRA_SIMULADO,
-                                sbn.packageName == packageName
-                            )
-                            .putExtra(
-                                LectorAsistenteService.EXTRA_PENDING_INTENT_RESPONDER,
-                                pendingResponder as? android.os.Parcelable
-                            )
-                            .putExtra(
-                                LectorAsistenteService.EXTRA_CLAVE_NOTIFICACION,
-                                sbn.key
-                            )
-                            .putStringArrayListExtra(
-                                LectorAsistenteService.EXTRA_CLAVES_REMOTE_INPUT,
-                                ArrayList(clavesRemoteInput)
-                            )
-                        ContextCompat.startForegroundService(this, intent)
-                    }
-                }
+                // Modo "leer inmediatamente": delega la lectura en el servicio en primer plano
+                // (ACTION_LEER_DIRECTO). Esto garantiza que la ruta Bluetooth SCO (si hay coche)
+                // esté totalmente aplicada y estabilizada antes de emitir la locución por TTS
+                // o reproducir la nota de voz, evitando silencios al conducir.
+                Log.d(TAG, "Mensaje de '${mensaje.remitente}' (grupo=${mensaje.esGrupo}) -> leyendo directo vía LectorAsistenteService")
+                val intent = Intent(this, LectorAsistenteService::class.java)
+                    .setAction(LectorAsistenteService.ACTION_LEER_DIRECTO)
+                    .putExtra(LectorAsistenteService.EXTRA_REMITENTE, mensaje.remitente)
+                    .putExtra(LectorAsistenteService.EXTRA_TEXTO, textoParaLeer)
+                    .putExtra(LectorAsistenteService.EXTRA_ES_NOTA_VOZ, mensaje.esNotaDeVoz)
+                    .putExtra(LectorAsistenteService.EXTRA_MARCA_MENSAJE, mensaje.marcaTiempoMensaje)
+                    .putExtra(
+                        LectorAsistenteService.EXTRA_SIMULADO,
+                        sbn.packageName == packageName
+                    )
+                    .putExtra(
+                        LectorAsistenteService.EXTRA_PENDING_INTENT_RESPONDER,
+                        pendingResponder as? android.os.Parcelable
+                    )
+                    .putExtra(
+                        LectorAsistenteService.EXTRA_CLAVE_NOTIFICACION,
+                        sbn.key
+                    )
+                    .putStringArrayListExtra(
+                        LectorAsistenteService.EXTRA_CLAVES_REMOTE_INPUT,
+                        ArrayList(clavesRemoteInput)
+                    )
+                ContextCompat.startForegroundService(this, intent)
             } else {
                 // Modo "preguntar": delega en el servicio en primer plano.
                 Log.d(TAG, "Mensaje de '${mensaje.remitente}' -> modo preguntar")
